@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Pencil, Trash2, Zap, Play } from "lucide-react";
+import { Plus, Pencil, Trash2, Zap, Play, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { WorkflowTemplateSelector } from "./WorkflowTemplateSelector";
+import type { WorkflowTemplate } from "./workflowTemplates";
 
 interface Workflow {
   id: string;
@@ -30,6 +32,7 @@ interface Props {
 export function WorkflowList({ onEdit, onCreate }: Props) {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [templateOpen, setTemplateOpen] = useState(false);
 
   const fetchWorkflows = async () => {
     setLoading(true);
@@ -53,6 +56,24 @@ export function WorkflowList({ onEdit, onCreate }: Props) {
     toast({ title: "Workflow excluído" });
   };
 
+  const handleTemplateSelect = async (template: WorkflowTemplate) => {
+    setTemplateOpen(false);
+    const tenantId = (await supabase.rpc("get_user_tenant_id") as any).data;
+    const userId = (await supabase.auth.getUser()).data.user?.id;
+    const { data, error } = await supabase.from("workflows").insert({
+      tenant_id: tenantId,
+      name: template.name,
+      description: template.description,
+      definition: template.definition as any,
+      is_active: false,
+      is_published: false,
+      created_by: userId,
+    }).select("id").single();
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Workflow criado a partir do template!" });
+    if (data) onEdit(data.id);
+  };
+
   const runManual = async (wf: Workflow) => {
     const { error } = await supabase.functions.invoke("workflow-runner", {
       body: { workflow_id: wf.id, trigger_data: {}, trigger_type: "manual" },
@@ -73,7 +94,8 @@ export function WorkflowList({ onEdit, onCreate }: Props) {
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={() => setTemplateOpen(true)}><FileText className="h-4 w-4 mr-1" />Usar Template</Button>
         <Button onClick={onCreate}><Plus className="h-4 w-4 mr-1" />Novo Workflow</Button>
       </div>
 
@@ -124,6 +146,8 @@ export function WorkflowList({ onEdit, onCreate }: Props) {
           </Card>
         ))
       )}
+
+      <WorkflowTemplateSelector open={templateOpen} onClose={() => setTemplateOpen(false)} onSelect={handleTemplateSelect} />
     </div>
   );
 }

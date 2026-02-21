@@ -30,6 +30,18 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   { id: 'user_invited', name: 'Convite de Usuário', description: 'Quando um novo usuário é convidado', category: 'system', defaultPriority: 'normal', icon: 'UserPlus' },
   { id: 'integration_error', name: 'Erro de Integração', description: 'Quando uma integração falha', category: 'system', defaultPriority: 'urgent', icon: 'AlertTriangle' },
   { id: 'system_update', name: 'Atualização do Sistema', description: 'Novidades e atualizações da plataforma', category: 'system', defaultPriority: 'low', icon: 'Info' },
+  // Novos tipos
+  { id: 'lead_qualified', name: 'Lead Qualificado', description: 'Quando um lead atinge pontuação de qualificação', category: 'sales', defaultPriority: 'high', icon: 'Star' },
+  { id: 'proposal_accepted', name: 'Proposta Aceita', description: 'Quando uma proposta é aceita pelo cliente', category: 'sales', defaultPriority: 'high', icon: 'CheckCircle' },
+  { id: 'proposal_rejected', name: 'Proposta Rejeitada', description: 'Quando uma proposta é rejeitada pelo cliente', category: 'sales', defaultPriority: 'normal', icon: 'XCircle' },
+  { id: 'deal_stage_approaching', name: 'Deal Próximo do Fechamento', description: 'Quando um deal está próximo da data de fechamento', category: 'sales', defaultPriority: 'high', icon: 'Calendar' },
+  { id: 'order_shipped', name: 'Pedido Enviado', description: 'Quando um pedido é despachado', category: 'operations', defaultPriority: 'normal', icon: 'Truck' },
+  { id: 'order_delivered', name: 'Pedido Entregue', description: 'Quando um pedido é entregue ao cliente', category: 'operations', defaultPriority: 'low', icon: 'CheckSquare' },
+  { id: 'stock_out', name: 'Produto Sem Estoque', description: 'Quando um produto fica com estoque zero', category: 'operations', defaultPriority: 'urgent', icon: 'PackageX' },
+  { id: 'return_received', name: 'Devolução Recebida', description: 'Quando uma devolução de produto é registrada', category: 'operations', defaultPriority: 'normal', icon: 'RotateCcw' },
+  { id: 'payment_overdue_critical', name: 'Pagamento Crítico Vencido', description: 'Pagamento vencido há mais de 30 dias', category: 'financial', defaultPriority: 'urgent', icon: 'AlertOctagon' },
+  { id: 'backup_completed', name: 'Backup Concluído', description: 'Quando o backup do sistema é concluído', category: 'system', defaultPriority: 'low', icon: 'HardDrive' },
+  { id: 'maintenance_scheduled', name: 'Manutenção Programada', description: 'Quando uma manutenção do sistema é agendada', category: 'system', defaultPriority: 'normal', icon: 'Wrench' },
 ];
 
 export const NOTIFICATION_CATEGORY_LABELS: Record<string, string> = {
