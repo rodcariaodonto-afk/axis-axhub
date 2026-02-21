@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Settings2, Trash2 } from "lucide-react";
+import { Plus, Search, Settings2, Trash2, Upload, ImageIcon } from "lucide-react";
 
 interface Product {
   id: string;
@@ -21,6 +21,7 @@ interface Product {
   price: number;
   cost: number | null;
   is_active: boolean;
+  image_url: string | null;
 }
 
 interface CustomField {
@@ -42,6 +43,10 @@ export default function Products() {
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
   const [productCustomValues, setProductCustomValues] = useState<Record<string, Record<string, string>>>({});
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   // Field management
   const [newFieldName, setNewFieldName] = useState("");
   const [newFieldType, setNewFieldType] = useState("text");
@@ -54,7 +59,7 @@ export default function Products() {
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } else {
-      setProducts(data || []);
+      setProducts((data as Product[]) || []);
     }
     setLoading(false);
   };
@@ -80,10 +85,39 @@ export default function Products() {
     fetchAllCustomValues();
   }, []);
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Selecione um arquivo de imagem", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Imagem muito grande (máx. 5MB)", variant: "destructive" });
+      return;
+    }
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const uploadImage = async (productId: string): Promise<string | null> => {
+    if (!imageFile) return null;
+    const ext = imageFile.name.split(".").pop();
+    const path = `${productId}.${ext}`;
+    const { error } = await supabase.storage.from("product-images").upload(path, imageFile, { upsert: true });
+    if (error) {
+      console.error("Upload error:", error);
+      return null;
+    }
+    const { data: urlData } = supabase.storage.from("product-images").getPublicUrl(path);
+    return urlData.publicUrl;
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    setUploading(true);
     const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
-    if (!profile) return;
+    if (!profile) { setUploading(false); return; }
 
     const { data: product, error } = await supabase.from("products").insert({
       tenant_id: profile.tenant_id,
@@ -97,11 +131,20 @@ export default function Products() {
 
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
+      setUploading(false);
       return;
     }
 
-    // Save custom field values
     if (product) {
+      // Upload image
+      if (imageFile) {
+        const imageUrl = await uploadImage(product.id);
+        if (imageUrl) {
+          await supabase.from("products").update({ image_url: imageUrl }).eq("id", product.id);
+        }
+      }
+
+      // Save custom field values
       const valuesToInsert = Object.entries(customValues)
         .filter(([_, v]) => v.trim() !== "")
         .map(([fieldId, value]) => ({
@@ -118,7 +161,10 @@ export default function Products() {
     toast({ title: "Produto criado!" });
     setForm({ sku: "", name: "", type: "product", category: "", price: "", cost: "" });
     setCustomValues({});
+    setImageFile(null);
+    setImagePreview(null);
     setDialogOpen(false);
+    setUploading(false);
     fetchProducts();
     fetchAllCustomValues();
   };
@@ -166,7 +212,7 @@ export default function Products() {
           <Button variant="outline" onClick={() => setFieldsDialogOpen(true)}>
             <Settings2 className="mr-2 h-4 w-4" />Campos
           </Button>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) { setImageFile(null); setImagePreview(null); } }}>
             <DialogTrigger asChild>
               <Button><Plus className="mr-2 h-4 w-4" />Novo Produto</Button>
             </DialogTrigger>
@@ -175,6 +221,32 @@ export default function Products() {
                 <DialogTitle>Novo Produto</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleCreate} className="space-y-4">
+                {/* Image Upload */}
+                <div className="space-y-2">
+                  <Label>Imagem do Produto</Label>
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-border rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors min-h-[120px]"
+                  >
+                    {imagePreview ? (
+                      <img src={imagePreview} alt="Preview" className="max-h-28 rounded-md object-contain" />
+                    ) : (
+                      <>
+                        <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground">Clique para enviar imagem</p>
+                        <p className="text-xs text-muted-foreground">PNG, JPG até 5MB</p>
+                      </>
+                    )}
+                  </div>
+                  <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+                  {imageFile && (
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{imageFile.name}</span>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => { setImageFile(null); setImagePreview(null); }}>Remover</Button>
+                    </div>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>SKU</Label>
@@ -242,7 +314,7 @@ export default function Products() {
                   </div>
                 )}
 
-                <Button type="submit" className="w-full">Criar Produto</Button>
+                <Button type="submit" className="w-full" disabled={uploading}>{uploading ? "Criando..." : "Criar Produto"}</Button>
               </form>
             </DialogContent>
           </Dialog>
@@ -323,6 +395,7 @@ export default function Products() {
           <Table>
             <TableHeader>
               <TableRow className="border-border">
+                <TableHead className="w-12" />
                 <TableHead>SKU</TableHead>
                 <TableHead>Nome</TableHead>
                 <TableHead>Tipo</TableHead>
@@ -335,12 +408,21 @@ export default function Products() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7 + customFields.length} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8 + customFields.length} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={7 + customFields.length} className="text-center py-8 text-muted-foreground">Nenhum produto encontrado</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8 + customFields.length} className="text-center py-8 text-muted-foreground">Nenhum produto encontrado</TableCell></TableRow>
               ) : (
                 filtered.map((p) => (
                   <TableRow key={p.id} className="border-border">
+                    <TableCell>
+                      {p.image_url ? (
+                        <img src={p.image_url} alt={p.name} className="h-8 w-8 rounded object-cover" />
+                      ) : (
+                        <div className="h-8 w-8 rounded bg-muted flex items-center justify-center">
+                          <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell className="font-mono text-xs">{p.sku}</TableCell>
                     <TableCell className="font-medium">{p.name}</TableCell>
                     <TableCell>
