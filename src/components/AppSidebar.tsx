@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Package, Warehouse, ShoppingCart, Users, Truck,
   Banknote, Building2, ArrowDownCircle, ArrowUpCircle, LogOut, Settings,
-  UserPlus, Kanban, Target, CalendarCheck, BarChart3,
+  UserPlus, Kanban, CalendarCheck, BarChart3, Contact, FileText, Gauge, Zap, TrendingUp,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -28,10 +28,15 @@ const financeItems = [
   { title: "Financeiro", url: "/finance", icon: Banknote },
 ];
 const crmItems = [
+  { title: "Dashboard CRM", url: "/crm-dashboard", icon: Gauge },
   { title: "Leads", url: "/leads", icon: UserPlus },
   { title: "Pipeline", url: "/pipeline", icon: Kanban },
+  { title: "Contatos", url: "/contacts", icon: Contact },
+  { title: "Propostas", url: "/proposals", icon: FileText },
   { title: "Atividades", url: "/activities", icon: CalendarCheck },
+  { title: "Cadências", url: "/cadences", icon: Zap },
   { title: "Funil", url: "/funnel-report", icon: BarChart3 },
+  { title: "Forecasting", url: "/forecasting", icon: TrendingUp },
 ];
 
 export function AppSidebar() {
