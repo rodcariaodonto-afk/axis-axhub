@@ -23,6 +23,8 @@ import DealDetail from "./pages/DealDetail";
 import Activities from "./pages/Activities";
 import FunnelReport from "./pages/FunnelReport";
 import Reports from "./pages/Reports";
+import Notifications from "./pages/Notifications";
+import NotificationPreferences from "./pages/NotificationPreferences";
 import Contacts from "./pages/Contacts";
 import Proposals from "./pages/Proposals";
 import CrmDashboard from "./pages/CrmDashboard";
@@ -77,6 +79,8 @@ const App = () => (
             <Route path="/documentation" element={<ProtectedRoute><Documentation /></ProtectedRoute>} />
             <Route path="/documentation/admin" element={<ProtectedRoute><DocumentationAdmin /></ProtectedRoute>} />
             <Route path="/documentation/:slug" element={<ProtectedRoute><DocumentationArticle /></ProtectedRoute>} />
+            <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+            <Route path="/notification-preferences" element={<ProtectedRoute><NotificationPreferences /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
