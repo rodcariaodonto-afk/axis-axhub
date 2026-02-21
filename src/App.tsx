@@ -22,6 +22,7 @@ import Pipeline from "./pages/Pipeline";
 import DealDetail from "./pages/DealDetail";
 import Activities from "./pages/Activities";
 import FunnelReport from "./pages/FunnelReport";
+import Reports from "./pages/Reports";
 import Contacts from "./pages/Contacts";
 import Proposals from "./pages/Proposals";
 import CrmDashboard from "./pages/CrmDashboard";
@@ -67,6 +68,7 @@ const App = () => (
             <Route path="/deals/:id" element={<ProtectedRoute><DealDetail /></ProtectedRoute>} />
             <Route path="/activities" element={<ProtectedRoute><Activities /></ProtectedRoute>} />
             <Route path="/funnel-report" element={<ProtectedRoute><FunnelReport /></ProtectedRoute>} />
+            <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
             <Route path="/proposals" element={<ProtectedRoute><Proposals /></ProtectedRoute>} />
             <Route path="/crm-dashboard" element={<ProtectedRoute><CrmDashboard /></ProtectedRoute>} />
