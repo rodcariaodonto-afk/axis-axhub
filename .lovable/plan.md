@@ -1,119 +1,127 @@
 
 
-# Sistema de Categorias em Massa - Importacao, Templates e Packs
+# Sistema de Documentacao Dinamica Multi-Nicho
 
-## Resumo
+## Status: Nao implementado
 
-Implementar um sistema completo de gestao de categorias em massa na pagina de Configuracoes > Categorias de Produtos. O sistema permitira criar categorias via templates pre-definidos, importar CSV em massa, clonar categorias e importar packs por nicho.
+Nenhuma parte desta especificacao existe no projeto atual. Sera necessario criar tudo do zero: tabelas, politicas RLS, componentes React, rota e navegacao.
 
 ## O que sera construido
 
-### 1. Novas tabelas no banco de dados
+### 1. Tabelas no banco de dados
 
-- **category_templates**: Tabela com 200+ templates pre-definidos organizados por nicho (varejo, servicos, saude, manufatura, b2b, imobiliario, educacao). Campos incluem nome, icone, nicho, product_type, configuracoes (sku_required, track_inventory), variacoes permitidas, campos customizados e contagem de uso.
+Quatro tabelas novas (adaptadas ao modelo multi-tenant existente que usa `tenant_id` em vez de `workspace_id`):
 
-- **category_import_logs**: Tabela para rastrear importacoes CSV com status (pending, processing, completed, failed), contagem de linhas, sucessos, falhas e detalhes de erros.
+- **documentation**: Armazena artigos com Markdown, metadados (nicho, categoria, subcategoria), versionamento, SEO (meta_title, meta_description, keywords), busca full-text via `tsvector` gerado automaticamente, e controle de publicacao/destaque.
 
-- **Atualizacao de product_categories**: Adicionar colunas template_id, cloned_from_id, icon, niche, product_type, is_active, description, sku_required, track_inventory, allowed_variations e custom_fields.
+- **documentation_views**: Rastreia visualizacoes por usuario com contagem, tempo gasto e votos de utilidade (helpful_yes/no). Chave unica por (documentation_id, user_id).
 
-### 2. Interface reformulada (ProductCategories.tsx)
+- **documentation_feedback**: Armazena avaliacoes com rating (1-5), comentario e flag is_helpful. Chave unica por (documentation_id, user_id).
 
-A tela de categorias tera 3 abas:
+- **documentation_translations**: Suporte multi-idioma (pt-BR, en-US, es-ES) com conteudo traduzido. Chave unica por (documentation_id, language).
 
-- **Minhas Categorias**: Lista atual com busca, filtro por nicho, botao de clonar e editar
-- **Templates**: Grade de templates pre-definidos filtrados por nicho, com botao "Usar Template" que cria a categoria automaticamente
-- **Packs por Nicho**: Packs agrupados (Varejo 50+, Servicos 30+, Saude 40+, etc.) com botao para importar todas as categorias de um pack de uma vez
+Nota: A spec referencia `auth.users(id)` em foreign keys, mas seguindo o padrao do projeto, usaremos campos `uuid` sem FK direta para `auth.users` (o mesmo padrao usado em `profiles`, `activities`, etc.).
 
-Botao de importar CSV no topo que aceita arquivo .csv com colunas: nome, icone, nicho, product_type.
+### 2. Politicas RLS
 
-### 3. Funcionalidades
+- Documentacao publicada (`is_published = true`): leitura publica para usuarios autenticados
+- Criacao/edicao: restrita a admins do tenant (usando `has_role`)
+- Feedback e views: usuarios podem inserir/atualizar seus proprios registros
+- Isolamento por tenant em todas as tabelas
 
-- **Criar a partir de template**: Seleciona template, digita nome personalizado, categoria herda todas as configuracoes
-- **Clonar categoria**: Duplica categoria existente com novo nome
-- **Importar CSV**: Upload de arquivo CSV, parsing client-side, insercao em lote com log de erros
-- **Importar Pack**: Um clique para importar dezenas de categorias de um nicho especifico
-- **Busca e filtro**: Filtrar categorias por nome e por nicho
+### 3. Indices de performance
+
+- GIN index no campo `search_vector` para busca full-text
+- Indices compostos em `(tenant_id, niche)`, `(slug)`, `(category)`
+
+### 4. Componentes React
+
+Quatro componentes principais em `src/components/documentation/`:
+
+- **DocumentationCard**: Card de preview com titulo, descricao, nicho, views e percentual de utilidade
+- **DocumentationViewer**: Visualizador completo com table of contents gerado do HTML, tracking de tempo e documentos relacionados
+- **DocumentationSearch**: Busca com filtros por nicho e categoria, usando full-text search do PostgreSQL
+- **FeedbackSection**: Avaliacao com estrelas (1-5) e comentario
+
+### 5. Pagina principal
+
+- Nova pagina `src/pages/Documentation.tsx` com listagem, busca e filtros
+- Nova pagina `src/pages/DocumentationArticle.tsx` para visualizacao individual por slug
+- Rotas: `/documentation` e `/documentation/:slug`
+- Link na sidebar de navegacao
+
+### 6. Funcionalidades admin
+
+- Criar/editar artigos com editor Markdown (dentro de Settings ou na propria pagina de documentacao)
+- Publicar/despublicar artigos
+- Visualizar metricas: documentos mais vistos, menor taxa de utilidade, termos buscados
 
 ## Detalhes Tecnicos
 
-### Migracao SQL
+### Migracao SQL principal
 
 ```sql
--- Tabela category_templates (templates pre-definidos, sem tenant_id pois sao globais)
-CREATE TABLE category_templates (
-  id text PRIMARY KEY,
-  name text NOT NULL,
-  description text,
-  icon text,
-  product_type text NOT NULL DEFAULT 'produto',
-  sku_required boolean DEFAULT false,
-  track_inventory boolean DEFAULT true,
-  allowed_variations text[] DEFAULT ARRAY[]::text[],
-  custom_fields jsonb DEFAULT '{}'::jsonb,
-  niche text,
-  is_popular boolean DEFAULT false,
-  usage_count int DEFAULT 0,
-  created_at timestamptz DEFAULT now()
+CREATE TABLE public.documentation (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  slug VARCHAR(255) NOT NULL,
+  description TEXT,
+  niche VARCHAR(50) NOT NULL,
+  category VARCHAR(100) NOT NULL,
+  subcategory VARCHAR(100),
+  content TEXT NOT NULL,
+  content_html TEXT,
+  version INT DEFAULT 1,
+  previous_version_id UUID REFERENCES documentation(id),
+  meta_title VARCHAR(255),
+  meta_description VARCHAR(255),
+  keywords TEXT[] DEFAULT '{}',
+  is_published BOOLEAN DEFAULT false,
+  is_featured BOOLEAN DEFAULT false,
+  order_index INT DEFAULT 0,
+  created_by UUID NOT NULL,
+  updated_by UUID NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  search_vector tsvector GENERATED ALWAYS AS (
+    to_tsvector('portuguese', coalesce(title,'') || ' ' || coalesce(description,'') || ' ' || coalesce(content,''))
+  ) STORED,
+  UNIQUE(tenant_id, slug)
 );
 
-CREATE INDEX idx_category_templates_niche ON category_templates(niche);
-
--- Atualizar product_categories com novas colunas
-ALTER TABLE product_categories
-  ADD COLUMN IF NOT EXISTS icon text,
-  ADD COLUMN IF NOT EXISTS description text,
-  ADD COLUMN IF NOT EXISTS product_type text DEFAULT 'produto',
-  ADD COLUMN IF NOT EXISTS niche text,
-  ADD COLUMN IF NOT EXISTS sku_required boolean DEFAULT false,
-  ADD COLUMN IF NOT EXISTS track_inventory boolean DEFAULT true,
-  ADD COLUMN IF NOT EXISTS allowed_variations text[] DEFAULT ARRAY[]::text[],
-  ADD COLUMN IF NOT EXISTS custom_fields jsonb DEFAULT '{}'::jsonb,
-  ADD COLUMN IF NOT EXISTS template_id text,
-  ADD COLUMN IF NOT EXISTS cloned_from_id uuid,
-  ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
-
--- Tabela category_import_logs
-CREATE TABLE category_import_logs (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid NOT NULL,
-  file_name text,
-  total_rows int DEFAULT 0,
-  successful_imports int DEFAULT 0,
-  failed_imports int DEFAULT 0,
-  errors jsonb,
-  status text DEFAULT 'completed',
-  created_at timestamptz DEFAULT now()
-);
-
-ALTER TABLE category_import_logs ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Tenant isolation" ON category_import_logs FOR ALL
-  USING (tenant_id = get_user_tenant_id())
-  WITH CHECK (tenant_id = get_user_tenant_id());
-
--- RLS para templates (leitura publica para todos autenticados)
-ALTER TABLE category_templates ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Anyone can read templates" ON category_templates FOR SELECT
-  TO authenticated USING (true);
+-- + documentation_views, documentation_feedback, documentation_translations
+-- + indices e RLS policies
 ```
 
-Uma segunda migracao inserira os 200+ templates pre-definidos (varejo, servicos, saude, manufatura, b2b, imobiliario, educacao).
+### Conversao Markdown para HTML
 
-### Arquivo: src/pages/settings/ProductCategories.tsx (reescrita completa)
+Sera feita client-side usando uma biblioteca leve (o conteudo Markdown sera armazenado e o HTML gerado/cacheado no campo `content_html`). Sanitizacao do HTML antes de renderizar.
 
-- 3 abas: "Minhas Categorias", "Templates", "Packs por Nicho"
-- Estado para view, busca, filtro de nicho
-- Funcoes: fetchCategories, fetchTemplates, handleUseTemplate, handleClone, handleImportCSV, handleImportPack
-- CSV parsing feito client-side (split por linhas/virgulas)
-- Insercao em lote com Promise.allSettled para capturar erros individuais
-- Log de importacao salvo em category_import_logs
+### Busca Full-Text
 
-### Arquivo: src/integrations/supabase/types.ts
+```typescript
+const { data } = await supabase
+  .from('documentation')
+  .select('*')
+  .eq('is_published', true)
+  .textSearch('search_vector', query, { type: 'websearch', config: 'portuguese' });
+```
 
-Sera atualizado automaticamente apos as migracoes para incluir os novos tipos.
+### Tracking de tempo
+
+Usar `useEffect` com timer que registra o tempo ao sair da pagina via `POST` na tabela `documentation_views`.
 
 ## Sequencia de implementacao
 
-1. Criar migracao com tabelas e colunas novas
-2. Criar migracao com dados dos templates pre-definidos (200+ registros)
-3. Reescrever ProductCategories.tsx com a nova interface completa
+1. Criar migracao com as 4 tabelas, indices e RLS policies
+2. Criar componentes de documentacao (Card, Viewer, Search, Feedback)
+3. Criar paginas Documentation e DocumentationArticle
+4. Adicionar rotas no App.tsx e link na sidebar
+5. Criar interface admin para criar/editar artigos
+6. (Opcional) Seeder com artigos iniciais por nicho
+
+## Dependencias externas
+
+Nenhuma dependencia nova obrigatoria. O Markdown pode ser renderizado com logica simples ou, se necessario, instalar `react-markdown` + `remark-gfm` para melhor suporte.
 
