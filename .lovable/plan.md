@@ -1,127 +1,160 @@
 
 
-# Sistema de Documentacao Dinamica Multi-Nicho
+# Sistema de Integracoes - Conectores Escalavel
 
-## Status: Nao implementado
+## Visao Geral
 
-Nenhuma parte desta especificacao existe no projeto atual. Sera necessario criar tudo do zero: tabelas, politicas RLS, componentes React, rota e navegacao.
+Evoluir o modulo de integracoes atual (tabela simples com platform/api_key) para um framework completo com catalogo de conectores, webhooks dedicados, logs de execucao, mapeamento de campos e interface de configuracao em etapas.
+
+## O que existe hoje
+
+- Tabela `integrations` basica com campos: platform, api_key, api_secret, webhook_url, is_active
+- UI simples com lista de integracoes e dialog para adicionar nova
+- Edge function `whatsapp-webhook` para busca de produtos
+- Edge function `dispatch-events` para despacho via event_outbox
 
 ## O que sera construido
 
-### 1. Tabelas no banco de dados
+### 1. Evolucao do banco de dados
 
-Quatro tabelas novas (adaptadas ao modelo multi-tenant existente que usa `tenant_id` em vez de `workspace_id`):
+**Alterar tabela `integrations`** - adicionar colunas:
+- `name` (VARCHAR 255) - nome amigavel
+- `slug` (VARCHAR 100) - identificador unico
+- `description` (TEXT)
+- `icon_url` (VARCHAR 500)
+- `type` (VARCHAR 50) - 'zapier', 'make', 'native', 'webhook'
+- `category` (VARCHAR 50) - 'crm', 'erp', 'communication', 'payment', 'storage', 'productivity'
+- `auth_type` (VARCHAR 50) - 'oauth2', 'api_key', 'webhook'
+- `config` (JSONB) - configuracoes extras criptografadas
+- `is_configured` (BOOLEAN default false)
+- `last_sync_at` (TIMESTAMPTZ)
+- `created_by` (UUID)
 
-- **documentation**: Armazena artigos com Markdown, metadados (nicho, categoria, subcategoria), versionamento, SEO (meta_title, meta_description, keywords), busca full-text via `tsvector` gerado automaticamente, e controle de publicacao/destaque.
+**Nova tabela `integration_webhooks`:**
+- id, integration_id (FK), tenant_id, webhook_url (unico), webhook_secret, events (TEXT[]), is_active, last_triggered_at, failed_attempts, created_at
 
-- **documentation_views**: Rastreia visualizacoes por usuario com contagem, tempo gasto e votos de utilidade (helpful_yes/no). Chave unica por (documentation_id, user_id).
+**Nova tabela `integration_logs`:**
+- id, integration_id (FK), tenant_id, event_type, action ('send'/'receive'/'sync'), request_payload (JSONB), response_payload (JSONB), status ('success'/'failed'/'pending'), error_message, duration_ms, created_at
 
-- **documentation_feedback**: Armazena avaliacoes com rating (1-5), comentario e flag is_helpful. Chave unica por (documentation_id, user_id).
+**Nova tabela `integration_mappings`:**
+- id, integration_id (FK), tenant_id, axhub_field, external_field, transform_type ('direct'/'custom'/'lookup'), transform_config (JSONB), created_at
 
-- **documentation_translations**: Suporte multi-idioma (pt-BR, en-US, es-ES) com conteudo traduzido. Chave unica por (documentation_id, language).
+Todas com RLS por tenant_id e restricao de escrita para admins.
 
-Nota: A spec referencia `auth.users(id)` em foreign keys, mas seguindo o padrao do projeto, usaremos campos `uuid` sem FK direta para `auth.users` (o mesmo padrao usado em `profiles`, `activities`, etc.).
+### 2. Catalogo de conectores pre-definidos
 
-### 2. Politicas RLS
+Tabela de referencia (ou constante no frontend) com conectores disponiveis:
 
-- Documentacao publicada (`is_published = true`): leitura publica para usuarios autenticados
-- Criacao/edicao: restrita a admins do tenant (usando `has_role`)
-- Feedback e views: usuarios podem inserir/atualizar seus proprios registros
-- Isolamento por tenant em todas as tabelas
+| Conector | Tipo | Categoria | Auth |
+|----------|------|-----------|------|
+| Zapier | zapier | productivity | webhook |
+| Make (Integromat) | make | productivity | webhook |
+| N8N | native | productivity | api_key |
+| WhatsApp API | native | communication | api_key |
+| Gmail API | native | communication | oauth2 |
+| Shopify | native | erp | api_key |
+| MercadoLivre | native | erp | oauth2 |
+| Slack | native | communication | webhook |
+| Stripe | native | payment | api_key |
+| HubSpot | native | crm | api_key |
 
-### 3. Indices de performance
+### 3. Edge Function - Webhook Receiver Generico
 
-- GIN index no campo `search_vector` para busca full-text
-- Indices compostos em `(tenant_id, niche)`, `(slug)`, `(category)`
+Nova edge function `webhook-receiver` que:
+- Recebe POST com integration_id e webhook_id na URL
+- Valida assinatura HMAC-SHA256 via header X-Webhook-Signature
+- Registra o evento na tabela integration_logs
+- Aplica mapeamento de campos (integration_mappings)
+- Cria/atualiza registros no AXHUB (leads, customers, products)
+- Retorna 200 OK
 
 ### 4. Componentes React
 
-Quatro componentes principais em `src/components/documentation/`:
+**IntegrationCatalog** - Grid de cards com conectores disponiveis, filtro por categoria e tipo, botao "Conectar"
 
-- **DocumentationCard**: Card de preview com titulo, descricao, nicho, views e percentual de utilidade
-- **DocumentationViewer**: Visualizador completo com table of contents gerado do HTML, tracking de tempo e documentos relacionados
-- **DocumentationSearch**: Busca com filtros por nicho e categoria, usando full-text search do PostgreSQL
-- **FeedbackSection**: Avaliacao com estrelas (1-5) e comentario
+**IntegrationCard** - Card visual com icone, nome, descricao, badge de status (conectado/desconectado), acoes
 
-### 5. Pagina principal
+**IntegrationSetup** - Dialog com wizard de 3 etapas:
+1. Autenticacao (API Key ou OAuth2 redirect)
+2. Mapeamento de campos (drag & drop dos campos AXHUB para campos externos)
+3. Teste de conexao (envio de evento de teste e exibicao do resultado)
 
-- Nova pagina `src/pages/Documentation.tsx` com listagem, busca e filtros
-- Nova pagina `src/pages/DocumentationArticle.tsx` para visualizacao individual por slug
-- Rotas: `/documentation` e `/documentation/:slug`
-- Link na sidebar de navegacao
+**IntegrationLogs** - Tabela com logs de execucao, filtros por status, auto-refresh a cada 5s
 
-### 6. Funcionalidades admin
+**IntegrationDetail** - Painel completo da integracao com abas: Configuracao, Webhooks, Mapeamento, Logs
 
-- Criar/editar artigos com editor Markdown (dentro de Settings ou na propria pagina de documentacao)
-- Publicar/despublicar artigos
-- Visualizar metricas: documentos mais vistos, menor taxa de utilidade, termos buscados
+### 5. Reescrita da pagina IntegrationsSettings
+
+A pagina atual sera substituida por uma interface com 3 abas:
+- **Catalogo**: grid de conectores disponiveis para instalar
+- **Minhas Integracoes**: integracoes configuradas com status e acoes
+- **Logs**: historico de execucoes com filtros
+
+### 6. Eventos suportados para webhooks
+
+Reutilizar os 16 eventos ja definidos no event_outbox:
+- lead.created, lead.updated, deal.won, deal.lost, order.created, order.paid, customer.created, product.updated, etc.
+
+## Adaptacoes da spec ao projeto
+
+- `workspace_id` sera `tenant_id` (padrao do projeto)
+- Sem Redis/Bull - usar o padrao event_outbox existente para processamento assincrono
+- Sem Node.js crypto - usar Web Crypto API no Deno (edge functions)
+- RLS usando `get_user_tenant_id()` e `has_role()` existentes
+- Autenticacao OAuth2 sera simplificada (armazenar tokens, sem fluxo completo de redirect por enquanto)
 
 ## Detalhes Tecnicos
 
-### Migracao SQL principal
+### Migracao SQL
 
 ```sql
-CREATE TABLE public.documentation (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID NOT NULL,
-  title VARCHAR(255) NOT NULL,
-  slug VARCHAR(255) NOT NULL,
-  description TEXT,
-  niche VARCHAR(50) NOT NULL,
-  category VARCHAR(100) NOT NULL,
-  subcategory VARCHAR(100),
-  content TEXT NOT NULL,
-  content_html TEXT,
-  version INT DEFAULT 1,
-  previous_version_id UUID REFERENCES documentation(id),
-  meta_title VARCHAR(255),
-  meta_description VARCHAR(255),
-  keywords TEXT[] DEFAULT '{}',
-  is_published BOOLEAN DEFAULT false,
-  is_featured BOOLEAN DEFAULT false,
-  order_index INT DEFAULT 0,
-  created_by UUID NOT NULL,
-  updated_by UUID NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now(),
-  search_vector tsvector GENERATED ALWAYS AS (
-    to_tsvector('portuguese', coalesce(title,'') || ' ' || coalesce(description,'') || ' ' || coalesce(content,''))
-  ) STORED,
-  UNIQUE(tenant_id, slug)
-);
+-- Evolucao da tabela integrations
+ALTER TABLE integrations
+  ADD COLUMN IF NOT EXISTS name VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS slug VARCHAR(100),
+  ADD COLUMN IF NOT EXISTS description TEXT,
+  ADD COLUMN IF NOT EXISTS icon_url VARCHAR(500),
+  ADD COLUMN IF NOT EXISTS type VARCHAR(50) DEFAULT 'native',
+  ADD COLUMN IF NOT EXISTS category VARCHAR(50) DEFAULT 'productivity',
+  ADD COLUMN IF NOT EXISTS auth_type VARCHAR(50) DEFAULT 'api_key',
+  ADD COLUMN IF NOT EXISTS config JSONB DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS is_configured BOOLEAN DEFAULT false,
+  ADD COLUMN IF NOT EXISTS last_sync_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS created_by UUID;
 
--- + documentation_views, documentation_feedback, documentation_translations
--- + indices e RLS policies
+-- Novas tabelas
+CREATE TABLE integration_webhooks (...);
+CREATE TABLE integration_logs (...);
+CREATE TABLE integration_mappings (...);
+
+-- Indices e RLS
 ```
 
-### Conversao Markdown para HTML
-
-Sera feita client-side usando uma biblioteca leve (o conteudo Markdown sera armazenado e o HTML gerado/cacheado no campo `content_html`). Sanitizacao do HTML antes de renderizar.
-
-### Busca Full-Text
+### Edge Function webhook-receiver
 
 ```typescript
-const { data } = await supabase
-  .from('documentation')
-  .select('*')
-  .eq('is_published', true)
-  .textSearch('search_vector', query, { type: 'websearch', config: 'portuguese' });
+// POST /webhook-receiver?integration_id=xxx&webhook_id=yyy
+// Valida HMAC, registra log, aplica mapeamento, cria registros
 ```
 
-### Tracking de tempo
+### Estrutura de arquivos
 
-Usar `useEffect` com timer que registra o tempo ao sair da pagina via `POST` na tabela `documentation_views`.
+```text
+src/components/integrations/
+  IntegrationCatalog.tsx
+  IntegrationCard.tsx
+  IntegrationSetup.tsx
+  IntegrationLogs.tsx
+  IntegrationDetail.tsx
+src/pages/settings/IntegrationsSettings.tsx (reescrita)
+supabase/functions/webhook-receiver/index.ts (nova)
+```
 
 ## Sequencia de implementacao
 
-1. Criar migracao com as 4 tabelas, indices e RLS policies
-2. Criar componentes de documentacao (Card, Viewer, Search, Feedback)
-3. Criar paginas Documentation e DocumentationArticle
-4. Adicionar rotas no App.tsx e link na sidebar
-5. Criar interface admin para criar/editar artigos
-6. (Opcional) Seeder com artigos iniciais por nicho
-
-## Dependencias externas
-
-Nenhuma dependencia nova obrigatoria. O Markdown pode ser renderizado com logica simples ou, se necessario, instalar `react-markdown` + `remark-gfm` para melhor suporte.
+1. Criar migracao com alteracao da tabela integrations + 3 novas tabelas + indices + RLS
+2. Criar edge function webhook-receiver
+3. Criar componentes React (Catalog, Card, Setup, Logs, Detail)
+4. Reescrever IntegrationsSettings com 3 abas
+5. Integrar catalogo de conectores pre-definidos
 
