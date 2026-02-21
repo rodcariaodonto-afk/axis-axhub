@@ -1,3 +1,4 @@
+import axisLogo from "@/assets/axis-logo.png";
 import {
   LayoutDashboard, Package, Warehouse, ShoppingCart, Users, Truck,
   Banknote, Building2, ArrowDownCircle, ArrowUpCircle, LogOut, Settings,
@@ -65,7 +66,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
-          <span className="text-xl font-bold tracking-tight"><span className="text-primary">AX</span><span className="text-sidebar-foreground">HUB</span></span>
+          <img src={axisLogo} alt="Axis" className="h-7" />
         </div>
       </SidebarHeader>
       <SidebarSeparator />
