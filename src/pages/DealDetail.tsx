@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Trophy, XCircle, Plus, CheckCircle } from "lucide-react";
+import { emitEvent } from "@/lib/emitEvent";
 
 export default function DealDetail() {
   const { id } = useParams();
@@ -43,47 +44,31 @@ export default function DealDetail() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const changeStage = async (stageId: string) => {
+    const oldStageId = deal.stage_id;
     await supabase.from("deals").update({ stage_id: stageId }).eq("id", id);
+    emitEvent("deal.stage_changed", { deal_id: id, old_stage_id: oldStageId, new_stage_id: stageId });
     toast({ title: "Etapa atualizada!" }); fetchData();
   };
 
   const markWon = async () => {
     await supabase.from("deals").update({ status: "won" }).eq("id", id);
-    
+    emitEvent("deal.won", { deal_id: id, name: deal.name, value: deal.estimated_value });
+
     // Auto-create ERP order from won deal
     try {
       const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
       if (profile && deal) {
         let customerId: string | null = null;
-        
-        // Try to find/create customer from lead
         if (deal.leads) {
-          const { data: existingCustomer } = await supabase.from("customers")
-            .select("id").eq("email", deal.leads.email).maybeSingle();
-          if (existingCustomer) {
-            customerId = existingCustomer.id;
-          } else {
-            const { data: newCustomer } = await supabase.from("customers").insert({
-              tenant_id: profile.tenant_id,
-              name: deal.leads.name,
-              email: deal.leads.email || null,
-              phone: deal.leads.phone || null,
-            }).select("id").single();
+          const { data: existingCustomer } = await supabase.from("customers").select("id").eq("email", deal.leads.email).maybeSingle();
+          if (existingCustomer) { customerId = existingCustomer.id; }
+          else {
+            const { data: newCustomer } = await supabase.from("customers").insert({ tenant_id: profile.tenant_id, name: deal.leads.name, email: deal.leads.email || null, phone: deal.leads.phone || null }).select("id").single();
             if (newCustomer) customerId = newCustomer.id;
           }
         }
-
         const orderNumber = `PED-${Date.now().toString(36).toUpperCase()}`;
-        await supabase.from("orders").insert({
-          tenant_id: profile.tenant_id,
-          number: orderNumber,
-          customer_id: customerId,
-          source: "crm",
-          status: "draft",
-          total: Number(deal.estimated_value) || 0,
-          subtotal: Number(deal.estimated_value) || 0,
-          notes: `Gerado automaticamente do deal: ${deal.name}`,
-        });
+        await supabase.from("orders").insert({ tenant_id: profile.tenant_id, number: orderNumber, customer_id: customerId, source: "crm", status: "draft", total: Number(deal.estimated_value) || 0, subtotal: Number(deal.estimated_value) || 0, notes: `Gerado automaticamente do deal: ${deal.name}` });
         toast({ title: "Deal marcado como ganho! 🎉", description: `Pedido ${orderNumber} criado automaticamente.` });
       }
     } catch {
@@ -94,6 +79,7 @@ export default function DealDetail() {
 
   const markLost = async () => {
     await supabase.from("deals").update({ status: "lost", lost_reason: lostReason || null }).eq("id", id);
+    emitEvent("deal.lost", { deal_id: id, name: deal.name, reason: lostReason });
     toast({ title: "Deal marcado como perdido." }); setLostDialog(false); fetchData();
   };
 
@@ -101,15 +87,17 @@ export default function DealDetail() {
     e.preventDefault();
     const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
     if (!profile) return;
-    await supabase.from("activities").insert({
+    const { data: newAct } = await supabase.from("activities").insert({
       tenant_id: profile.tenant_id, deal_id: id, title: actForm.title, type: actForm.type,
       description: actForm.description || null, due_at: actForm.due_at || null, owner_user_id: profile.tenant_id,
-    });
+    }).select().single();
+    if (newAct) emitEvent("activity.created", { activity_id: newAct.id, deal_id: id, type: actForm.type, title: actForm.title });
     toast({ title: "Atividade criada!" }); setActDialog(false); fetchData();
   };
 
   const completeActivity = async (actId: string) => {
     await supabase.from("activities").update({ done_at: new Date().toISOString() }).eq("id", actId);
+    emitEvent("activity.completed", { activity_id: actId, deal_id: id });
     toast({ title: "Atividade concluída!" }); fetchData();
   };
 

@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Trash2, Zap } from "lucide-react";
+import { emitEvent } from "@/lib/emitEvent";
 
 const stepTypeLabels: Record<string, string> = { email: "E-mail", call: "Ligação", task: "Tarefa", sms: "SMS" };
 
@@ -55,6 +56,12 @@ export default function Cadences() {
 
   const toggleActive = async (id: string, current: boolean) => {
     await supabase.from("sales_cadences").update({ is_active: !current }).eq("id", id);
+    const cadence = cadences.find((c) => c.id === id);
+    if (!current) {
+      emitEvent("cadence.started", { cadence_id: id, name: cadence?.name });
+    } else {
+      emitEvent("cadence.completed", { cadence_id: id, name: cadence?.name });
+    }
     fetchData();
   };
 

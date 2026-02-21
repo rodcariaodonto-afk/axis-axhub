@@ -8,9 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, FileText, Send, CheckCircle, XCircle } from "lucide-react";
+import { Plus, Send, CheckCircle, XCircle } from "lucide-react";
+import { emitEvent } from "@/lib/emitEvent";
 
 const statusLabels: Record<string, string> = {
   draft: "Rascunho", sent: "Enviada", viewed: "Visualizada", accepted: "Aceita", rejected: "Rejeitada",
@@ -25,7 +25,7 @@ export default function Proposals() {
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ deal_id: "", total_amount: "", valid_until: "", notes: "" });
+  const [form, setForm] = useState({ deal_id: "", total_amount: "", valid_until: "" });
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
@@ -45,26 +45,26 @@ export default function Proposals() {
     const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
     if (!profile) return;
     const number = `PROP-${Date.now().toString(36).toUpperCase()}`;
-    const { error } = await supabase.from("proposals").insert({
-      tenant_id: profile.tenant_id,
-      deal_id: form.deal_id || null,
-      number,
-      total_amount: parseFloat(form.total_amount) || 0,
-      valid_until: form.valid_until || null,
-    });
+    const { data: newProp, error } = await supabase.from("proposals").insert({
+      tenant_id: profile.tenant_id, deal_id: form.deal_id || null, number,
+      total_amount: parseFloat(form.total_amount) || 0, valid_until: form.valid_until || null,
+    }).select().single();
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    emitEvent("proposal.created", { proposal_id: newProp.id, number, deal_id: form.deal_id || null, amount: newProp.total_amount });
     toast({ title: "Proposta criada!", description: `Número: ${number}` });
-    setForm({ deal_id: "", total_amount: "", valid_until: "", notes: "" });
-    setDialogOpen(false);
-    fetchData();
+    setForm({ deal_id: "", total_amount: "", valid_until: "" });
+    setDialogOpen(false); fetchData();
   };
 
   const changeStatus = async (id: string, status: string) => {
     const updates: any = { status };
     if (status === "sent") updates.sent_at = new Date().toISOString();
     await supabase.from("proposals").update(updates).eq("id", id);
-    toast({ title: `Proposta ${statusLabels[status].toLowerCase()}!` });
-    fetchData();
+
+    const eventMap: Record<string, string> = { sent: "proposal.sent", accepted: "proposal.approved", rejected: "proposal.rejected" };
+    if (eventMap[status]) emitEvent(eventMap[status], { proposal_id: id, status });
+
+    toast({ title: `Proposta ${statusLabels[status].toLowerCase()}!` }); fetchData();
   };
 
   const filtered = proposals.filter((p) => filterStatus === "all" || p.status === filterStatus);
@@ -114,13 +114,9 @@ export default function Proposals() {
           <Table>
             <TableHeader>
               <TableRow className="border-border">
-                <TableHead>Número</TableHead>
-                <TableHead>Deal</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Valor</TableHead>
-                <TableHead>Válida até</TableHead>
-                <TableHead>Criada em</TableHead>
-                <TableHead className="w-24">Ações</TableHead>
+                <TableHead>Número</TableHead><TableHead>Deal</TableHead><TableHead>Status</TableHead>
+                <TableHead className="text-right">Valor</TableHead><TableHead>Válida até</TableHead>
+                <TableHead>Criada em</TableHead><TableHead className="w-24">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -139,18 +135,12 @@ export default function Proposals() {
                   <TableCell>
                     <div className="flex gap-1">
                       {p.status === "draft" && (
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => changeStatus(p.id, "sent")} title="Enviar">
-                          <Send className="h-3 w-3" />
-                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => changeStatus(p.id, "sent")} title="Enviar"><Send className="h-3 w-3" /></Button>
                       )}
                       {(p.status === "sent" || p.status === "viewed") && (
                         <>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => changeStatus(p.id, "accepted")} title="Aceitar">
-                            <CheckCircle className="h-3 w-3 text-success" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => changeStatus(p.id, "rejected")} title="Rejeitar">
-                            <XCircle className="h-3 w-3 text-destructive" />
-                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => changeStatus(p.id, "accepted")} title="Aceitar"><CheckCircle className="h-3 w-3 text-success" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => changeStatus(p.id, "rejected")} title="Rejeitar"><XCircle className="h-3 w-3 text-destructive" /></Button>
                         </>
                       )}
                     </div>
