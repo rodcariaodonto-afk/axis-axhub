@@ -748,6 +748,258 @@ export type Database = {
           },
         ]
       }
+      documentation: {
+        Row: {
+          category: string
+          content: string
+          content_html: string | null
+          created_at: string | null
+          created_by: string
+          description: string | null
+          id: string
+          is_featured: boolean | null
+          is_published: boolean | null
+          keywords: string[] | null
+          meta_description: string | null
+          meta_title: string | null
+          niche: string
+          order_index: number | null
+          previous_version_id: string | null
+          search_vector: unknown
+          slug: string
+          subcategory: string | null
+          tenant_id: string
+          title: string
+          updated_at: string | null
+          updated_by: string
+          version: number | null
+        }
+        Insert: {
+          category: string
+          content: string
+          content_html?: string | null
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          id?: string
+          is_featured?: boolean | null
+          is_published?: boolean | null
+          keywords?: string[] | null
+          meta_description?: string | null
+          meta_title?: string | null
+          niche: string
+          order_index?: number | null
+          previous_version_id?: string | null
+          search_vector?: unknown
+          slug: string
+          subcategory?: string | null
+          tenant_id: string
+          title: string
+          updated_at?: string | null
+          updated_by: string
+          version?: number | null
+        }
+        Update: {
+          category?: string
+          content?: string
+          content_html?: string | null
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_featured?: boolean | null
+          is_published?: boolean | null
+          keywords?: string[] | null
+          meta_description?: string | null
+          meta_title?: string | null
+          niche?: string
+          order_index?: number | null
+          previous_version_id?: string | null
+          search_vector?: unknown
+          slug?: string
+          subcategory?: string | null
+          tenant_id?: string
+          title?: string
+          updated_at?: string | null
+          updated_by?: string
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentation_previous_version_id_fkey"
+            columns: ["previous_version_id"]
+            isOneToOne: false
+            referencedRelation: "documentation"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documentation_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documentation_feedback: {
+        Row: {
+          comment: string | null
+          created_at: string | null
+          documentation_id: string
+          id: string
+          is_helpful: boolean | null
+          rating: number
+          tenant_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string | null
+          documentation_id: string
+          id?: string
+          is_helpful?: boolean | null
+          rating: number
+          tenant_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string | null
+          documentation_id?: string
+          id?: string
+          is_helpful?: boolean | null
+          rating?: number
+          tenant_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentation_feedback_documentation_id_fkey"
+            columns: ["documentation_id"]
+            isOneToOne: false
+            referencedRelation: "documentation"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documentation_feedback_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documentation_translations: {
+        Row: {
+          content: string
+          content_html: string | null
+          created_at: string | null
+          description: string | null
+          documentation_id: string
+          id: string
+          language: string
+          tenant_id: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          content: string
+          content_html?: string | null
+          created_at?: string | null
+          description?: string | null
+          documentation_id: string
+          id?: string
+          language: string
+          tenant_id: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string
+          content_html?: string | null
+          created_at?: string | null
+          description?: string | null
+          documentation_id?: string
+          id?: string
+          language?: string
+          tenant_id?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentation_translations_documentation_id_fkey"
+            columns: ["documentation_id"]
+            isOneToOne: false
+            referencedRelation: "documentation"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documentation_translations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documentation_views: {
+        Row: {
+          created_at: string | null
+          documentation_id: string
+          helpful_no: number | null
+          helpful_yes: number | null
+          id: string
+          last_viewed_at: string | null
+          tenant_id: string
+          time_spent_seconds: number | null
+          user_id: string
+          view_count: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          documentation_id: string
+          helpful_no?: number | null
+          helpful_yes?: number | null
+          id?: string
+          last_viewed_at?: string | null
+          tenant_id: string
+          time_spent_seconds?: number | null
+          user_id: string
+          view_count?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          documentation_id?: string
+          helpful_no?: number | null
+          helpful_yes?: number | null
+          id?: string
+          last_viewed_at?: string | null
+          tenant_id?: string
+          time_spent_seconds?: number | null
+          user_id?: string
+          view_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentation_views_documentation_id_fkey"
+            columns: ["documentation_id"]
+            isOneToOne: false
+            referencedRelation: "documentation"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documentation_views_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_templates: {
         Row: {
           body: string
