@@ -22,8 +22,8 @@ export default function Auth() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+      </div>);
+
   }
 
   if (user) {
@@ -44,20 +44,20 @@ export default function Auth() {
           password,
           options: {
             data: { full_name: fullName },
-            emailRedirectTo: window.location.origin,
-          },
+            emailRedirectTo: window.location.origin
+          }
         });
         if (error) throw error;
         toast({
           title: "Conta criada!",
-          description: "Verifique seu e-mail para confirmar o cadastro.",
+          description: "Verifique seu e-mail para confirmar o cadastro."
         });
       }
     } catch (error: any) {
       toast({
         title: "Erro",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
@@ -68,26 +68,26 @@ export default function Auth() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md border-border bg-card">
         <CardHeader className="text-center">
-          <img src={axisLogo} alt="Axis" className="h-16 mx-auto" />
+          <img src={axisLogo} alt="Axis" className="h-16 mx-auto object-fill" />
           <CardDescription className="text-muted-foreground">
             {isLogin ? "Entre na sua conta" : "Crie sua conta"}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
-              <div className="space-y-2">
+            {!isLogin &&
+            <div className="space-y-2">
                 <Label htmlFor="fullName">Nome completo</Label>
                 <Input
-                  id="fullName"
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Seu nome"
-                  required={!isLogin}
-                />
+                id="fullName"
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Seu nome"
+                required={!isLogin} />
+
               </div>
-            )}
+            }
             <div className="space-y-2">
               <Label htmlFor="email">E-mail</Label>
               <Input
@@ -96,8 +96,8 @@ export default function Auth() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="seu@email.com"
-                required
-              />
+                required />
+
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Senha</Label>
@@ -108,8 +108,8 @@ export default function Auth() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                minLength={6}
-              />
+                minLength={6} />
+
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Carregando..." : isLogin ? "Entrar" : "Criar conta"}
@@ -119,13 +119,13 @@ export default function Auth() {
             <button
               type="button"
               onClick={() => setIsLogin(!isLogin)}
-              className="text-sm text-muted-foreground hover:text-primary transition-colors"
-            >
+              className="text-sm text-muted-foreground hover:text-primary transition-colors">
+
               {isLogin ? "Não tem conta? Cadastre-se" : "Já tem conta? Entre"}
             </button>
           </div>
         </CardContent>
       </Card>
-    </div>
-  );
+    </div>);
+
 }
