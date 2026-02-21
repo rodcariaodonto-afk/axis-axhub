@@ -3,7 +3,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Eye, BarChart3 } from "lucide-react";
+import { Trash2, Eye, BarChart3, CalendarClock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ import { ReportTemplateSelector } from "@/components/reports/ReportTemplateSelec
 import { ReportBuilder } from "@/components/reports/ReportBuilder";
 import { ReportViewer } from "@/components/reports/ReportViewer";
 import { ReportExportBar } from "@/components/reports/ReportExportBar";
+import { ReportScheduleDialog } from "@/components/reports/ReportScheduleDialog";
 import { REPORT_TEMPLATES, type ReportTemplate, type ChartType } from "@/components/reports/reportTemplates";
 
 export default function Reports() {
@@ -20,6 +21,7 @@ export default function Reports() {
   const [viewingReport, setViewingReport] = useState<any | null>(null);
   const [loadingSaved, setLoadingSaved] = useState(false);
   const [tab, setTab] = useState("templates");
+  const [scheduleOpen, setScheduleOpen] = useState(false);
 
   const fetchSaved = useCallback(async () => {
     if (!user) return;
@@ -62,6 +64,15 @@ export default function Reports() {
           title={viewingReport.name}
         />
         <ReportExportBar data={viewingReport.data} title={viewingReport.name} />
+        <Button variant="outline" size="sm" onClick={() => setScheduleOpen(true)}>
+          <CalendarClock className="h-4 w-4 mr-1" /> Agendar
+        </Button>
+        <ReportScheduleDialog
+          open={scheduleOpen}
+          onClose={() => setScheduleOpen(false)}
+          reportId={viewingReport.id}
+          reportTitle={viewingReport.name}
+        />
       </div>
     );
   }
