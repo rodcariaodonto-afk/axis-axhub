@@ -1,160 +1,142 @@
 
 
-# Sistema de Integracoes - Conectores Escalavel
+# Sistema de Relatorios Dinamicos
 
 ## Visao Geral
 
-Evoluir o modulo de integracoes atual (tabela simples com platform/api_key) para um framework completo com catalogo de conectores, webhooks dedicados, logs de execucao, mapeamento de campos e interface de configuracao em etapas.
+Criar um sistema de relatorios com templates pre-construidos, visualizacao interativa com graficos (Recharts, ja instalado), exportacao CSV/PDF, e armazenamento de relatorios salvos. A spec sera adaptada ao projeto existente (tenant_id, sem Redis/Puppeteer/SendGrid).
 
 ## O que existe hoje
 
-- Tabela `integrations` basica com campos: platform, api_key, api_secret, webhook_url, is_active
-- UI simples com lista de integracoes e dialog para adicionar nova
-- Edge function `whatsapp-webhook` para busca de produtos
-- Edge function `dispatch-events` para despacho via event_outbox
-
-## O que sera construido
-
-### 1. Evolucao do banco de dados
-
-**Alterar tabela `integrations`** - adicionar colunas:
-- `name` (VARCHAR 255) - nome amigavel
-- `slug` (VARCHAR 100) - identificador unico
-- `description` (TEXT)
-- `icon_url` (VARCHAR 500)
-- `type` (VARCHAR 50) - 'zapier', 'make', 'native', 'webhook'
-- `category` (VARCHAR 50) - 'crm', 'erp', 'communication', 'payment', 'storage', 'productivity'
-- `auth_type` (VARCHAR 50) - 'oauth2', 'api_key', 'webhook'
-- `config` (JSONB) - configuracoes extras criptografadas
-- `is_configured` (BOOLEAN default false)
-- `last_sync_at` (TIMESTAMPTZ)
-- `created_by` (UUID)
-
-**Nova tabela `integration_webhooks`:**
-- id, integration_id (FK), tenant_id, webhook_url (unico), webhook_secret, events (TEXT[]), is_active, last_triggered_at, failed_attempts, created_at
-
-**Nova tabela `integration_logs`:**
-- id, integration_id (FK), tenant_id, event_type, action ('send'/'receive'/'sync'), request_payload (JSONB), response_payload (JSONB), status ('success'/'failed'/'pending'), error_message, duration_ms, created_at
-
-**Nova tabela `integration_mappings`:**
-- id, integration_id (FK), tenant_id, axhub_field, external_field, transform_type ('direct'/'custom'/'lookup'), transform_config (JSONB), created_at
-
-Todas com RLS por tenant_id e restricao de escrita para admins.
-
-### 2. Catalogo de conectores pre-definidos
-
-Tabela de referencia (ou constante no frontend) com conectores disponiveis:
-
-| Conector | Tipo | Categoria | Auth |
-|----------|------|-----------|------|
-| Zapier | zapier | productivity | webhook |
-| Make (Integromat) | make | productivity | webhook |
-| N8N | native | productivity | api_key |
-| WhatsApp API | native | communication | api_key |
-| Gmail API | native | communication | oauth2 |
-| Shopify | native | erp | api_key |
-| MercadoLivre | native | erp | oauth2 |
-| Slack | native | communication | webhook |
-| Stripe | native | payment | api_key |
-| HubSpot | native | crm | api_key |
-
-### 3. Edge Function - Webhook Receiver Generico
-
-Nova edge function `webhook-receiver` que:
-- Recebe POST com integration_id e webhook_id na URL
-- Valida assinatura HMAC-SHA256 via header X-Webhook-Signature
-- Registra o evento na tabela integration_logs
-- Aplica mapeamento de campos (integration_mappings)
-- Cria/atualiza registros no AXHUB (leads, customers, products)
-- Retorna 200 OK
-
-### 4. Componentes React
-
-**IntegrationCatalog** - Grid de cards com conectores disponiveis, filtro por categoria e tipo, botao "Conectar"
-
-**IntegrationCard** - Card visual com icone, nome, descricao, badge de status (conectado/desconectado), acoes
-
-**IntegrationSetup** - Dialog com wizard de 3 etapas:
-1. Autenticacao (API Key ou OAuth2 redirect)
-2. Mapeamento de campos (drag & drop dos campos AXHUB para campos externos)
-3. Teste de conexao (envio de evento de teste e exibicao do resultado)
-
-**IntegrationLogs** - Tabela com logs de execucao, filtros por status, auto-refresh a cada 5s
-
-**IntegrationDetail** - Painel completo da integracao com abas: Configuracao, Webhooks, Mapeamento, Logs
-
-### 5. Reescrita da pagina IntegrationsSettings
-
-A pagina atual sera substituida por uma interface com 3 abas:
-- **Catalogo**: grid de conectores disponiveis para instalar
-- **Minhas Integracoes**: integracoes configuradas com status e acoes
-- **Logs**: historico de execucoes com filtros
-
-### 6. Eventos suportados para webhooks
-
-Reutilizar os 16 eventos ja definidos no event_outbox:
-- lead.created, lead.updated, deal.won, deal.lost, order.created, order.paid, customer.created, product.updated, etc.
+- Pagina `FunnelReport.tsx` com relatorio hardcoded do pipeline de vendas
+- Recharts ja instalado e em uso
+- Dados de deals, orders, products, customers, leads, receivables, payables disponiveis
+- Nenhuma tabela de relatorios no banco
 
 ## Adaptacoes da spec ao projeto
 
-- `workspace_id` sera `tenant_id` (padrao do projeto)
-- Sem Redis/Bull - usar o padrao event_outbox existente para processamento assincrono
-- Sem Node.js crypto - usar Web Crypto API no Deno (edge functions)
-- RLS usando `get_user_tenant_id()` e `has_role()` existentes
-- Autenticacao OAuth2 sera simplificada (armazenar tokens, sem fluxo completo de redirect por enquanto)
+- `workspace_id` sera `tenant_id`
+- Sem Redis - dados gerados on-demand e cacheados no campo `data` JSONB
+- Sem Puppeteer/SendGrid - exportacao PDF via jsPDF (client-side), CSV via Blob nativo
+- Sem agendamento real (sem cron/email) - tabela `report_schedules` sera criada mas o agendamento sera apenas visual/placeholder
+- Templates como constantes no frontend (mesmo padrao do `connectorsCatalog.ts`)
+- Sem CHECK constraints - usar validation triggers conforme guidelines
+- `shared_with` como JSONB array em vez de UUID[] nativo (compatibilidade com tipos Supabase)
+
+## O que sera construido
+
+### 1. Tabelas no banco de dados
+
+**reports** - Relatorios salvos pelo usuario
+- id, tenant_id, name, description, template_id, config (JSONB com filtros/agrupamentos), data (JSONB com dados em cache), chart_type, is_public, shared_with (JSONB), created_by, created_at, updated_at
+
+**report_exports** - Historico de exportacoes
+- id, report_id (FK), tenant_id, format, file_url, file_size, status, error_message, created_by, created_at, completed_at
+
+**report_schedules** - Agendamentos (estrutura para uso futuro)
+- id, report_id (FK), tenant_id, frequency, day_of_week, day_of_month, time_of_day, recipients (TEXT[]), format, is_active, last_sent_at, next_send_at, created_at
+
+RLS: isolamento por tenant_id, leitura de relatorios publicos ou proprios, escrita restrita ao criador/admin.
+
+### 2. Templates pre-definidos (constante frontend)
+
+20 templates organizados em 3 categorias:
+
+**Vendas (sales):**
+- Performance de Vendas, Analise do Pipeline, Deals por Vendedor, Previsao de Receita, Taxa de Conversao, Ciclo de Vendas, Deals Perdidos
+
+**Financeiro (financial):**
+- Fluxo de Caixa, Contas a Receber, Contas a Pagar, Receita por Periodo, DRE Simplificado, Inadimplencia
+
+**Operacoes (operations):**
+- Estoque Critico, Produtos Mais Vendidos, Pedidos por Status, Clientes por Segmento, Leads por Canal, Atividades por Tipo, Compras por Fornecedor
+
+Cada template define: id, nome, descricao, categoria, chart_type padrao, config padrao (filtros, group_by), e uma funcao de query que busca os dados corretos das tabelas existentes.
+
+### 3. Componentes React
+
+**ReportTemplateSelector** - Grid de cards com templates por categoria, busca por nome
+**ReportBuilder** - Configurador com: seletor de periodo, group_by, chart_type (bar/line/pie/table), filtros especificos do template, preview em tempo real
+**ReportViewer** - Visualizador com grafico Recharts + tabela de dados + cards de resumo
+**ReportExportBar** - Botoes de exportacao (CSV, PDF) com status de processamento
+**ReportScheduleDialog** - Dialog para configurar agendamento (UI pronta, sem envio real)
+
+### 4. Pagina e rotas
+
+- Nova pagina `src/pages/Reports.tsx` com abas: Templates, Meus Relatorios, (construtor inline)
+- Rota `/reports` no App.tsx
+- Link "Relatorios" na sidebar no grupo CRM (ou novo grupo "Relatorios")
+
+### 5. Logica de geracao de dados
+
+Cada template tera uma funcao async que:
+1. Recebe config (date_range, group_by, filters)
+2. Faz queries nas tabelas existentes (deals, orders, products, etc.) via Supabase client
+3. Agrega/agrupa os dados
+4. Retorna formato padrao: `{ labels: string[], datasets: { label, data }[], summary: { label, value }[] }`
+
+Exemplo para "Performance de Vendas":
+```text
+Query: deals WHERE status IN config.filters.status AND created_at BETWEEN start AND end
+Group by: responsible_user_id ou stage_id
+Return: contagem e valor por grupo
+```
+
+### 6. Exportacao
+
+**CSV**: Gerar string CSV client-side a partir dos dados do relatorio, download via Blob/URL.createObjectURL
+**PDF**: Usar jsPDF (nova dependencia) para gerar PDF com titulo, tabela de dados e metadados. Sem graficos no PDF (limitacao client-side sem canvas-to-image).
 
 ## Detalhes Tecnicos
 
 ### Migracao SQL
 
 ```sql
--- Evolucao da tabela integrations
-ALTER TABLE integrations
-  ADD COLUMN IF NOT EXISTS name VARCHAR(255),
-  ADD COLUMN IF NOT EXISTS slug VARCHAR(100),
-  ADD COLUMN IF NOT EXISTS description TEXT,
-  ADD COLUMN IF NOT EXISTS icon_url VARCHAR(500),
-  ADD COLUMN IF NOT EXISTS type VARCHAR(50) DEFAULT 'native',
-  ADD COLUMN IF NOT EXISTS category VARCHAR(50) DEFAULT 'productivity',
-  ADD COLUMN IF NOT EXISTS auth_type VARCHAR(50) DEFAULT 'api_key',
-  ADD COLUMN IF NOT EXISTS config JSONB DEFAULT '{}',
-  ADD COLUMN IF NOT EXISTS is_configured BOOLEAN DEFAULT false,
-  ADD COLUMN IF NOT EXISTS last_sync_at TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS created_by UUID;
+CREATE TABLE public.reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES public.tenants(id),
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  template_id VARCHAR(100),
+  config JSONB NOT NULL DEFAULT '{}',
+  data JSONB,
+  chart_type VARCHAR(50) DEFAULT 'bar',
+  is_public BOOLEAN DEFAULT false,
+  shared_with JSONB DEFAULT '[]',
+  created_by UUID NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
 
--- Novas tabelas
-CREATE TABLE integration_webhooks (...);
-CREATE TABLE integration_logs (...);
-CREATE TABLE integration_mappings (...);
-
--- Indices e RLS
-```
-
-### Edge Function webhook-receiver
-
-```typescript
-// POST /webhook-receiver?integration_id=xxx&webhook_id=yyy
-// Valida HMAC, registra log, aplica mapeamento, cria registros
+CREATE TABLE public.report_exports (...);
+CREATE TABLE public.report_schedules (...);
+-- + indices, RLS, trigger updated_at
 ```
 
 ### Estrutura de arquivos
 
 ```text
-src/components/integrations/
-  IntegrationCatalog.tsx
-  IntegrationCard.tsx
-  IntegrationSetup.tsx
-  IntegrationLogs.tsx
-  IntegrationDetail.tsx
-src/pages/settings/IntegrationsSettings.tsx (reescrita)
-supabase/functions/webhook-receiver/index.ts (nova)
+src/components/reports/
+  reportTemplates.ts         -- constantes com 20 templates
+  reportDataGenerators.ts    -- funcoes de query por template
+  ReportTemplateSelector.tsx
+  ReportBuilder.tsx
+  ReportViewer.tsx
+  ReportExportBar.tsx
+  ReportScheduleDialog.tsx
+src/pages/Reports.tsx
 ```
+
+### Dependencias
+
+- `jspdf` - geracao de PDF client-side (nova)
 
 ## Sequencia de implementacao
 
-1. Criar migracao com alteracao da tabela integrations + 3 novas tabelas + indices + RLS
-2. Criar edge function webhook-receiver
-3. Criar componentes React (Catalog, Card, Setup, Logs, Detail)
-4. Reescrever IntegrationsSettings com 3 abas
-5. Integrar catalogo de conectores pre-definidos
+1. Criar migracao com 3 tabelas (reports, report_exports, report_schedules) + RLS + indices
+2. Criar catalogo de templates e funcoes de geracao de dados
+3. Criar componentes React (TemplateSelector, Builder, Viewer, ExportBar)
+4. Criar pagina Reports.tsx com abas
+5. Adicionar rota e link na sidebar
+6. Implementar exportacao CSV e PDF
 
