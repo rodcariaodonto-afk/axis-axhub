@@ -86,10 +86,10 @@ export default function Contacts() {
                 <div className="space-y-2"><Label>Cargo</Label><Input value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} /></div>
                 <div className="space-y-2">
                   <Label>Empresa</Label>
-                  <Select value={form.account_id} onValueChange={(v) => setForm({ ...form, account_id: v })}>
+                  <Select value={form.account_id || "__none__"} onValueChange={(v) => setForm({ ...form, account_id: v === "__none__" ? "" : v })}>
                     <SelectTrigger><SelectValue placeholder="Nenhuma" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Nenhuma</SelectItem>
+                      <SelectItem value="__none__">Nenhuma</SelectItem>
                       {accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
