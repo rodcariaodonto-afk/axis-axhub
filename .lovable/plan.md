@@ -1,78 +1,64 @@
 
-# Integracao Financeira + Edicao/Exclusao com Senha
 
-## Problemas Identificados
+# Correcao do Erro de Importacao CSV de Leads
 
-### 1. Visao Geral Financeira nao reflete dados reais
-- O card "Total a Receber" mostra apenas itens com status `pending`, mas o recebivel ja foi marcado como `paid` -- entao some do total
-- O grafico de fluxo de caixa usa `due_date` como referencia, mas o unico recebivel tem `due_date: 2026-03-20` (marco), que esta fora do range dos ultimos 6 meses (set/25 a fev/26)
-- Resultado: tudo aparece zerado na visao geral
+## Problema Identificado
 
-### 2. Falta botoes de edicao e exclusao nos lancamentos
-- Hoje so existe o botao "Marcar como pago" (CheckCircle)
-- Nao ha como editar descricao, valor ou vencimento
-- Nao ha como excluir um lancamento
+O Radix UI `<SelectItem>` nao aceita `value=""` (string vazia). Isso causa o erro:
 
-### 3. Falta confirmacao de senha para acoes destrutivas
-- Editar/excluir precisa pedir a senha de login do usuario antes de executar
-- A acao deve ser registrada nos logs de auditoria
+```
+A <Select.Item /> must have a value prop that is not an empty string.
+```
 
----
+Quando o dialog de mapeamento CSV abre, ele renderiza `<SelectItem value="">— Ignorar —</SelectItem>` na linha 372, o que causa o crash imediato da pagina.
+
+O mesmo bug existe em `Contacts.tsx` com `<SelectItem value="">Nenhuma</SelectItem>`.
 
 ## Solucao
 
-### A. Melhorar a pagina Finance.tsx (Visao Geral)
+### Arquivo 1: `src/pages/Leads.tsx`
 
-Reescrever os cards para mostrar informacoes mais completas:
+- Linha 372: Trocar `value=""` por `value="__ignore__"` no SelectItem "Ignorar"
+- Linha 369: Ajustar o `onValueChange` para converter `"__ignore__"` de volta para string vazia no estado `csvMapping`
 
-- **Total a Receber (Pendente)**: soma dos receivables com status `pending` (manter)
-- **Total a Pagar (Pendente)**: soma dos payables com status `pending` (manter)
-- **Saldo Bancario**: soma dos bank_accounts (manter)
-- Adicionar cards extras: **Total Recebido no Mes** e **Total Pago no Mes** (filtrando por `paid_at` no mes atual)
+### Arquivo 2: `src/pages/Contacts.tsx`
 
-Corrigir o grafico de fluxo de caixa:
-- Incluir o mes atual E o proximo mes no range (7 meses: 5 anteriores + atual + proximo)
-- Usar `paid_at` para itens pagos e `due_date` para pendentes, dando uma visao real vs prevista
+- Trocar `<SelectItem value="">Nenhuma</SelectItem>` por `<SelectItem value="__none__">Nenhuma</SelectItem>`
+- Ajustar o `onValueChange` do Select de Empresa para converter `"__none__"` de volta para string vazia no form
 
-Adicionar tabela de **ultimos lancamentos** (5 mais recentes de receivables + payables combinados) para dar visibilidade imediata.
+## Detalhes Tecnicos
 
-### B. Botoes de Editar e Excluir (Receivables.tsx e Payables.tsx)
+No `Leads.tsx`, a mudanca principal:
 
-Adicionar na coluna de acoes de cada linha da tabela:
-- Icone de **lapis** (Edit) -- abre dialog de edicao com os campos preenchidos
-- Icone de **lixeira** (Trash) -- abre dialog de confirmacao
+```tsx
+// Antes (causa crash):
+<SelectItem value="">— Ignorar —</SelectItem>
 
-Ambas as acoes usam o mesmo componente `PasswordConfirmDialog`.
+// Depois:
+<SelectItem value="__ignore__">— Ignorar —</SelectItem>
+```
 
-### C. Componente PasswordConfirmDialog
+E no handler de mudanca:
 
-Novo componente reutilizavel: `src/components/finance/PasswordConfirmDialog.tsx`
+```tsx
+onValueChange={(v) => setCsvMapping({ ...csvMapping, [field]: v === "__ignore__" ? "" : v })}
+```
 
-Funcionamento:
-1. Quando usuario clica em Editar ou Excluir, abre um dialog pedindo a senha
-2. O componente chama `supabase.auth.signInWithPassword()` com o email do usuario logado + senha digitada
-3. Se a autenticacao for bem-sucedida, executa a acao (update ou delete)
-4. Registra na tabela `audit_logs` um log com `entity: "receivable"` ou `"payable"`, `action: "update"` ou `"delete"`, e os dados `before_json` / `after_json`
+No `Contacts.tsx`, mesma logica:
 
-### D. Registro de Auditoria
+```tsx
+// Antes:
+<SelectItem value="">Nenhuma</SelectItem>
 
-Cada edicao/exclusao grava automaticamente em `audit_logs`:
-- `entity`: "receivable" ou "payable"
-- `action`: "update" ou "delete"
-- `entity_id`: ID do lancamento
-- `before_json`: dados antes da alteracao
-- `after_json`: dados apos a alteracao (null se delete)
-- `actor_user_id`: ID do usuario autenticado
+// Depois:
+<SelectItem value="__none__">Nenhuma</SelectItem>
+```
 
----
+E no handler:
 
-## Arquivos Alterados
+```tsx
+onValueChange={(v) => setForm({ ...form, account_id: v === "__none__" ? "" : v })}
+```
 
-| Arquivo | Acao |
-|---------|------|
-| `src/pages/Finance.tsx` | Reescrever para mostrar totais pagos, ultimos lancamentos, e corrigir range do grafico |
-| `src/pages/Receivables.tsx` | Adicionar botoes editar/excluir com confirmacao de senha e audit log |
-| `src/pages/Payables.tsx` | Adicionar botoes editar/excluir com confirmacao de senha e audit log |
-| `src/components/finance/PasswordConfirmDialog.tsx` | **Novo** - Dialog reutilizavel de confirmacao por senha |
+Sao apenas 4 linhas alteradas no total, corrigindo os dois crashes.
 
-Nenhuma alteracao de banco de dados necessaria -- as tabelas `audit_logs`, `receivables` e `payables` ja existem com as colunas e RLS corretas.
