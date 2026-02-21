@@ -1,141 +1,140 @@
 
+# AXHUB - Relatorio de Funil, Automacoes CRM-ERP e Campos Customizaveis
 
-# AXHUB - Completar ERP + Iniciar CRM Completo
+## Resumo
 
-## Analise do Estado Atual
+Quatro funcionalidades serao implementadas:
 
-### ERP - O que falta completar:
-
-| Modulo | Status Atual | O que Falta |
-|--------|-------------|-------------|
-| Produtos | CRUD basico OK | Editar/excluir produto |
-| Clientes | CRUD basico OK | Editar/excluir cliente |
-| Pedidos | Criar OK, listar OK | Alterar status (aprovar, enviar, concluir, cancelar) |
-| Fornecedores | CRUD basico OK | Editar/excluir fornecedor |
-| Compras | Somente leitura | Criar PO com itens, receber mercadoria, atualizar estoque |
-| Estoque | Somente leitura | Registrar movimentacoes, gerenciar depositos |
-| A Receber | Somente leitura | Criar conta, marcar como pago com 1 clique |
-| A Pagar | Somente leitura | Criar conta, marcar como pago com 1 clique |
-| Contas Bancarias | Criar/listar OK | - |
-| Financeiro | Placeholder estatico | Dados reais, grafico de fluxo de caixa |
-| Dashboard | Metricas basicas OK | Graficos (recharts), pedidos recentes |
-| Settings | Minimo | Gerenciar perfil, info do tenant |
-
-### CRM - Tudo novo (banco + UI):
-
-Tabelas necessarias: `leads`, `accounts`, `contacts`, `sales_pipelines`, `pipeline_stages`, `deals`, `activities`
+1. **Relatorio de Performance do Funil** - Nova pagina com metricas de conversao, tempo medio no pipeline e valor por status
+2. **Deal Ganho gera Pedido automaticamente** - Ao marcar "Ganho" no DealDetail, cria pedido no ERP
+3. **Automacoes financeiras** - Pedido concluido gera conta a receber; OC recebida gera conta a pagar
+4. **Campos customizaveis nos Produtos** - Tabela `product_custom_fields` + `product_custom_values` para o tenant definir campos extras
 
 ---
 
-## Plano de Execucao (2 Etapas)
+## 1. Relatorio de Performance do Funil
 
-### Etapa A: Finalizar ERP (funcionalidades completas)
+**Nova pagina:** `src/pages/FunnelReport.tsx`
 
-**A1. Contas a Receber e a Pagar completas**
-- Botao "Nova Conta" com formulario (descricao, valor, vencimento, cliente/fornecedor)
-- Botao "Marcar como Pago" inline na tabela com 1 clique
-- Destaque visual para contas vencidas (vermelho)
-- Filtros por status (pendente, pago, vencido)
+- Cards de resumo: Total de deals abertos, ganhos, perdidos e valor total por status
+- Grafico de funil com Recharts (BarChart horizontal) mostrando quantidade de deals por etapa
+- Taxa de conversao por etapa (deals que avancaram / total na etapa)
+- Tempo medio no pipeline (diferenca entre `created_at` e `updated_at` dos deals ganhos/perdidos)
+- Tabela resumo com etapas, quantidade, valor e % conversao
 
-**A2. Workflow de Status nos Pedidos**
-- Dropdown de acoes no pedido: Aprovar, Enviar, Concluir, Cancelar
-- Cores por status (badges diferenciados)
-- Validacao de transicoes (ex: nao pode enviar se nao aprovado)
-
-**A3. Ordens de Compra completas**
-- Formulario para criar PO com selecao de fornecedor e produtos
-- Itens da PO com quantidade e preco unitario
-- Botao "Receber" que atualiza estoque automaticamente
-
-**A4. Estoque funcional**
-- Formulario para criar depositos (warehouses)
-- Registrar movimentacoes (entrada, saida, ajuste) com motivo
-- Atualizar product_stock automaticamente
-
-**A5. Dashboard e Financeiro com dados reais**
-- Financeiro: queries reais para totalizar receber/pagar/saldo
-- Dashboard: adicionar grafico de receita com Recharts
-- Lista de pedidos recentes no dashboard
+**Rota:** `/funnel-report`
+**Sidebar:** Novo item "Funil" no grupo CRM com icone `BarChart3`
 
 ---
 
-### Etapa B: CRM Completo (banco de dados + todas as telas)
+## 2. Deal Ganho gera Pedido ERP
 
-**B1. Migracao de banco - criar tabelas CRM**
-- `leads` (name, email, phone, source, tags, score, status, owner_user_id)
-- `accounts` (name, cnpj, segment, phone, email, address_json, owner_user_id)
-- `contacts` (account_id, first_name, last_name, email, phone, position, is_primary)
-- `sales_pipelines` (name, is_default)
-- `pipeline_stages` (pipeline_id, name, order, probability)
-- `deals` (pipeline_id, stage_id, name, lead_id, contact_id, account_id, estimated_value, expected_close_date, responsible_user_id, status, lost_reason)
-- `activities` (type, title, description, due_at, done_at, deal_id, lead_id, contact_id, owner_user_id)
-- Todas com tenant_id + RLS
-- Inserir pipeline padrao com stages: Qualificacao, Proposta, Negociacao, Fechamento
-- Trigger para criar pipeline padrao ao criar tenant
+**Arquivo modificado:** `src/pages/DealDetail.tsx`
 
-**B2. Pagina de Leads**
-- Lista com filtros por source, status, score
-- Criar lead manual (nome, email, telefone, fonte)
-- Editar/excluir lead
-- Badge de score e status
-- Converter lead em deal (botao dedicado)
+Na funcao `markWon`:
+- Apos atualizar status para "won", buscar `tenant_id` do perfil
+- Gerar numero de pedido `PED-{timestamp}`
+- Inserir em `orders` com `source: "crm"`, `status: "draft"`, `total: deal.estimated_value`
+- Se o deal tiver `lead_id`, buscar se existe um customer com mesmo email; se nao, criar customer a partir do lead
+- Exibir toast com link para o pedido criado
 
-**B3. Pipeline Kanban**
-- Visualizacao em colunas por stage do pipeline
-- Cards de deal mostrando: nome, valor estimado, contato, data prevista
-- Drag-and-drop entre colunas (atualiza stage_id)
-- Criar deal direto no kanban
-- Filtros por pipeline e responsavel
+---
 
-**B4. Deal 360 (pagina de detalhe)**
-- Pagina unica com todas as informacoes do deal (sem abas)
-- Secoes: Info do Deal, Contato, Conta, Timeline de Atividades
-- Botoes: Criar Atividade, Marcar como Ganho/Perdido
-- Deal ganho pode gerar pedido automaticamente (link CRM->ERP)
+## 3. Automacoes Financeiras
 
-**B5. Pagina de Atividades**
-- Lista de atividades com filtros (tipo, status, responsavel)
-- Criar atividade vinculada a deal/lead/contato
-- Marcar como concluida com 1 clique
+**Arquivo modificado:** `src/pages/Orders.tsx`
 
-**B6. Sidebar atualizada**
-- Novo grupo "CRM" no menu: Leads, Pipeline, Deals, Atividades
-- Icones e labels em portugues
+Na funcao `changeStatus`, quando `newStatus === "completed"`:
+- Buscar `tenant_id` e dados do pedido (customer_id, total)
+- Inserir em `receivables` com descricao "Pedido {numero}", valor total, vencimento +30 dias
+- Toast informando que conta a receber foi gerada
+
+**Arquivo modificado:** `src/pages/Purchases.tsx`
+
+Na funcao `receiveOrder`, apos atualizar estoque:
+- Inserir em `payables` com descricao "OC {numero}", valor total, fornecedor, vencimento +30 dias
+- Toast informando que conta a pagar foi gerada
+
+---
+
+## 4. Campos Customizaveis de Produtos
+
+### Banco de dados (migracao)
+
+Duas novas tabelas:
+
+- **`product_custom_fields`** - Define os campos customizaveis por tenant
+  - `id`, `tenant_id`, `field_name`, `field_type` (text, number, boolean, select), `options` (text[] para tipo select), `is_required`, `sort_order`, `created_at`
+  - RLS: tenant_id = get_user_tenant_id()
+
+- **`product_custom_values`** - Armazena os valores por produto
+  - `id`, `tenant_id`, `product_id`, `field_id`, `value` (text), `created_at`
+  - RLS: tenant_id = get_user_tenant_id()
+
+### Interface
+
+**Arquivo modificado:** `src/pages/Products.tsx`
+
+- Botao "Gerenciar Campos" abre dialog para CRUD dos custom fields (nome, tipo, opcoes, obrigatorio)
+- No formulario de "Novo Produto", renderizar dinamicamente os campos customizaveis abaixo dos campos padrao
+- Na tabela de listagem, mostrar colunas extras para cada custom field ativo
+- Ao criar/editar produto, salvar os valores customizados em `product_custom_values`
 
 ---
 
 ## Detalhes Tecnicos
 
-### Migracao SQL (Etapa B1)
-```text
--- Novas tabelas CRM
-leads (id, tenant_id, name, email, phone, source, tags text[], score int, status, owner_user_id, created_at)
-accounts (id, tenant_id, name, cnpj, segment, phone, email, address_json, owner_user_id, created_at)
-contacts (id, tenant_id, account_id FK, first_name, last_name, email, phone, position, is_primary, created_at)
-sales_pipelines (id, tenant_id, name, is_default, created_at)
-pipeline_stages (id, tenant_id, pipeline_id FK, name, "order" int, probability decimal, created_at)
-deals (id, tenant_id, pipeline_id FK, stage_id FK, name, lead_id FK, contact_id FK, account_id FK, estimated_value, expected_close_date, responsible_user_id, status, lost_reason, created_at, updated_at)
-activities (id, tenant_id, type, title, description, due_at, done_at, deal_id FK, lead_id FK, contact_id FK, owner_user_id, created_at)
+### Migracao SQL
 
--- RLS: todas com policy tenant_id = get_user_tenant_id()
--- Pipeline padrao inserido via migracao
+```text
+-- product_custom_fields
+CREATE TABLE product_custom_fields (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL,
+  field_name text NOT NULL,
+  field_type text NOT NULL DEFAULT 'text',
+  options text[] DEFAULT '{}',
+  is_required boolean DEFAULT false,
+  sort_order integer DEFAULT 0,
+  created_at timestamptz DEFAULT now()
+);
+ALTER TABLE product_custom_fields ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Tenant isolation" ON product_custom_fields AS RESTRICTIVE FOR ALL
+  USING (tenant_id = get_user_tenant_id())
+  WITH CHECK (tenant_id = get_user_tenant_id());
+
+-- product_custom_values
+CREATE TABLE product_custom_values (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  field_id uuid NOT NULL,
+  value text,
+  created_at timestamptz DEFAULT now()
+);
+ALTER TABLE product_custom_values ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Tenant isolation" ON product_custom_values AS RESTRICTIVE FOR ALL
+  USING (tenant_id = get_user_tenant_id())
+  WITH CHECK (tenant_id = get_user_tenant_id());
 ```
 
-### Kanban (drag-and-drop)
-- Implementado com colunas CSS grid + event handlers nativos (onDragStart/onDragOver/onDrop)
-- Sem dependencia extra, usando HTML5 Drag API
-- Atualiza stage_id via supabase.from("deals").update()
+### Arquivos modificados/criados
 
-### Arquivos novos
-- `src/pages/Leads.tsx`
-- `src/pages/Pipeline.tsx`
-- `src/pages/DealDetail.tsx`
-- `src/pages/Activities.tsx`
-- Rotas adicionadas em `App.tsx`
+| Arquivo | Acao |
+|---------|------|
+| `src/pages/FunnelReport.tsx` | Novo - relatorio de funil |
+| `src/pages/DealDetail.tsx` | Modificado - markWon gera pedido |
+| `src/pages/Orders.tsx` | Modificado - completed gera receivable |
+| `src/pages/Purchases.tsx` | Modificado - received gera payable |
+| `src/pages/Products.tsx` | Modificado - campos customizaveis |
+| `src/components/AppSidebar.tsx` | Modificado - link Funil no CRM |
+| `src/App.tsx` | Modificado - rota /funnel-report |
 
 ### Ordem de implementacao
-1. Etapa A completa (ERP funcional)
-2. Migracao B1 (tabelas CRM)
-3. Sidebar + rotas CRM
-4. Leads -> Pipeline Kanban -> Deal 360 -> Atividades
 
+1. Migracao (custom fields tables)
+2. FunnelReport + rota + sidebar
+3. DealDetail - automacao deal ganho -> pedido
+4. Orders - automacao completed -> receivable
+5. Purchases - automacao received -> payable
+6. Products - campos customizaveis UI
