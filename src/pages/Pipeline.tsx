@@ -8,8 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, GripVertical } from "lucide-react";
+import { Plus, GripVertical, Download } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { emitEvent } from "@/lib/emitEvent";
 
 interface Stage { id: string; name: string; order: number; probability: number; }
 interface Deal { id: string; name: string; estimated_value: number; stage_id: string; status: string; expected_close_date: string | null; leads?: { name: string } | null; contacts?: { first_name: string; last_name: string | null } | null; }
@@ -46,12 +47,15 @@ export default function Pipeline() {
     e.preventDefault();
     const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
     if (!profile) return;
-    const { error } = await supabase.from("deals").insert({
+    const { data: newDeal, error } = await supabase.from("deals").insert({
       tenant_id: profile.tenant_id, pipeline_id: pipelineId, stage_id: form.stage_id, name: form.name,
       estimated_value: parseFloat(form.estimated_value) || 0, expected_close_date: form.expected_close_date || null,
-    });
+    }).select().single();
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
-    else { toast({ title: "Deal criado!" }); setDialogOpen(false); fetchData(); }
+    else {
+      toast({ title: "Deal criado!" }); setDialogOpen(false); fetchData();
+      emitEvent("deal.created", { deal_id: newDeal.id, name: newDeal.name, value: newDeal.estimated_value, stage_id: newDeal.stage_id });
+    }
   };
 
   const handleDragStart = (e: React.DragEvent, dealId: string) => { e.dataTransfer.setData("dealId", dealId); };
@@ -60,8 +64,26 @@ export default function Pipeline() {
     e.preventDefault();
     const dealId = e.dataTransfer.getData("dealId");
     if (!dealId) return;
+    const deal = deals.find((d) => d.id === dealId);
+    const oldStageId = deal?.stage_id;
     setDeals((prev) => prev.map((d) => d.id === dealId ? { ...d, stage_id: stageId } : d));
     await supabase.from("deals").update({ stage_id: stageId }).eq("id", dealId);
+    if (oldStageId !== stageId) {
+      emitEvent("deal.stage_changed", { deal_id: dealId, old_stage_id: oldStageId, new_stage_id: stageId });
+    }
+  };
+
+  const exportDealsCsv = () => {
+    const stageMap = Object.fromEntries(stages.map((s) => [s.id, s.name]));
+    const header = "Nome,Valor,Etapa,Status,Previsão Fechamento";
+    const rows = deals.map((d) =>
+      `"${d.name}",${d.estimated_value},"${stageMap[d.stage_id] || ""}","${d.status}","${d.expected_close_date || ""}"`
+    );
+    const csv = [header, ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = "deals.csv"; a.click();
+    URL.revokeObjectURL(url);
   };
 
   const stageDeals = (stageId: string) => deals.filter((d) => d.stage_id === stageId);
@@ -73,7 +95,10 @@ export default function Pipeline() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div><h1 className="text-2xl font-bold tracking-tight">Pipeline de Vendas</h1><p className="text-muted-foreground">Visualize e gerencie seus deals</p></div>
-        <Button onClick={() => openCreate()}><Plus className="mr-2 h-4 w-4" />Novo Deal</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={exportDealsCsv}><Download className="mr-2 h-4 w-4" />Exportar CSV</Button>
+          <Button onClick={() => openCreate()}><Plus className="mr-2 h-4 w-4" />Novo Deal</Button>
+        </div>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

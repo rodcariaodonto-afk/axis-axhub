@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, CheckCircle } from "lucide-react";
+import { emitEvent } from "@/lib/emitEvent";
 
 const typeLabels: Record<string, string> = { task: "Tarefa", call: "Ligação", meeting: "Reunião", email: "E-mail" };
 
@@ -41,17 +42,21 @@ export default function Activities() {
     e.preventDefault();
     const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
     if (!profile) return;
-    const { error } = await supabase.from("activities").insert({
+    const { data: newAct, error } = await supabase.from("activities").insert({
       tenant_id: profile.tenant_id, title: form.title, type: form.type,
       description: form.description || null, due_at: form.due_at || null,
       deal_id: form.deal_id || null,
-    });
+    }).select().single();
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
-    else { toast({ title: "Atividade criada!" }); setDialogOpen(false); fetchData(); }
+    else {
+      toast({ title: "Atividade criada!" }); setDialogOpen(false); fetchData();
+      emitEvent("activity.created", { activity_id: newAct.id, type: form.type, title: form.title, deal_id: form.deal_id || null });
+    }
   };
 
   const complete = async (id: string) => {
     await supabase.from("activities").update({ done_at: new Date().toISOString() }).eq("id", id);
+    emitEvent("activity.completed", { activity_id: id });
     toast({ title: "Atividade concluída!" }); fetchData();
   };
 
