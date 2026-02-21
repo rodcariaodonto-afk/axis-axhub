@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Package, Warehouse, ShoppingCart, Users, Truck,
   Banknote, Building2, ArrowDownCircle, ArrowUpCircle, LogOut, Settings,
-  UserPlus, Kanban, Target, CalendarCheck,
+  UserPlus, Kanban, Target, CalendarCheck, BarChart3,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -31,6 +31,7 @@ const crmItems = [
   { title: "Leads", url: "/leads", icon: UserPlus },
   { title: "Pipeline", url: "/pipeline", icon: Kanban },
   { title: "Atividades", url: "/activities", icon: CalendarCheck },
+  { title: "Funil", url: "/funnel-report", icon: BarChart3 },
 ];
 
 export function AppSidebar() {

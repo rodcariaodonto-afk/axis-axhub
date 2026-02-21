@@ -821,6 +821,96 @@ export type Database = {
           },
         ]
       }
+      product_custom_fields: {
+        Row: {
+          created_at: string | null
+          field_name: string
+          field_type: string
+          id: string
+          is_required: boolean | null
+          options: string[] | null
+          sort_order: number | null
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          field_name: string
+          field_type?: string
+          id?: string
+          is_required?: boolean | null
+          options?: string[] | null
+          sort_order?: number | null
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string | null
+          field_name?: string
+          field_type?: string
+          id?: string
+          is_required?: boolean | null
+          options?: string[] | null
+          sort_order?: number | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_custom_fields_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_custom_values: {
+        Row: {
+          created_at: string | null
+          field_id: string
+          id: string
+          product_id: string
+          tenant_id: string
+          value: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          field_id: string
+          id?: string
+          product_id: string
+          tenant_id: string
+          value?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          field_id?: string
+          id?: string
+          product_id?: string
+          tenant_id?: string
+          value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_custom_values_field_id_fkey"
+            columns: ["field_id"]
+            isOneToOne: false
+            referencedRelation: "product_custom_fields"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_custom_values_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_custom_values_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_stock: {
         Row: {
           id: string
