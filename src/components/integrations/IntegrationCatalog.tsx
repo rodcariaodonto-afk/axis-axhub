@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { CONNECTORS, CATEGORY_LABELS, ConnectorDefinition } from "./connectorsCatalog";
+import { ADDITIONAL_CONNECTORS } from "./connectorsData";
+
+const ALL_CONNECTORS = [...CONNECTORS, ...ADDITIONAL_CONNECTORS];
 import IntegrationCard from "./IntegrationCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -15,7 +18,7 @@ export default function IntegrationCatalog({ connectedSlugs, onConnect, onManage
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
 
-  const filtered = CONNECTORS.filter((c) => {
+  const filtered = ALL_CONNECTORS.filter((c) => {
     const matchesSearch = c.name.toLowerCase().includes(search.toLowerCase()) || c.description.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = category === "all" || c.category === category;
     return matchesSearch && matchesCategory;

@@ -3,7 +3,7 @@ export interface ConnectorDefinition {
   name: string;
   description: string;
   type: "zapier" | "make" | "native" | "webhook";
-  category: "crm" | "erp" | "communication" | "payment" | "storage" | "productivity" | "logistics";
+  category: "crm" | "erp" | "communication" | "payment" | "storage" | "productivity" | "logistics" | "marketing" | "automation" | "accounting";
   authType: "oauth2" | "api_key" | "webhook";
   icon: string; // emoji
   events: string[];
@@ -291,4 +291,7 @@ export const CATEGORY_LABELS: Record<string, string> = {
   payment: "Pagamento",
   productivity: "Produtividade",
   logistics: "Logística",
+  marketing: "Marketing",
+  automation: "Automação",
+  accounting: "Contabilidade",
 };
