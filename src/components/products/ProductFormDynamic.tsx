@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Upload } from "lucide-react";
-import { PRODUCT_TYPES, ProductType, getVisibleFields, generateVariations, VariationConfig, GeneratedVariation } from "@/lib/productUtils";
+import { PRODUCT_TYPES, ProductType, getVisibleFields, generateVariations, VariationConfig, GeneratedVariation, isSKURequired, generateAutoSKU } from "@/lib/productUtils";
 import VariationSelector from "./VariationSelector";
 import VariationPreview from "./VariationPreview";
 import ChannelSelector, { ChannelConfig } from "./ChannelSelector";
@@ -35,6 +35,7 @@ export default function ProductFormDynamic({ categories, customFields, onSuccess
   const { toast } = useToast();
 
   const visibleFields = getVisibleFields(productType);
+  const skuRequired = isSKURequired(productType, form.category, variationConfigs.length > 0);
 
   // Regenerate variations when configs change
   useEffect(() => {
@@ -61,6 +62,17 @@ export default function ProductFormDynamic({ categories, customFields, onSuccess
     e.preventDefault();
     setUploading(true);
 
+    // Auto-generate SKU if optional and empty
+    let finalSku = form.sku.trim();
+    if (!finalSku) {
+      if (skuRequired) {
+        toast({ title: "SKU é obrigatório para esta categoria/tipo", variant: "destructive" });
+        setUploading(false);
+        return;
+      }
+      finalSku = generateAutoSKU(form.category, form.name);
+    }
+
     const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
     if (!profile) { setUploading(false); return; }
 
@@ -69,7 +81,7 @@ export default function ProductFormDynamic({ categories, customFields, onSuccess
 
     const { data: product, error } = await supabase.from("products").insert({
       tenant_id: profile.tenant_id,
-      sku: form.sku,
+      sku: finalSku,
       name: form.name,
       type: dbType,
       category: form.category || null,
@@ -184,8 +196,18 @@ export default function ProductFormDynamic({ categories, customFields, onSuccess
       {/* SKU + Name */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>SKU</Label>
-          <Input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} required />
+          <Label>SKU{skuRequired ? " *" : ""}</Label>
+          <Input
+            value={form.sku}
+            onChange={(e) => setForm({ ...form, sku: e.target.value })}
+            required={skuRequired}
+            placeholder={skuRequired ? "" : "Opcional – gerado automaticamente"}
+          />
+          {!skuRequired && (
+            <p className="text-xs text-muted-foreground">
+              ℹ SKU é opcional para esta categoria. Se vazio, será gerado automaticamente.
+            </p>
+          )}
         </div>
         <div className="space-y-2">
           <Label>Nome</Label>
