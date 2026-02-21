@@ -366,10 +366,10 @@ export default function Leads() {
               {["name", "email", "phone", "source"].map((field) => (
                 <div key={field} className="grid grid-cols-2 gap-4 items-center">
                   <Label className="capitalize">{field === "name" ? "Nome *" : field === "email" ? "E-mail" : field === "phone" ? "Telefone" : "Fonte"}</Label>
-                  <Select value={csvMapping[field]} onValueChange={(v) => setCsvMapping({ ...csvMapping, [field]: v })}>
+                  <Select value={csvMapping[field] || "__ignore__"} onValueChange={(v) => setCsvMapping({ ...csvMapping, [field]: v === "__ignore__" ? "" : v })}>
                     <SelectTrigger><SelectValue placeholder="Selecione coluna" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">— Ignorar —</SelectItem>
+                      <SelectItem value="__ignore__">— Ignorar —</SelectItem>
                       {csvHeaders.map((h) => <SelectItem key={h} value={h}>{h}</SelectItem>)}
                     </SelectContent>
                   </Select>
