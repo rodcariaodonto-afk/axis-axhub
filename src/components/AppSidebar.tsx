@@ -2,7 +2,7 @@ import axisLogo from "@/assets/axis-logo.png";
 import {
   LayoutDashboard, Package, Warehouse, ShoppingCart, Users, Truck,
   Banknote, Building2, ArrowDownCircle, ArrowUpCircle, LogOut, Settings,
-  UserPlus, Kanban, CalendarCheck, BarChart3, Contact, FileText, Gauge, Zap, TrendingUp,
+  UserPlus, Kanban, CalendarCheck, BarChart3, Contact, FileText, Gauge, Zap, TrendingUp, BookOpen,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -76,6 +76,7 @@ export function AppSidebar() {
         {renderGroup("Compras", purchaseItems)}
         {renderGroup("Financeiro", financeItems)}
         {renderGroup("CRM", crmItems)}
+        {renderGroup("Conhecimento", [{ title: "Documentação", url: "/documentation", icon: BookOpen }])}
       </SidebarContent>
       <SidebarSeparator />
       <SidebarFooter className="p-2">

@@ -27,6 +27,9 @@ import Proposals from "./pages/Proposals";
 import CrmDashboard from "./pages/CrmDashboard";
 import Cadences from "./pages/Cadences";
 import Forecasting from "./pages/Forecasting";
+import Documentation from "./pages/Documentation";
+import DocumentationArticle from "./pages/DocumentationArticle";
+import DocumentationAdmin from "./pages/DocumentationAdmin";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -69,6 +72,9 @@ const App = () => (
             <Route path="/crm-dashboard" element={<ProtectedRoute><CrmDashboard /></ProtectedRoute>} />
             <Route path="/cadences" element={<ProtectedRoute><Cadences /></ProtectedRoute>} />
             <Route path="/forecasting" element={<ProtectedRoute><Forecasting /></ProtectedRoute>} />
+            <Route path="/documentation" element={<ProtectedRoute><Documentation /></ProtectedRoute>} />
+            <Route path="/documentation/admin" element={<ProtectedRoute><DocumentationAdmin /></ProtectedRoute>} />
+            <Route path="/documentation/:slug" element={<ProtectedRoute><DocumentationArticle /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
