@@ -13,9 +13,11 @@ import AuditLogsView from "./settings/AuditLogsView";
 import ProductCategories from "./settings/ProductCategories";
 import WarehousesSettings from "./settings/WarehousesSettings";
 import IntegrationsSettings from "./settings/IntegrationsSettings";
+import NotificationPreferences from "./NotificationPreferences";
 
 const SECTION_MAP: Record<SettingsSection, React.ComponentType> = {
   profile: ProfileSettings,
+  notifications: NotificationPreferences,
   company: CompanyGeneral,
   users: UsersManagement,
   "api-keys": ApiKeysManagement,
@@ -41,8 +43,7 @@ export default function Settings() {
 
   if (isLoading) return <div className="flex items-center justify-center h-64"><div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
 
-  if (!isAdmin && section !== "profile") {
-    // Non-admins can only see their profile
+  if (!isAdmin && section !== "profile" && section !== "notifications") {
     setSection("profile");
   }
 
