@@ -1082,37 +1082,229 @@ export type Database = {
           },
         ]
       }
+      integration_logs: {
+        Row: {
+          action: string
+          created_at: string
+          duration_ms: number | null
+          error_message: string | null
+          event_type: string
+          id: string
+          integration_id: string
+          request_payload: Json | null
+          response_payload: Json | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          action?: string
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          event_type: string
+          id?: string
+          integration_id: string
+          request_payload?: Json | null
+          response_payload?: Json | null
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          integration_id?: string
+          request_payload?: Json | null
+          response_payload?: Json | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_logs_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integration_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integration_mappings: {
+        Row: {
+          axhub_field: string
+          created_at: string
+          external_field: string
+          id: string
+          integration_id: string
+          tenant_id: string
+          transform_config: Json | null
+          transform_type: string
+        }
+        Insert: {
+          axhub_field: string
+          created_at?: string
+          external_field: string
+          id?: string
+          integration_id: string
+          tenant_id: string
+          transform_config?: Json | null
+          transform_type?: string
+        }
+        Update: {
+          axhub_field?: string
+          created_at?: string
+          external_field?: string
+          id?: string
+          integration_id?: string
+          tenant_id?: string
+          transform_config?: Json | null
+          transform_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_mappings_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integration_mappings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integration_webhooks: {
+        Row: {
+          created_at: string
+          events: string[] | null
+          failed_attempts: number | null
+          id: string
+          integration_id: string
+          is_active: boolean | null
+          last_triggered_at: string | null
+          tenant_id: string
+          webhook_secret: string
+          webhook_url: string
+        }
+        Insert: {
+          created_at?: string
+          events?: string[] | null
+          failed_attempts?: number | null
+          id?: string
+          integration_id: string
+          is_active?: boolean | null
+          last_triggered_at?: string | null
+          tenant_id: string
+          webhook_secret?: string
+          webhook_url: string
+        }
+        Update: {
+          created_at?: string
+          events?: string[] | null
+          failed_attempts?: number | null
+          id?: string
+          integration_id?: string
+          is_active?: boolean | null
+          last_triggered_at?: string | null
+          tenant_id?: string
+          webhook_secret?: string
+          webhook_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_webhooks_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integration_webhooks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integrations: {
         Row: {
           api_key: string | null
           api_secret: string | null
+          auth_type: string | null
+          category: string | null
+          config: Json | null
           created_at: string
+          created_by: string | null
+          description: string | null
+          icon_url: string | null
           id: string
           is_active: boolean
+          is_configured: boolean | null
+          last_sync_at: string | null
+          name: string | null
           platform: string
+          slug: string | null
           tenant_id: string
+          type: string | null
           updated_at: string
           webhook_url: string | null
         }
         Insert: {
           api_key?: string | null
           api_secret?: string | null
+          auth_type?: string | null
+          category?: string | null
+          config?: Json | null
           created_at?: string
+          created_by?: string | null
+          description?: string | null
+          icon_url?: string | null
           id?: string
           is_active?: boolean
+          is_configured?: boolean | null
+          last_sync_at?: string | null
+          name?: string | null
           platform: string
+          slug?: string | null
           tenant_id: string
+          type?: string | null
           updated_at?: string
           webhook_url?: string | null
         }
         Update: {
           api_key?: string | null
           api_secret?: string | null
+          auth_type?: string | null
+          category?: string | null
+          config?: Json | null
           created_at?: string
+          created_by?: string | null
+          description?: string | null
+          icon_url?: string | null
           id?: string
           is_active?: boolean
+          is_configured?: boolean | null
+          last_sync_at?: string | null
+          name?: string | null
           platform?: string
+          slug?: string | null
           tenant_id?: string
+          type?: string | null
           updated_at?: string
           webhook_url?: string | null
         }
