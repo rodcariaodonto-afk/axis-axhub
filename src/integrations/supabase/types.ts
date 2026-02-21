@@ -2218,6 +2218,182 @@ export type Database = {
           },
         ]
       }
+      report_exports: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          created_by: string
+          error_message: string | null
+          file_size: number | null
+          file_url: string | null
+          format: string
+          id: string
+          report_id: string
+          status: string | null
+          tenant_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          created_by: string
+          error_message?: string | null
+          file_size?: number | null
+          file_url?: string | null
+          format: string
+          id?: string
+          report_id: string
+          status?: string | null
+          tenant_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string
+          error_message?: string | null
+          file_size?: number | null
+          file_url?: string | null
+          format?: string
+          id?: string
+          report_id?: string
+          status?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_exports_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_exports_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_schedules: {
+        Row: {
+          created_at: string | null
+          day_of_month: number | null
+          day_of_week: number | null
+          format: string | null
+          frequency: string
+          id: string
+          is_active: boolean | null
+          last_sent_at: string | null
+          next_send_at: string | null
+          recipients: string[] | null
+          report_id: string
+          tenant_id: string
+          time_of_day: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          day_of_month?: number | null
+          day_of_week?: number | null
+          format?: string | null
+          frequency?: string
+          id?: string
+          is_active?: boolean | null
+          last_sent_at?: string | null
+          next_send_at?: string | null
+          recipients?: string[] | null
+          report_id: string
+          tenant_id: string
+          time_of_day?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          day_of_month?: number | null
+          day_of_week?: number | null
+          format?: string | null
+          frequency?: string
+          id?: string
+          is_active?: boolean | null
+          last_sent_at?: string | null
+          next_send_at?: string | null
+          recipients?: string[] | null
+          report_id?: string
+          tenant_id?: string
+          time_of_day?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_schedules_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_schedules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reports: {
+        Row: {
+          chart_type: string | null
+          config: Json
+          created_at: string | null
+          created_by: string
+          data: Json | null
+          description: string | null
+          id: string
+          is_public: boolean | null
+          name: string
+          shared_with: Json | null
+          template_id: string | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          chart_type?: string | null
+          config?: Json
+          created_at?: string | null
+          created_by: string
+          data?: Json | null
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          name: string
+          shared_with?: Json | null
+          template_id?: string | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          chart_type?: string | null
+          config?: Json
+          created_at?: string | null
+          created_by?: string
+          data?: Json | null
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          name?: string
+          shared_with?: Json | null
+          template_id?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_cadences: {
         Row: {
           created_at: string
