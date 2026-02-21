@@ -334,6 +334,90 @@ export type Database = {
           },
         ]
       }
+      category_import_logs: {
+        Row: {
+          created_at: string | null
+          errors: Json | null
+          failed_imports: number | null
+          file_name: string | null
+          id: string
+          status: string | null
+          successful_imports: number | null
+          tenant_id: string
+          total_rows: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          errors?: Json | null
+          failed_imports?: number | null
+          file_name?: string | null
+          id?: string
+          status?: string | null
+          successful_imports?: number | null
+          tenant_id: string
+          total_rows?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          errors?: Json | null
+          failed_imports?: number | null
+          file_name?: string | null
+          id?: string
+          status?: string | null
+          successful_imports?: number | null
+          tenant_id?: string
+          total_rows?: number | null
+        }
+        Relationships: []
+      }
+      category_templates: {
+        Row: {
+          allowed_variations: string[] | null
+          created_at: string | null
+          custom_fields: Json | null
+          description: string | null
+          icon: string | null
+          id: string
+          is_popular: boolean | null
+          name: string
+          niche: string | null
+          product_type: string
+          sku_required: boolean | null
+          track_inventory: boolean | null
+          usage_count: number | null
+        }
+        Insert: {
+          allowed_variations?: string[] | null
+          created_at?: string | null
+          custom_fields?: Json | null
+          description?: string | null
+          icon?: string | null
+          id: string
+          is_popular?: boolean | null
+          name: string
+          niche?: string | null
+          product_type?: string
+          sku_required?: boolean | null
+          track_inventory?: boolean | null
+          usage_count?: number | null
+        }
+        Update: {
+          allowed_variations?: string[] | null
+          created_at?: string | null
+          custom_fields?: Json | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_popular?: boolean | null
+          name?: string
+          niche?: string | null
+          product_type?: string
+          sku_required?: boolean | null
+          track_inventory?: boolean | null
+          usage_count?: number | null
+        }
+        Relationships: []
+      }
       company_settings: {
         Row: {
           address: string | null
@@ -1225,22 +1309,55 @@ export type Database = {
       }
       product_categories: {
         Row: {
+          allowed_variations: string[] | null
+          cloned_from_id: string | null
           created_at: string
+          custom_fields: Json | null
+          description: string | null
+          icon: string | null
           id: string
+          is_active: boolean | null
           name: string
+          niche: string | null
+          product_type: string | null
+          sku_required: boolean | null
+          template_id: string | null
           tenant_id: string
+          track_inventory: boolean | null
         }
         Insert: {
+          allowed_variations?: string[] | null
+          cloned_from_id?: string | null
           created_at?: string
+          custom_fields?: Json | null
+          description?: string | null
+          icon?: string | null
           id?: string
+          is_active?: boolean | null
           name: string
+          niche?: string | null
+          product_type?: string | null
+          sku_required?: boolean | null
+          template_id?: string | null
           tenant_id: string
+          track_inventory?: boolean | null
         }
         Update: {
+          allowed_variations?: string[] | null
+          cloned_from_id?: string | null
           created_at?: string
+          custom_fields?: Json | null
+          description?: string | null
+          icon?: string | null
           id?: string
+          is_active?: boolean | null
           name?: string
+          niche?: string | null
+          product_type?: string | null
+          sku_required?: boolean | null
+          template_id?: string | null
           tenant_id?: string
+          track_inventory?: boolean | null
         }
         Relationships: [
           {
