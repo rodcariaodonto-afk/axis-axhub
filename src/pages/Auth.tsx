@@ -1,4 +1,5 @@
 import { useState } from "react";
+import axisLogo from "@/assets/axis-logo.png";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,10 +68,7 @@ export default function Auth() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md border-border bg-card">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold tracking-tight">
-            <span className="text-primary">AX</span>
-            <span className="text-foreground">HUB</span>
-          </CardTitle>
+          <img src={axisLogo} alt="Axis" className="h-8 mx-auto" />
           <CardDescription className="text-muted-foreground">
             {isLogin ? "Entre na sua conta" : "Crie sua conta"}
           </CardDescription>
