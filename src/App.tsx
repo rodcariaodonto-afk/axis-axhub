@@ -22,6 +22,11 @@ import Pipeline from "./pages/Pipeline";
 import DealDetail from "./pages/DealDetail";
 import Activities from "./pages/Activities";
 import FunnelReport from "./pages/FunnelReport";
+import Contacts from "./pages/Contacts";
+import Proposals from "./pages/Proposals";
+import CrmDashboard from "./pages/CrmDashboard";
+import Cadences from "./pages/Cadences";
+import Forecasting from "./pages/Forecasting";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -59,6 +64,11 @@ const App = () => (
             <Route path="/deals/:id" element={<ProtectedRoute><DealDetail /></ProtectedRoute>} />
             <Route path="/activities" element={<ProtectedRoute><Activities /></ProtectedRoute>} />
             <Route path="/funnel-report" element={<ProtectedRoute><FunnelReport /></ProtectedRoute>} />
+            <Route path="/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
+            <Route path="/proposals" element={<ProtectedRoute><Proposals /></ProtectedRoute>} />
+            <Route path="/crm-dashboard" element={<ProtectedRoute><CrmDashboard /></ProtectedRoute>} />
+            <Route path="/cadences" element={<ProtectedRoute><Cadences /></ProtectedRoute>} />
+            <Route path="/forecasting" element={<ProtectedRoute><Forecasting /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
