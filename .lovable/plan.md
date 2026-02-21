@@ -1,167 +1,167 @@
 
 
-# Funcionalidades Criticas + Webhooks N8N
+# Modulo de Configuracoes Completo — AXHUB
 
 ## Resumo
 
-Tres blocos de trabalho:
-
-1. **Importacao/Exportacao CSV** - Importar leads via CSV e exportar leads/deals para CSV
-2. **Deduplicacao + Lead Scoring Automatico** - Detectar leads duplicados por email/telefone e aplicar regras de scoring configuraveis
-3. **Edge Function de Dispatch N8N + 16 Eventos** - Criar edge function que processa event_outbox e emitir eventos em todos os pontos criticos do CRM
+Transformar a pagina `/settings` em um modulo completo com layout de duas colunas (menu lateral esquerdo + area de conteudo a direita), contendo 8 secoes funcionais que aproveitam tabelas existentes e criam as faltantes.
 
 ---
 
-## 1. Importacao CSV de Leads
+## Tabelas Existentes (reutilizar)
 
-**Arquivo modificado:** `src/pages/Leads.tsx`
+| Tabela | Uso |
+|--------|-----|
+| `tenants` | Dados da empresa (name, cnpj, segment) |
+| `profiles` | Usuarios do tenant |
+| `user_roles` | Perfis de acesso |
+| `warehouses` | Depositos de estoque |
+| `audit_logs` | Logs de auditoria |
+| `product_custom_fields` | Campos customizados de produtos |
 
-- Botao "Importar CSV" ao lado de "Novo Lead"
-- Dialog com upload de arquivo CSV (input type="file" accept=".csv")
-- Parse do CSV no frontend usando logica nativa (split por linhas e virgulas)
-- Tela de mapeamento de colunas: o usuario seleciona qual coluna do CSV corresponde a name, email, phone, source, tags
-- Preview das primeiras 5 linhas antes de confirmar
-- Ao confirmar, inserir leads em lote via supabase insert (batch de 50)
-- Validacao: ignorar linhas sem nome, validar formato de email
-- Toast com contagem de leads importados vs ignorados
+## Novas Tabelas (criar via migracao)
 
-**Exportacao CSV (leads e deals):**
+| Tabela | Campos |
+|--------|--------|
+| `company_settings` | id, tenant_id, company_name, cnpj, address, logo_url, primary_color, secondary_color, created_at, updated_at |
+| `api_keys` | id, tenant_id, user_id, name, api_key, created_at |
+| `product_categories` | id, tenant_id, name, created_at |
+| `integrations` | id, tenant_id, platform, api_key, api_secret, webhook_url, is_active, created_at, updated_at |
 
-- Botao "Exportar CSV" na tela de Leads
-- Gera arquivo CSV no frontend com as colunas: nome, email, telefone, fonte, score, status, criado_em
-- Download automatico via `URL.createObjectURL` + link click
-- Mesmo padrao na tela de Pipeline para exportar deals (nome, valor, estagio, status, data_prevista)
-
----
-
-## 2. Deduplicacao Automatica de Leads
-
-**Arquivo modificado:** `src/pages/Leads.tsx`
-
-- Botao "Verificar Duplicados" na barra de acoes
-- Ao clicar, busca todos os leads e agrupa por email ou telefone
-- Dialog mostrando grupos de duplicados encontrados
-- Para cada grupo: mostrar os leads duplicados lado a lado
-- Botao "Mesclar" que mantem o lead mais antigo e transfere dados faltantes do mais novo
-- Ao mesclar: atualizar deals/activities que referenciam o lead excluido, depois deletar o duplicado
-- Toast com contagem de leads mesclados
+Todas com RLS por `tenant_id = get_user_tenant_id()`.
 
 ---
 
-## 3. Lead Scoring Automatico com Regras Configuraveis
-
-**Arquivo modificado:** `src/pages/Leads.tsx`
-
-- Botao "Regras de Score" que abre dialog de configuracao
-- CRUD de regras usando tabela `lead_scoring_rules` (ja existe)
-- Cada regra tem: criteria (texto descritivo como "source=website", "has_email", "has_phone"), points (inteiro), is_active (boolean)
-- Regras pre-definidas sugeridas:
-  - `has_email` = +10 pontos
-  - `has_phone` = +10 pontos
-  - `source=website` = +20 pontos
-  - `source=referral` = +15 pontos
-  - `status=contacted` = +5 pontos
-  - `status=qualified` = +25 pontos
-- Botao "Recalcular Scores" que aplica todas as regras ativas a todos os leads
-- A logica de scoring roda no frontend: para cada lead, soma pontos das regras que se aplicam
-- Atualiza score de cada lead via batch update
-
----
-
-## 4. Edge Function de Dispatch N8N
-
-**Novo arquivo:** `supabase/functions/dispatch-events/index.ts`
-
-- Edge function que processa eventos pendentes na tabela `event_outbox`
-- Busca eventos com `status = 'pending'` e `retry_count < 5`
-- Para cada evento, envia POST para URL configuravel (secret `N8N_WEBHOOK_URL`)
-- Headers: `Content-Type: application/json`, `X-Tenant-ID: {tenant_id}`, `Authorization: Bearer {N8N_TOKEN}` (secret)
-- Payload padronizado: `{ event: event_name, timestamp, tenant_id, actor_user_id, data: payload }`
-- Se sucesso (2xx): atualiza status para `processed`, seta `processed_at`
-- Se falha: incrementa `retry_count`, mantem `pending`
-- Apos 5 tentativas: muda status para `failed`
-
-**Emissao dos 16 eventos no frontend:**
-
-Criar helper `src/lib/emitEvent.ts`:
+## Estrutura de Arquivos
 
 ```text
-async function emitEvent(eventName: string, payload: Record<string, any>)
-  - Busca tenant_id e user_id do profile
-  - Insere em event_outbox: { tenant_id, event_name, payload, actor_user_id }
+src/pages/settings/
+  SettingsLayout.tsx       -- Layout duas colunas com menu lateral
+  CompanyGeneral.tsx       -- Dados da empresa (company_settings + tenants)
+  UsersManagement.tsx      -- Lista de usuarios, convite, edicao de perfil
+  ApiKeysManagement.tsx    -- CRUD de chaves de API
+  CustomFieldsSettings.tsx -- Campos customizados (product_custom_fields)
+  AuditLogsView.tsx        -- Visualizacao de audit_logs com filtros
+  ProductCategories.tsx    -- CRUD de categorias de produtos
+  WarehousesSettings.tsx   -- CRUD de depositos (warehouses existente)
+  IntegrationsSettings.tsx -- CRUD de integracoes externas
 ```
 
-Pontos de emissao (arquivos modificados):
-
-| Evento | Arquivo | Momento |
-|--------|---------|---------|
-| `lead.created` | Leads.tsx | Apos insert de lead |
-| `lead.scored` | Leads.tsx | Apos recalcular scores |
-| `lead.status_changed` | Leads.tsx | Apos converter lead (status -> converted) |
-| `deal.created` | Pipeline.tsx | Apos insert de deal |
-| `deal.stage_changed` | Pipeline.tsx / DealDetail.tsx | Apos drag-drop ou changeStage |
-| `deal.won` | DealDetail.tsx | Apos markWon |
-| `deal.lost` | DealDetail.tsx | Apos markLost |
-| `activity.created` | Activities.tsx / DealDetail.tsx | Apos insert de atividade |
-| `activity.completed` | Activities.tsx / DealDetail.tsx | Apos marcar done_at |
-| `proposal.created` | Proposals.tsx | Apos insert de proposta |
-| `proposal.sent` | Proposals.tsx | Apos mudar status para sent |
-| `proposal.approved` | Proposals.tsx | Apos mudar status para accepted |
-| `proposal.rejected` | Proposals.tsx | Apos mudar status para rejected |
-| `message.inbound` | (preparado na funcao, disparado via N8N) | Quando mensagem inbound chega |
-| `cadence.started` | Cadences.tsx | Apos ativar cadencia |
-| `cadence.completed` | Cadences.tsx | Apos desativar cadencia |
+A pagina `src/pages/Settings.tsx` sera reescrita para importar `SettingsLayout` e renderizar as sub-paginas via tabs ou state interno (sem sub-rotas, tudo em uma unica rota `/settings`).
 
 ---
 
-## Detalhes Tecnicos
+## Detalhamento das Secoes
 
-### Novo arquivo: `src/lib/emitEvent.ts`
+### 1. Empresa > Geral (`CompanyGeneral.tsx`)
+- Formulario com react-hook-form: nome, CNPJ, endereco
+- Upsert em `company_settings` (cria se nao existe, atualiza se existe)
+- Registra em `audit_logs` ao salvar
 
-Helper reutilizavel que todas as paginas importam para registrar eventos no event_outbox.
+### 2. Sistema > Usuarios (`UsersManagement.tsx`)
+- Tabela listando `profiles` do tenant com coluna de role (join com `user_roles`)
+- Botao "Convidar Usuario" — modal com email + selecao de perfil (admin, vendas, financeiro, operacao, contabilidade, leitura)
+- Convite via `supabase.auth.admin.createUser` nao e possivel no frontend; alternativa: gerar link de convite ou simplesmente registrar o email e role para quando o usuario se cadastrar
+- Edicao de role inline ou via modal
+- Apenas admins podem acessar
 
-### Novo arquivo: `supabase/functions/dispatch-events/index.ts`
+### 3. Sistema > Chaves de API (`ApiKeysManagement.tsx`)
+- Tabela listando `api_keys` do tenant
+- Botao "Gerar Nova Chave" — gera UUID como chave, mostra uma unica vez
+- Botao excluir chave
+- Registra em `audit_logs`
 
-Edge function com:
-- CORS headers padrao
-- Busca batch de ate 20 eventos pendentes
-- Loop de envio com try/catch individual
-- Retry com backoff (retry_count usado para controle)
-- Secrets necessarios: `N8N_WEBHOOK_URL` e `N8N_TOKEN`
+### 4. Sistema > Campos Customizados (`CustomFieldsSettings.tsx`)
+- Reutiliza `product_custom_fields` existente
+- Tabela com field_name, field_type, is_required, options
+- Modal para criar/editar campo
+- Registra em `audit_logs`
 
-### Atualizacao do `supabase/config.toml`
+### 5. Sistema > Logs de Auditoria (`AuditLogsView.tsx`)
+- Tabela readonly listando `audit_logs` do tenant
+- Filtros: por entidade, por acao, por periodo
+- Paginacao (50 por pagina)
+- Sem edicao/exclusao
 
-Adicionar configuracao da nova edge function com `verify_jwt = false` (sera chamada por cron/scheduler externo).
+### 6. Cadastros > Categorias de Produtos (`ProductCategories.tsx`)
+- CRUD simples na tabela `product_categories`
+- Lista + botao "Nova Categoria" (modal)
+- Edicao inline ou modal
+- Exclusao com confirmacao
+- Registra em `audit_logs`
 
-### Arquivos modificados
+### 7. Suprimentos > Depositos (`WarehousesSettings.tsx`)
+- CRUD usando tabela `warehouses` existente
+- Lista com nome, endereco, is_default
+- Modal para criar/editar
+- Nao permitir excluir deposito padrao
+- Registra em `audit_logs`
 
-| Arquivo | Mudancas |
-|---------|----------|
-| `src/pages/Leads.tsx` | Importar CSV, exportar CSV, deduplicacao, scoring, emitir eventos |
-| `src/pages/Pipeline.tsx` | Exportar CSV, emitir deal.created e deal.stage_changed |
-| `src/pages/DealDetail.tsx` | Emitir deal.won, deal.lost, deal.stage_changed, activity.created/completed |
-| `src/pages/Activities.tsx` | Emitir activity.created e activity.completed |
-| `src/pages/Proposals.tsx` | Emitir proposal.created, proposal.sent, proposal.approved, proposal.rejected |
-| `src/pages/Cadences.tsx` | Emitir cadence.started e cadence.completed |
-| `src/lib/emitEvent.ts` | Novo - helper de emissao de eventos |
-| `supabase/functions/dispatch-events/index.ts` | Novo - edge function de dispatch |
+### 8. Integracoes (`IntegrationsSettings.tsx`)
+- CRUD na tabela `integrations`
+- Lista de integracoes com plataforma, status (ativo/inativo)
+- Modal para adicionar: selecionar plataforma (Shopify, MercadoLivre, N8N, WhatsApp API, Gmail API), inserir credenciais
+- Toggle ativo/inativo
+- Registra em `audit_logs`
 
-### Ordem de implementacao
+---
 
-1. Helper `emitEvent.ts`
-2. Edge function `dispatch-events`
-3. Leads.tsx (CSV import/export + deduplicacao + scoring + eventos)
-4. Pipeline.tsx (export + eventos)
-5. DealDetail.tsx (eventos)
-6. Activities.tsx (eventos)
-7. Proposals.tsx (eventos)
-8. Cadences.tsx (eventos)
+## Menu Lateral do Settings (SettingsLayout.tsx)
 
-### Secrets necessarios
+O menu tera as seguintes secoes:
 
-Sera solicitado ao usuario configurar:
-- `N8N_WEBHOOK_URL` - URL do webhook N8N
-- `N8N_TOKEN` - Token de autenticacao para o N8N
+```text
+EMPRESA
+  - Geral
 
-Porem a edge function funcionara sem erro mesmo sem estes secrets (simplesmente nao enviara se nao configurados). Os eventos ficam registrados no event_outbox para processamento futuro.
+SISTEMA
+  - Usuarios
+  - Chaves de API
+  - Campos Customizados
+  - Logs de Auditoria
+
+CADASTROS
+  - Categorias de Produtos
+
+SUPRIMENTOS
+  - Depositos
+
+INTEGRACOES
+  - Integracoes
+```
+
+Cada item do menu muda o conteudo a direita via estado interno (useState). O item ativo fica destacado.
+
+---
+
+## Controle de Acesso
+
+- Verificacao no componente `Settings.tsx`: se o usuario nao tem role `admin`, exibir mensagem "Acesso restrito a administradores" e nao renderizar o modulo
+- Usar `has_role` function existente via query em `user_roles`
+
+---
+
+## Migracao SQL
+
+Uma unica migracao criando:
+1. `company_settings` com RLS
+2. `api_keys` com RLS
+3. `product_categories` com RLS
+4. `integrations` com RLS
+
+---
+
+## Ordem de Implementacao
+
+1. Migracao SQL (4 novas tabelas)
+2. `SettingsLayout.tsx` (layout duas colunas + menu)
+3. `Settings.tsx` (reescrever para usar SettingsLayout)
+4. `CompanyGeneral.tsx`
+5. `UsersManagement.tsx`
+6. `ApiKeysManagement.tsx`
+7. `CustomFieldsSettings.tsx`
+8. `AuditLogsView.tsx`
+9. `ProductCategories.tsx`
+10. `WarehousesSettings.tsx`
+11. `IntegrationsSettings.tsx`
 
