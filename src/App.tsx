@@ -17,6 +17,10 @@ import Receivables from "./pages/Receivables";
 import Payables from "./pages/Payables";
 import BankAccounts from "./pages/BankAccounts";
 import Finance from "./pages/Finance";
+import Leads from "./pages/Leads";
+import Pipeline from "./pages/Pipeline";
+import DealDetail from "./pages/DealDetail";
+import Activities from "./pages/Activities";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -24,13 +28,7 @@ const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-background"><div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
   if (!user) return <Navigate to="/auth" replace />;
   return <AppLayout>{children}</AppLayout>;
 }
@@ -55,6 +53,10 @@ const App = () => (
             <Route path="/payables" element={<ProtectedRoute><Payables /></ProtectedRoute>} />
             <Route path="/bank-accounts" element={<ProtectedRoute><BankAccounts /></ProtectedRoute>} />
             <Route path="/finance" element={<ProtectedRoute><Finance /></ProtectedRoute>} />
+            <Route path="/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
+            <Route path="/pipeline" element={<ProtectedRoute><Pipeline /></ProtectedRoute>} />
+            <Route path="/deals/:id" element={<ProtectedRoute><DealDetail /></ProtectedRoute>} />
+            <Route path="/activities" element={<ProtectedRoute><Activities /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
