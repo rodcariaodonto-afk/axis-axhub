@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Copy, Check, Webhook } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 
 const PLATFORMS = ["Shopify", "MercadoLivre", "N8N", "WhatsApp API", "Gmail API"];
 
@@ -24,6 +25,15 @@ export default function IntegrationsSettings() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<IntForm>(emptyForm);
+  const [copied, setCopied] = useState(false);
+
+  const webhookUrl = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/whatsapp-webhook`;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(webhookUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const { data: tenantId } = useQuery({
     queryKey: ["my-tenant-id"],
@@ -87,6 +97,45 @@ export default function IntegrationsSettings() {
   });
 
   return (
+    <div className="space-y-6">
+      {/* WhatsApp Webhook Info */}
+      <Card className="border-border bg-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Webhook className="h-5 w-5 text-primary" />
+            Webhook WhatsApp (N8N)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">URL do Webhook</Label>
+            <div className="flex items-center gap-2">
+              <Input value={webhookUrl} readOnly className="font-mono text-xs" />
+              <Button variant="outline" size="icon" onClick={handleCopy}>
+                {copied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+          <Separator />
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <p className="font-medium text-foreground">Como configurar no N8N:</p>
+            <ol className="list-decimal list-inside space-y-2">
+              <li><strong>Trigger:</strong> Adicione o nó de webhook do WhatsApp para receber mensagens.</li>
+              <li>
+                <strong>HTTP Request:</strong> Faça um POST para a URL acima com:
+                <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
+                  <li>Header: <code className="bg-muted px-1 rounded">x-n8n-signature: &lt;sua_chave_secreta&gt;</code></li>
+                  <li>Body JSON: <code className="bg-muted px-1 rounded">{"{ phone, message, tenant_id }"}</code></li>
+                </ul>
+              </li>
+              <li><strong>WhatsApp node:</strong> Envie a resposta formatada de volta ao usuário.</li>
+            </ol>
+            <p className="mt-2">A busca é feita por <strong>nome</strong> e <strong>SKU</strong> do produto. Retorna até 5 resultados.</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Integrations Table */}
     <Card className="border-border bg-card">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Integrações</CardTitle>
@@ -115,6 +164,8 @@ export default function IntegrationsSettings() {
           </TableBody>
         </Table>
       </CardContent>
+
+    </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
@@ -145,6 +196,6 @@ export default function IntegrationsSettings() {
           <DialogFooter><Button onClick={() => create.mutate()} disabled={!form.platform || create.isPending}>{create.isPending ? "Salvando..." : "Adicionar"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+    </div>
   );
 }
