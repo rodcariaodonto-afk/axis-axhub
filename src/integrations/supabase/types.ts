@@ -841,6 +841,56 @@ export type Database = {
           },
         ]
       }
+      documentation_faqs: {
+        Row: {
+          answer: string
+          category: string
+          created_at: string | null
+          created_by: string
+          id: string
+          is_published: boolean | null
+          niche: string
+          order_index: number | null
+          question: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          answer: string
+          category?: string
+          created_at?: string | null
+          created_by: string
+          id?: string
+          is_published?: boolean | null
+          niche?: string
+          order_index?: number | null
+          question: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          answer?: string
+          category?: string
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          is_published?: boolean | null
+          niche?: string
+          order_index?: number | null
+          question?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentation_faqs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documentation_feedback: {
         Row: {
           comment: string | null
@@ -939,6 +989,65 @@ export type Database = {
           },
           {
             foreignKeyName: "documentation_translations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documentation_videos: {
+        Row: {
+          category: string
+          created_at: string | null
+          created_by: string
+          description: string | null
+          duration_seconds: number | null
+          id: string
+          is_published: boolean | null
+          niche: string
+          order_index: number | null
+          tenant_id: string
+          thumbnail_url: string | null
+          title: string
+          updated_at: string | null
+          video_url: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          duration_seconds?: number | null
+          id?: string
+          is_published?: boolean | null
+          niche?: string
+          order_index?: number | null
+          tenant_id: string
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string | null
+          video_url: string
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          duration_seconds?: number | null
+          id?: string
+          is_published?: boolean | null
+          niche?: string
+          order_index?: number | null
+          tenant_id?: string
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string | null
+          video_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentation_videos_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1466,6 +1575,51 @@ export type Database = {
           },
         ]
       }
+      notification_logs: {
+        Row: {
+          channel: string
+          error_message: string | null
+          id: string
+          notification_id: string
+          sent_at: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          channel?: string
+          error_message?: string | null
+          id?: string
+          notification_id: string
+          sent_at?: string
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          channel?: string
+          error_message?: string | null
+          id?: string
+          notification_id?: string
+          sent_at?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_logs_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_preferences: {
         Row: {
           created_at: string | null
@@ -1919,6 +2073,57 @@ export type Database = {
           },
         ]
       }
+      product_channels: {
+        Row: {
+          channel_name: string
+          channel_sku: string | null
+          channel_url: string | null
+          created_at: string
+          id: string
+          last_sync: string | null
+          product_id: string
+          sync_enabled: boolean
+          tenant_id: string
+        }
+        Insert: {
+          channel_name: string
+          channel_sku?: string | null
+          channel_url?: string | null
+          created_at?: string
+          id?: string
+          last_sync?: string | null
+          product_id: string
+          sync_enabled?: boolean
+          tenant_id: string
+        }
+        Update: {
+          channel_name?: string
+          channel_sku?: string | null
+          channel_url?: string | null
+          created_at?: string
+          id?: string
+          last_sync?: string | null
+          product_id?: string
+          sync_enabled?: boolean
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_channels_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_channels_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_custom_fields: {
         Row: {
           created_at: string | null
@@ -2057,6 +2262,63 @@ export type Database = {
             columns: ["warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_variations: {
+        Row: {
+          cost: number | null
+          created_at: string
+          id: string
+          is_active: boolean
+          price: number
+          product_id: string
+          sku: string
+          stock_quantity: number
+          tenant_id: string
+          variation_name: string
+          variation_values: Json
+        }
+        Insert: {
+          cost?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          price?: number
+          product_id: string
+          sku: string
+          stock_quantity?: number
+          tenant_id: string
+          variation_name: string
+          variation_values?: Json
+        }
+        Update: {
+          cost?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          price?: number
+          product_id?: string
+          sku?: string
+          stock_quantity?: number
+          tenant_id?: string
+          variation_name?: string
+          variation_values?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_variations_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_variations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]

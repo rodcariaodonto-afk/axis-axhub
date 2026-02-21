@@ -3,14 +3,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Settings2, Trash2, Upload, ImageIcon } from "lucide-react";
+import { Plus, Search, Settings2, Trash2, ImageIcon } from "lucide-react";
+import ProductFormDynamic from "@/components/products/ProductFormDynamic";
 
 interface Product {
   id: string;
@@ -219,118 +220,20 @@ export default function Products() {
           <Button variant="outline" onClick={() => setFieldsDialogOpen(true)}>
             <Settings2 className="mr-2 h-4 w-4" />Campos
           </Button>
-          <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) { setImageFile(null); setImagePreview(null); } }}>
+          <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); }}>
             <DialogTrigger asChild>
               <Button><Plus className="mr-2 h-4 w-4" />Novo Produto</Button>
             </DialogTrigger>
-            <DialogContent className="bg-card border-border max-h-[85vh] overflow-y-auto">
+            <DialogContent className="bg-card border-border max-h-[85vh] overflow-y-auto max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Novo Produto</DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleCreate} className="space-y-4">
-                {/* Image Upload */}
-                <div className="space-y-2">
-                  <Label>Imagem do Produto</Label>
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    className="border-2 border-dashed border-border rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors min-h-[120px]"
-                  >
-                    {imagePreview ? (
-                      <img src={imagePreview} alt="Preview" className="max-h-28 rounded-md object-contain" />
-                    ) : (
-                      <>
-                        <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                        <p className="text-sm text-muted-foreground">Clique para enviar imagem</p>
-                        <p className="text-xs text-muted-foreground">PNG, JPG até 5MB</p>
-                      </>
-                    )}
-                  </div>
-                  <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
-                  {imageFile && (
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{imageFile.name}</span>
-                      <Button type="button" variant="ghost" size="sm" onClick={() => { setImageFile(null); setImagePreview(null); }}>Remover</Button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>SKU</Label>
-                    <Input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Tipo</Label>
-                    <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="product">Produto</SelectItem>
-                        <SelectItem value="service">Serviço</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Nome</Label>
-                  <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-                </div>
-                <div className="space-y-2">
-                  <Label>Categoria</Label>
-                  <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v === "none" ? "" : v })}>
-                    <SelectTrigger><SelectValue placeholder="Selecione a categoria" /></SelectTrigger>
-                    <SelectContent className="max-h-60">
-                      <SelectItem value="none">Nenhuma</SelectItem>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Preço</Label>
-                    <Input type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Custo</Label>
-                    <Input type="number" step="0.01" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} />
-                  </div>
-                </div>
-
-                {/* Dynamic custom fields */}
-                {customFields.length > 0 && (
-                  <div className="space-y-3 pt-2 border-t border-border">
-                    <p className="text-sm font-medium text-muted-foreground">Campos Personalizados</p>
-                    {customFields.map((field) => (
-                      <div key={field.id} className="space-y-1">
-                        <Label>{field.field_name}{field.is_required && " *"}</Label>
-                        {field.field_type === "select" ? (
-                          <Select value={customValues[field.id] || ""} onValueChange={(v) => setCustomValues({ ...customValues, [field.id]: v })}>
-                            <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                            <SelectContent>
-                              {field.options.map((opt) => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        ) : field.field_type === "boolean" ? (
-                          <div className="flex items-center gap-2">
-                            <Switch checked={customValues[field.id] === "true"} onCheckedChange={(v) => setCustomValues({ ...customValues, [field.id]: v ? "true" : "false" })} />
-                            <span className="text-sm text-muted-foreground">{customValues[field.id] === "true" ? "Sim" : "Não"}</span>
-                          </div>
-                        ) : (
-                          <Input
-                            type={field.field_type === "number" ? "number" : "text"}
-                            value={customValues[field.id] || ""}
-                            onChange={(e) => setCustomValues({ ...customValues, [field.id]: e.target.value })}
-                            required={field.is_required}
-                          />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <Button type="submit" className="w-full" disabled={uploading}>{uploading ? "Criando..." : "Criar Produto"}</Button>
-              </form>
+              <ProductFormDynamic
+                categories={categories}
+                customFields={customFields}
+                onSuccess={() => { fetchProducts(); fetchAllCustomValues(); }}
+                onClose={() => setDialogOpen(false)}
+              />
             </DialogContent>
           </Dialog>
         </div>
