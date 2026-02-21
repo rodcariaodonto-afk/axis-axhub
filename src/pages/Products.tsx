@@ -46,6 +46,7 @@ export default function Products() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [categories, setCategories] = useState<{id: string, name: string}[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Field management
   const [newFieldName, setNewFieldName] = useState("");
@@ -79,10 +80,16 @@ export default function Products() {
     setProductCustomValues(map);
   };
 
+  const fetchCategories = async () => {
+    const { data } = await supabase.from("product_categories").select("id, name").order("name");
+    setCategories((data as {id: string, name: string}[]) || []);
+  };
+
   useEffect(() => {
     fetchProducts();
     fetchCustomFields();
     fetchAllCustomValues();
+    fetchCategories();
   }, []);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -269,7 +276,15 @@ export default function Products() {
                 </div>
                 <div className="space-y-2">
                   <Label>Categoria</Label>
-                  <Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
+                  <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v === "none" ? "" : v })}>
+                    <SelectTrigger><SelectValue placeholder="Selecione a categoria" /></SelectTrigger>
+                    <SelectContent className="max-h-60">
+                      <SelectItem value="none">Nenhuma</SelectItem>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
