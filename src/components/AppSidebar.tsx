@@ -2,7 +2,7 @@ import axisLogo from "@/assets/axis-logo.png";
 import {
   LayoutDashboard, Package, Warehouse, ShoppingCart, Users, Truck,
   Banknote, Building2, ArrowDownCircle, ArrowUpCircle, LogOut, Settings,
-  UserPlus, Kanban, CalendarCheck, BarChart3, Contact, FileText, Gauge, Zap, TrendingUp, BookOpen, FileBarChart,
+  UserPlus, Kanban, CalendarCheck, BarChart3, Contact, FileText, Gauge, Zap, TrendingUp, BookOpen, FileBarChart, GitBranch,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -39,6 +39,7 @@ const crmItems = [
   { title: "Funil", url: "/funnel-report", icon: BarChart3 },
   { title: "Forecasting", url: "/forecasting", icon: TrendingUp },
   { title: "Relatórios", url: "/reports", icon: FileBarChart },
+  { title: "Workflows", url: "/workflows", icon: GitBranch },
 ];
 
 export function AppSidebar() {

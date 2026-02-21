@@ -34,6 +34,7 @@ import Documentation from "./pages/Documentation";
 import DocumentationArticle from "./pages/DocumentationArticle";
 import DocumentationAdmin from "./pages/DocumentationAdmin";
 import Settings from "./pages/Settings";
+import Workflows from "./pages/Workflows";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -81,6 +82,7 @@ const App = () => (
             <Route path="/documentation/:slug" element={<ProtectedRoute><DocumentationArticle /></ProtectedRoute>} />
             <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
             <Route path="/notification-preferences" element={<ProtectedRoute><NotificationPreferences /></ProtectedRoute>} />
+            <Route path="/workflows" element={<ProtectedRoute><Workflows /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
