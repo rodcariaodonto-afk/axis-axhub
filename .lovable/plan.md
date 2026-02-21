@@ -1,167 +1,132 @@
 
 
-# Modulo de Configuracoes Completo — AXHUB
+# Integracao Nativa N8N - Endpoint WhatsApp no AXHUB
 
 ## Resumo
 
-Transformar a pagina `/settings` em um modulo completo com layout de duas colunas (menu lateral esquerdo + area de conteudo a direita), contendo 8 secoes funcionais que aproveitam tabelas existentes e criam as faltantes.
+Criar uma edge function `whatsapp-webhook` que recebe webhooks do N8N com mensagens de WhatsApp, busca produtos no banco de dados, e retorna os dados formatados para o N8N reenviar via WhatsApp.
+
+**Nota importante:** Este projeto usa Vite + React (nao Next.js), entao nao e possivel usar `pages/api/`. A solucao sera uma **backend function** (edge function) que faz exatamente o mesmo papel.
 
 ---
 
-## Tabelas Existentes (reutilizar)
-
-| Tabela | Uso |
-|--------|-----|
-| `tenants` | Dados da empresa (name, cnpj, segment) |
-| `profiles` | Usuarios do tenant |
-| `user_roles` | Perfis de acesso |
-| `warehouses` | Depositos de estoque |
-| `audit_logs` | Logs de auditoria |
-| `product_custom_fields` | Campos customizados de produtos |
-
-## Novas Tabelas (criar via migracao)
-
-| Tabela | Campos |
-|--------|--------|
-| `company_settings` | id, tenant_id, company_name, cnpj, address, logo_url, primary_color, secondary_color, created_at, updated_at |
-| `api_keys` | id, tenant_id, user_id, name, api_key, created_at |
-| `product_categories` | id, tenant_id, name, created_at |
-| `integrations` | id, tenant_id, platform, api_key, api_secret, webhook_url, is_active, created_at, updated_at |
-
-Todas com RLS por `tenant_id = get_user_tenant_id()`.
-
----
-
-## Estrutura de Arquivos
+## Arquitetura
 
 ```text
-src/pages/settings/
-  SettingsLayout.tsx       -- Layout duas colunas com menu lateral
-  CompanyGeneral.tsx       -- Dados da empresa (company_settings + tenants)
-  UsersManagement.tsx      -- Lista de usuarios, convite, edicao de perfil
-  ApiKeysManagement.tsx    -- CRUD de chaves de API
-  CustomFieldsSettings.tsx -- Campos customizados (product_custom_fields)
-  AuditLogsView.tsx        -- Visualizacao de audit_logs com filtros
-  ProductCategories.tsx    -- CRUD de categorias de produtos
-  WarehousesSettings.tsx   -- CRUD de depositos (warehouses existente)
-  IntegrationsSettings.tsx -- CRUD de integracoes externas
+WhatsApp -> N8N -> Edge Function (whatsapp-webhook) -> Busca no DB -> Resposta JSON -> N8N -> WhatsApp
 ```
 
-A pagina `src/pages/Settings.tsx` sera reescrita para importar `SettingsLayout` e renderizar as sub-paginas via tabs ou state interno (sem sub-rotas, tudo em uma unica rota `/settings`).
+---
+
+## 1. Secret necessario
+
+| Secret | Descricao |
+|--------|-----------|
+| `N8N_SIGNATURE` | Chave secreta compartilhada entre N8N e AXHUB para validar webhooks |
+
+O `N8N_TOKEN` ja existe mas e usado para chamadas de saida. O `N8N_SIGNATURE` sera usado para validar chamadas de entrada.
 
 ---
 
-## Detalhamento das Secoes
+## 2. Edge Function: `supabase/functions/whatsapp-webhook/index.ts`
 
-### 1. Empresa > Geral (`CompanyGeneral.tsx`)
-- Formulario com react-hook-form: nome, CNPJ, endereco
-- Upsert em `company_settings` (cria se nao existe, atualiza se existe)
-- Registra em `audit_logs` ao salvar
+A funcao ira:
 
-### 2. Sistema > Usuarios (`UsersManagement.tsx`)
-- Tabela listando `profiles` do tenant com coluna de role (join com `user_roles`)
-- Botao "Convidar Usuario" — modal com email + selecao de perfil (admin, vendas, financeiro, operacao, contabilidade, leitura)
-- Convite via `supabase.auth.admin.createUser` nao e possivel no frontend; alternativa: gerar link de convite ou simplesmente registrar o email e role para quando o usuario se cadastrar
-- Edicao de role inline ou via modal
-- Apenas admins podem acessar
+1. **Validar seguranca**: Verificar header `X-N8N-Signature` contra o secret `N8N_SIGNATURE`
+2. **Receber payload**: Esperar JSON com `{ phone, message, tenant_id }`
+   - `tenant_id` e necessario para buscar produtos do tenant correto (multi-tenant)
+3. **Extrair termo de busca**: Limpar a mensagem para extrair o nome/termo do produto
+4. **Buscar no banco**: Query na tabela `products` usando `ilike` no campo `name` filtrado por `tenant_id`
+5. **Retornar resposta formatada**:
+   - Se encontrado: `{ phone, product_name, product_description, product_price, product_image_url }`
+   - Se nao encontrado: `{ phone, error: "Produto nao encontrado" }`
+   - Se multiplos: retorna lista dos primeiros 5 resultados
 
-### 3. Sistema > Chaves de API (`ApiKeysManagement.tsx`)
-- Tabela listando `api_keys` do tenant
-- Botao "Gerar Nova Chave" — gera UUID como chave, mostra uma unica vez
-- Botao excluir chave
-- Registra em `audit_logs`
+### Detalhes tecnicos
 
-### 4. Sistema > Campos Customizados (`CustomFieldsSettings.tsx`)
-- Reutiliza `product_custom_fields` existente
-- Tabela com field_name, field_type, is_required, options
-- Modal para criar/editar campo
-- Registra em `audit_logs`
-
-### 5. Sistema > Logs de Auditoria (`AuditLogsView.tsx`)
-- Tabela readonly listando `audit_logs` do tenant
-- Filtros: por entidade, por acao, por periodo
-- Paginacao (50 por pagina)
-- Sem edicao/exclusao
-
-### 6. Cadastros > Categorias de Produtos (`ProductCategories.tsx`)
-- CRUD simples na tabela `product_categories`
-- Lista + botao "Nova Categoria" (modal)
-- Edicao inline ou modal
-- Exclusao com confirmacao
-- Registra em `audit_logs`
-
-### 7. Suprimentos > Depositos (`WarehousesSettings.tsx`)
-- CRUD usando tabela `warehouses` existente
-- Lista com nome, endereco, is_default
-- Modal para criar/editar
-- Nao permitir excluir deposito padrao
-- Registra em `audit_logs`
-
-### 8. Integracoes (`IntegrationsSettings.tsx`)
-- CRUD na tabela `integrations`
-- Lista de integracoes com plataforma, status (ativo/inativo)
-- Modal para adicionar: selecionar plataforma (Shopify, MercadoLivre, N8N, WhatsApp API, Gmail API), inserir credenciais
-- Toggle ativo/inativo
-- Registra em `audit_logs`
+- Usa `SUPABASE_SERVICE_ROLE_KEY` para bypass de RLS (a requisicao vem do N8N, nao de um usuario autenticado)
+- JWT verification desabilitado no `config.toml` (webhook externo, validacao via signature)
+- CORS headers incluidos para compatibilidade
+- Validacao de input: phone e message obrigatorios, limite de tamanho
 
 ---
 
-## Menu Lateral do Settings (SettingsLayout.tsx)
+## 3. Configuracao no `supabase/config.toml`
 
-O menu tera as seguintes secoes:
+Adicionar entrada para desabilitar JWT na funcao (webhook externo):
 
-```text
-EMPRESA
-  - Geral
-
-SISTEMA
-  - Usuarios
-  - Chaves de API
-  - Campos Customizados
-  - Logs de Auditoria
-
-CADASTROS
-  - Categorias de Produtos
-
-SUPRIMENTOS
-  - Depositos
-
-INTEGRACOES
-  - Integracoes
+```toml
+[functions.whatsapp-webhook]
+verify_jwt = false
 ```
 
-Cada item do menu muda o conteudo a direita via estado interno (useState). O item ativo fica destacado.
+---
+
+## 4. Payload esperado do N8N
+
+```json
+{
+  "phone": "5511999999999",
+  "message": "Quero ver o produto Camiseta Azul",
+  "tenant_id": "uuid-do-tenant"
+}
+```
+
+O `tenant_id` precisa ser enviado pelo N8N porque a requisicao nao tem usuario autenticado. Alternativa: o N8N pode enviar um `api_key` da tabela `api_keys` e a funcao resolve o tenant a partir dela.
 
 ---
 
-## Controle de Acesso
+## 5. Resposta retornada ao N8N
 
-- Verificacao no componente `Settings.tsx`: se o usuario nao tem role `admin`, exibir mensagem "Acesso restrito a administradores" e nao renderizar o modulo
-- Usar `has_role` function existente via query em `user_roles`
+**Produto encontrado (unico):**
+```json
+{
+  "phone": "5511999999999",
+  "found": true,
+  "product": {
+    "name": "Camiseta Azul",
+    "description": "Camiseta 100% algodao",
+    "price": 59.90,
+    "image_url": "https://..."
+  }
+}
+```
+
+**Multiplos produtos encontrados:**
+```json
+{
+  "phone": "5511999999999",
+  "found": true,
+  "products": [...]
+}
+```
+
+**Nenhum produto:**
+```json
+{
+  "phone": "5511999999999",
+  "found": false,
+  "message": "Nenhum produto encontrado para 'Camiseta Azul'"
+}
+```
 
 ---
 
-## Migracao SQL
+## 6. Ordem de Implementacao
 
-Uma unica migracao criando:
-1. `company_settings` com RLS
-2. `api_keys` com RLS
-3. `product_categories` com RLS
-4. `integrations` com RLS
+1. Solicitar o secret `N8N_SIGNATURE` ao usuario
+2. Criar a edge function `supabase/functions/whatsapp-webhook/index.ts`
+3. Atualizar `supabase/config.toml` para desabilitar JWT na funcao (nota: este arquivo e gerenciado automaticamente, entao a configuracao sera feita via codigo da funcao)
+4. Testar o endpoint com curl
+5. Documentar no chat como configurar o workflow no N8N
 
 ---
 
-## Ordem de Implementacao
+## 7. Como usar no N8N
 
-1. Migracao SQL (4 novas tabelas)
-2. `SettingsLayout.tsx` (layout duas colunas + menu)
-3. `Settings.tsx` (reescrever para usar SettingsLayout)
-4. `CompanyGeneral.tsx`
-5. `UsersManagement.tsx`
-6. `ApiKeysManagement.tsx`
-7. `CustomFieldsSettings.tsx`
-8. `AuditLogsView.tsx`
-9. `ProductCategories.tsx`
-10. `WarehousesSettings.tsx`
-11. `IntegrationsSettings.tsx`
+O usuario devera configurar no N8N:
+
+1. **Trigger**: Webhook do WhatsApp (recebe mensagem)
+2. **HTTP Request node**: POST para `https://dgybxarkvmaajfeesqdv.supabase.co/functions/v1/whatsapp-webhook` com headers `X-N8N-Signature` e body com phone + message + tenant_id
+3. **WhatsApp node**: Envia a resposta formatada de volta ao usuario
 
