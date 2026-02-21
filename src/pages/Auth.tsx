@@ -68,7 +68,7 @@ export default function Auth() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md border-border bg-card">
         <CardHeader className="text-center">
-          <img src={axisLogo} alt="Axis" className="h-8 mx-auto" />
+          <img src={axisLogo} alt="Axis" className="h-12 mx-auto" />
           <CardDescription className="text-muted-foreground">
             {isLogin ? "Entre na sua conta" : "Crie sua conta"}
           </CardDescription>

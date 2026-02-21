@@ -66,7 +66,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
-          <img src={axisLogo} alt="Axis" className="h-7" />
+          <img src={axisLogo} alt="Axis" className="h-10" />
         </div>
       </SidebarHeader>
       <SidebarSeparator />
