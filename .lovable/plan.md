@@ -1,191 +1,119 @@
 
 
-# Implementacao Completa - Itens Pendentes do Documento
+# Gap Analysis: Documento vs Implementacao Atual
 
-## Resumo dos Gaps Identificados
+## Resumo dos Gaps Encontrados
 
-| Item | Area | Status Atual | O que Falta |
-|------|------|-------------|-------------|
-| 7 | Auditoria & Governanca | Parcial | Visualizacao de before/after JSON, mais entidades no filtro |
-| 6 | Workflows | Base pronta | 15+ templates pre-construidos (Lead Nurturing, Follow-up, Cobranca, etc) |
-| 5 | Notificacoes | In-App OK | Mais tipos de notificacao (lead qualificado, proposta aceita/rejeitada, pedido enviado, etc) |
-| 4 | Relatorios | CSV/PDF OK | Exportacao Excel (XLSX), funcionalidade de agendamento de relatorios |
-| 2 | Integracoes | 10 conectores | Expandir catalogo para 25+ conectores (MS Teams, Calendly, SendGrid, Twilio, etc) |
-| 1 | Documentacao | Arquitetura OK | Conteudo real: guias por nicho, FAQ, glossario (seed de dados) |
-
-## Item 7 - Auditoria & Governanca
-
-### Melhorias no AuditLogsView
-
-- Adicionar linhas expansiveis que mostram o JSON `before_json` e `after_json` formatado (diff visual)
-- Adicionar mais entidades no filtro (leads, deals, orders, customers, workflows, notifications)
-- Adicionar filtro por data (range picker)
-- Mostrar nome do usuario ao inves de apenas UUID (join com profiles)
-- Adicionar exportacao CSV dos logs
-
-### Arquivos alterados
-- `src/pages/settings/AuditLogsView.tsx` - Reescrever com linhas expansiveis e filtros avancados
+| Feature | Doc Pede | Implementado | Gap |
+|---------|----------|-------------|-----|
+| 1. Formulario Dinamico de Produtos | Formulario que adapta campos por tipo de produto + variacoes + canais | Formulario basico estatico | **GRANDE** - Feature principal nao implementada |
+| 2. Categorias em Massa | Templates 500+, CSV import, clonagem, packs | Templates + importPack existem | Medio - Falta CSV upload e clonagem UI |
+| 3. Documentacao por Nicho | Artigos + Videos + FAQs separados | Artigos seedados, tabela unica | Medio - Falta tabelas videos/faqs |
+| 4. 50+ Integracoes | 50+ conectores em 8 categorias | 27 conectores em 7 categorias | **GRANDE** - Faltam ~25 conectores |
+| 5. Relatorios Avancados | 20+ templates, 6 formatos export | 20 templates, 3 formatos (CSV/Excel/PDF) | Pequeno - Falta PowerPoint export |
+| 6. Notificacoes Tempo Real | 15+ tipos, multi-canal, notification_logs | 28 tipos, in-app only | Pequeno - Falta notification_logs table |
+| 7. Workflows | Builder visual, 20+ triggers, 30+ acoes | Builder + 15 templates | Pequeno - Ja funcional |
 
 ---
 
-## Item 6 - Workflow Templates Pre-construidos
+## PRIORIDADE 1: Formulario Dinamico de Produtos (Gap Maior)
 
-### Criar 15 templates prontos para uso
+### O que falta
 
-Os templates serao constantes no frontend que pre-populam o builder com nodes e edges ja configurados:
+O documento pede um formulario de produto que muda dinamicamente conforme o tipo de produto selecionado (service, simple_product, variable_product, ecommerce, physical_store, multi_channel). Hoje o formulario e estatico.
 
-**Vendas (5):**
-1. Lead Nurturing - Trigger: lead.created -> Condicao: score > 50 -> Acao: criar notificacao + criar atividade de follow-up
-2. Follow-up Automatico - Trigger: deal.stage_changed -> Acao: criar atividade de ligacao
-3. Fechamento de Deal - Trigger: deal.won -> Acao: criar notificacao + criar tarefa de onboarding
-4. Perda de Oportunidade - Trigger: deal.lost -> Acao: criar notificacao + adicionar tag "perdido"
-5. Qualificacao de Lead - Trigger: lead.updated -> Condicao: score > 80 -> Acao: atualizar status para "qualified"
+### Tabelas novas necessarias
 
-**Operacoes (4):**
-6. Novo Pedido - Trigger: order.created -> Acao: criar notificacao + criar tarefa
-7. Pedido Pago - Trigger: order.paid -> Acao: criar notificacao
-8. Novo Cliente - Trigger: customer.created -> Acao: criar notificacao de boas-vindas + criar atividade
-9. Alerta de Integracao - Trigger: manual -> Acao: enviar webhook
+1. **product_variations** - Para produtos com variacoes (tamanho, cor, etc)
+   - product_id, sku, variation_name, variation_values (jsonb), price, cost, stock_quantity
 
-**Financeiro (3):**
-10. Cobranca Automatica - Trigger: manual -> Acao: criar notificacao de cobranca
-11. Alerta Financeiro - Trigger: order.paid -> Acao: criar notificacao para financeiro
-12. Reconciliacao - Trigger: order.paid -> Condicao: campo igual -> Acao: criar tarefa
+2. **product_channels** - Para produtos multi-canal
+   - product_id, channel_name, channel_sku, channel_url, sync_enabled, last_sync
 
-**Marketing (3):**
-13. Segmentacao de Lead - Trigger: lead.created -> Condicao: campo contem -> Acao: adicionar tag
-14. Reengajamento - Trigger: manual -> Acao: criar atividade + criar notificacao
-15. Campanha Follow-up - Trigger: lead.updated -> Condicao: campo nao vazio -> Acao: criar atividade
+### Componentes a criar
 
-### Arquivos alterados/criados
-- `src/components/workflows/workflowTemplates.ts` - Novo arquivo com 15 templates
-- `src/components/workflows/WorkflowList.tsx` - Adicionar botao "Criar a partir de template" com modal de selecao
-- `src/components/workflows/WorkflowTemplateSelector.tsx` - Novo componente modal para escolher template
+1. **src/components/products/ProductFormDynamic.tsx** - Formulario que adapta campos visiveis com base na categoria/tipo selecionado
+2. **src/components/products/VariationSelector.tsx** - Componente para selecionar variacoes (tamanho, cor, voltagem, sabor)
+3. **src/components/products/VariationPreview.tsx** - Preview das combinacoes de SKU geradas
+4. **src/components/products/ChannelSelector.tsx** - Seletor de canais (e-commerce, loja fisica, marketplace)
+5. **src/lib/productUtils.ts** - Funcoes generateSKU() e generateVariations()
+
+### Alteracoes
+
+- **src/pages/Products.tsx** - Substituir formulario atual pelo ProductFormDynamic
+- A tabela `products` ja possui os campos necessarios (name, sku, price, cost, type, category, image_url)
 
 ---
 
-## Item 5 - Notificacoes Adicionais
+## PRIORIDADE 2: Expandir Integracoes para 50+
 
-### Expandir tipos de notificacao de 17 para 25+
+### Conectores faltantes (~25 novos)
 
-Novos tipos a adicionar:
-- `lead_qualified` - Lead Qualificado (sales)
-- `proposal_accepted` - Proposta Aceita (sales)
-- `proposal_rejected` - Proposta Rejeitada (sales)
-- `deal_stage_approaching` - Deal Proximo do Fechamento (sales)
-- `order_shipped` - Pedido Enviado (operations)
-- `order_delivered` - Pedido Entregue (operations)
-- `stock_out` - Produto Sem Estoque (operations)
-- `return_received` - Devolucao Recebida (operations)
-- `payment_overdue_critical` - Pagamento Critico Vencido (financial)
-- `backup_completed` - Backup Concluido (system)
-- `maintenance_scheduled` - Manutencao Programada (system)
+O catalogo atual tem 27. O documento pede 50+ distribuidos em:
 
-### Arquivos alterados
-- `src/components/notifications/notificationTypes.ts` - Adicionar novos tipos
+**Comunicacao (faltam 4):** Telegram, Discord, Google Meet, Email SMTP
 
----
+**Pagamentos (faltam 4):** Mercado Pago, PagSeguro, Square, Wise
 
-## Item 4 - Relatorios: Excel Export + Agendamento
+**E-commerce (faltam 6):** Magento, Loja Integrada, Nuvemshop, BigCommerce, Amazon, eBay
 
-### Exportacao Excel
-- Adicionar botao "Excel" na ReportExportBar
-- Gerar arquivo XLSX client-side usando uma abordagem leve (gerar XML do formato Excel sem dependencia pesada, usando template SpreadsheetML)
+**Logistica (faltam 5):** Shopee, OLX, Sedex, Loggi, 99Cargo
 
-### Agendamento de Relatorios
-- Criar tabela `report_schedules` (id, tenant_id, report_id, frequency, recipients_emails, next_run_at, is_active, created_by)
-- Adicionar UI de agendamento no ReportViewer (frequencia: diaria/semanal/mensal + emails destinatarios)
-- Nota: o envio real por email dependera de integracao com servico de email externo; a infraestrutura de agendamento ficara pronta
+**Marketing (faltam 4):** ActiveCampaign, Google Analytics, Facebook Ads, Google Ads
 
-### Arquivos alterados/criados
-- `src/components/reports/ReportExportBar.tsx` - Adicionar botao Excel + logica de geracao XLSX
-- `src/components/reports/ReportScheduleDialog.tsx` - Novo componente para configurar agendamento
-- `src/pages/Reports.tsx` - Integrar dialog de agendamento
-- Migracao SQL para tabela `report_schedules`
+**Produtividade (faltam 4):** Notion, Asana, Monday.com, Trello
+
+**Automacao (faltam 2):** IFTTT, Pabbly
+
+**Contabilidade (nova categoria, 4):** Neon, Nubank, Contabilizei, Omie
+
+### Alteracoes
+
+- **src/components/integrations/connectorsCatalog.ts** - Adicionar ~25 novos conectores + categorias "marketing", "automation", "accounting"
 
 ---
 
-## Item 2 - Expandir Catalogo de Integracoes
+## PRIORIDADE 3: Gaps Menores
 
-### Adicionar 15+ novos conectores ao catalogo
+### 3a. Categorias - CSV Import e Clonagem
 
-Novos conectores:
-1. Microsoft Teams (communication, webhook)
-2. Google Workspace (productivity, oauth2)
-3. Mailchimp (communication, api_key)
-4. WooCommerce (erp, api_key)
-5. Calendly (productivity, api_key)
-6. Google Sheets (productivity, oauth2)
-7. Airtable (productivity, api_key)
-8. Salesforce (crm, oauth2)
-9. Twilio SMS (communication, api_key)
-10. SendGrid (communication, api_key)
-11. PayPal (payment, api_key)
-12. Melhor Envio (erp, api_key) - logistica
-13. PipeDrive (crm, api_key)
-14. RD Station (crm, api_key)
-15. Tiny ERP (erp, api_key)
-16. Bling ERP (erp, api_key)
-17. Asaas (payment, api_key)
+- **src/pages/settings/ProductCategories.tsx** - Adicionar botao de upload CSV com parser client-side e botao de clonagem por categoria
 
-Tambem adicionar nova categoria "logistics" ao catalogo.
+### 3b. Documentacao - Tabelas Videos e FAQs
 
-### Arquivos alterados
-- `src/components/integrations/connectorsCatalog.ts` - Adicionar 17 novos conectores + categoria logistics
+- Criar migration para tabelas `documentation_videos` e `documentation_faqs`
+- Seedar com dados iniciais
 
----
+### 3c. Notification Logs
 
-## Item 1 - Documentacao: Conteudo Real
-
-### Seed de conteudo via SQL INSERT
-
-Inserir dados reais na tabela `documentation` cobrindo:
-
-**Guia Geral (3 artigos):**
-- Primeiros Passos com o AXHUB
-- Boas Praticas de Uso
-- Glossario de Termos
-
-**Guias por Nicho (7 x 2 artigos = 14 artigos):**
-- Varejo: Cadastro de Produtos, Processamento de Pedidos
-- Servicos: Gestao de Leads, Pipeline Consultivo
-- Saude: Gestao de Pacientes, Agendamentos
-- Manufatura: Controle de Estoque, Gestao de Fornecedores
-- B2B: Vendas Corporativas, Gestao de Contas
-- Imobiliario: Cadastro de Propriedades, Acompanhamento de Vendas
-- Educacao: Gestao de Alunos, Controle de Matriculas
-
-**FAQ (10 perguntas mais comuns):**
-- Como criar meu primeiro lead?
-- Como configurar meu pipeline?
-- Como gerar relatorios?
-- Como configurar integracoes?
-- Como gerenciar estoque?
-- (mais 5)
-
-Total: ~27 artigos de documentacao com conteudo em Markdown.
-
-Nota: O seed sera feito via ferramenta de insercao de dados (nao migracao). Sera necessario um tenant_id e user_id validos, que serao obtidos do banco na hora da implementacao.
+- Criar migration para tabela `notification_logs` (notification_id, channel, status, sent_at)
 
 ---
 
 ## Sequencia de Implementacao
 
-1. Migracao: tabela `report_schedules`
-2. Codigo paralelo:
-   - `connectorsCatalog.ts` (expandir conectores)
-   - `notificationTypes.ts` (expandir tipos)
-   - `workflowTemplates.ts` + `WorkflowTemplateSelector.tsx` (templates de workflow)
-   - `ReportExportBar.tsx` (Excel export)
-   - `ReportScheduleDialog.tsx` (agendamento)
-   - `AuditLogsView.tsx` (melhorias)
-   - `WorkflowList.tsx` (integrar templates)
-3. Seed de documentacao (INSERT de artigos)
+1. **Migrations SQL** (3 operacoes):
+   - Criar tabela `product_variations` com RLS
+   - Criar tabela `product_channels` com RLS
+   - Criar tabela `notification_logs` com RLS
 
-## Observacoes Importantes
+2. **Formulario Dinamico** (5 arquivos novos + 1 alterado):
+   - `src/lib/productUtils.ts`
+   - `src/components/products/VariationSelector.tsx`
+   - `src/components/products/VariationPreview.tsx`
+   - `src/components/products/ChannelSelector.tsx`
+   - `src/components/products/ProductFormDynamic.tsx`
+   - Atualizar `src/pages/Products.tsx`
 
-- **Item 3 (Mobile App)**: Nao sera implementado - requer React Native/Flutter, fora do escopo Lovable
-- **Notificacoes multi-canal** (Email, SMS, WhatsApp, Slack): A infraestrutura in-app esta completa. Canais externos requerem integracao com servicos pagos (SendGrid, Twilio, Evolution API) que podem ser adicionados futuramente via Edge Functions
-- **Excel export**: Sera implementado com geracao de XML SpreadsheetML puro, sem dependencia adicional
-- **Seed de documentacao**: Conteudo em portugues, formatado em Markdown, com categorias e subcategorias organizadas por nicho
+3. **Expandir Integracoes** (1 arquivo alterado):
+   - `src/components/integrations/connectorsCatalog.ts` - adicionar ~25 conectores
+
+4. **CSV Import em Categorias** (1 arquivo alterado):
+   - `src/pages/settings/ProductCategories.tsx`
+
+## Observacoes
+
+- Os items 5 (Relatorios), 6 (Notificacoes) e 7 (Workflows) ja estao substancialmente implementados. Os templates de relatorio cobrem 20 tipos, as notificacoes tem 28 tipos, e os workflows tem builder + 15 templates.
+- O formato PowerPoint nao sera implementado pois requer biblioteca pesada e tem baixo valor pratico comparado a PDF/Excel.
+- Multi-canal de notificacoes (Email/SMS/WhatsApp) requer integracao com servicos externos pagos e sera implementado quando os conectores respectivos forem ativados.
 
