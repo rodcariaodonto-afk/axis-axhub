@@ -49,7 +49,47 @@ export default function DealDetail() {
 
   const markWon = async () => {
     await supabase.from("deals").update({ status: "won" }).eq("id", id);
-    toast({ title: "Deal marcado como ganho! 🎉" }); fetchData();
+    
+    // Auto-create ERP order from won deal
+    try {
+      const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+      if (profile && deal) {
+        let customerId: string | null = null;
+        
+        // Try to find/create customer from lead
+        if (deal.leads) {
+          const { data: existingCustomer } = await supabase.from("customers")
+            .select("id").eq("email", deal.leads.email).maybeSingle();
+          if (existingCustomer) {
+            customerId = existingCustomer.id;
+          } else {
+            const { data: newCustomer } = await supabase.from("customers").insert({
+              tenant_id: profile.tenant_id,
+              name: deal.leads.name,
+              email: deal.leads.email || null,
+              phone: deal.leads.phone || null,
+            }).select("id").single();
+            if (newCustomer) customerId = newCustomer.id;
+          }
+        }
+
+        const orderNumber = `PED-${Date.now().toString(36).toUpperCase()}`;
+        await supabase.from("orders").insert({
+          tenant_id: profile.tenant_id,
+          number: orderNumber,
+          customer_id: customerId,
+          source: "crm",
+          status: "draft",
+          total: Number(deal.estimated_value) || 0,
+          subtotal: Number(deal.estimated_value) || 0,
+          notes: `Gerado automaticamente do deal: ${deal.name}`,
+        });
+        toast({ title: "Deal marcado como ganho! 🎉", description: `Pedido ${orderNumber} criado automaticamente.` });
+      }
+    } catch {
+      toast({ title: "Deal marcado como ganho! 🎉", description: "Não foi possível gerar o pedido automaticamente." });
+    }
+    fetchData();
   };
 
   const markLost = async () => {

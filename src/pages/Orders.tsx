@@ -88,8 +88,33 @@ export default function Orders() {
 
   const changeStatus = async (orderId: string, newStatus: string) => {
     const { error } = await supabase.from("orders").update({ status: newStatus }).eq("id", orderId);
-    if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
-    else { toast({ title: `Status alterado para ${statusLabels[newStatus]}` }); fetchOrders(); }
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    
+    // Auto-create receivable when order is completed
+    if (newStatus === "completed") {
+      try {
+        const { data: order } = await supabase.from("orders").select("*").eq("id", orderId).single();
+        const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+        if (order && profile) {
+          const dueDate = new Date();
+          dueDate.setDate(dueDate.getDate() + 30);
+          await supabase.from("receivables").insert({
+            tenant_id: profile.tenant_id,
+            description: `Pedido ${order.number}`,
+            amount: Number(order.total),
+            due_date: dueDate.toISOString().split("T")[0],
+            order_id: orderId,
+            customer_id: order.customer_id,
+          });
+          toast({ title: `Pedido concluído!`, description: "Conta a receber gerada automaticamente (venc. 30 dias)." });
+        }
+      } catch {
+        toast({ title: `Status alterado para ${statusLabels[newStatus]}` });
+      }
+    } else {
+      toast({ title: `Status alterado para ${statusLabels[newStatus]}` });
+    }
+    fetchOrders();
   };
 
   const filtered = orders.filter((o) => o.number.toLowerCase().includes(search.toLowerCase()) || (o.customers?.name || "").toLowerCase().includes(search.toLowerCase()));

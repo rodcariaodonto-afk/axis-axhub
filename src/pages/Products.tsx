@@ -8,8 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Settings2, Trash2 } from "lucide-react";
 
 interface Product {
   id: string;
@@ -22,12 +23,30 @@ interface Product {
   is_active: boolean;
 }
 
+interface CustomField {
+  id: string;
+  field_name: string;
+  field_type: string;
+  options: string[];
+  is_required: boolean;
+  sort_order: number;
+}
+
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [fieldsDialogOpen, setFieldsDialogOpen] = useState(false);
   const [form, setForm] = useState({ sku: "", name: "", type: "product", category: "", price: "", cost: "" });
+  const [customFields, setCustomFields] = useState<CustomField[]>([]);
+  const [customValues, setCustomValues] = useState<Record<string, string>>({});
+  const [productCustomValues, setProductCustomValues] = useState<Record<string, Record<string, string>>>({});
+  // Field management
+  const [newFieldName, setNewFieldName] = useState("");
+  const [newFieldType, setNewFieldType] = useState("text");
+  const [newFieldOptions, setNewFieldOptions] = useState("");
+  const [newFieldRequired, setNewFieldRequired] = useState(false);
   const { toast } = useToast();
 
   const fetchProducts = async () => {
@@ -40,14 +59,33 @@ export default function Products() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchProducts(); }, []);
+  const fetchCustomFields = async () => {
+    const { data } = await supabase.from("product_custom_fields").select("*").order("sort_order");
+    setCustomFields((data as CustomField[]) || []);
+  };
+
+  const fetchAllCustomValues = async () => {
+    const { data } = await supabase.from("product_custom_values").select("*");
+    const map: Record<string, Record<string, string>> = {};
+    (data || []).forEach((v: any) => {
+      if (!map[v.product_id]) map[v.product_id] = {};
+      map[v.product_id][v.field_id] = v.value || "";
+    });
+    setProductCustomValues(map);
+  };
+
+  useEffect(() => {
+    fetchProducts();
+    fetchCustomFields();
+    fetchAllCustomValues();
+  }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
     if (!profile) return;
 
-    const { error } = await supabase.from("products").insert({
+    const { data: product, error } = await supabase.from("products").insert({
       tenant_id: profile.tenant_id,
       sku: form.sku,
       name: form.name,
@@ -55,16 +93,62 @@ export default function Products() {
       category: form.category || null,
       price: parseFloat(form.price) || 0,
       cost: parseFloat(form.cost) || 0,
-    });
+    }).select().single();
 
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Produto criado!" });
-      setForm({ sku: "", name: "", type: "product", category: "", price: "", cost: "" });
-      setDialogOpen(false);
-      fetchProducts();
+      return;
     }
+
+    // Save custom field values
+    if (product) {
+      const valuesToInsert = Object.entries(customValues)
+        .filter(([_, v]) => v.trim() !== "")
+        .map(([fieldId, value]) => ({
+          tenant_id: profile.tenant_id,
+          product_id: product.id,
+          field_id: fieldId,
+          value,
+        }));
+      if (valuesToInsert.length > 0) {
+        await supabase.from("product_custom_values").insert(valuesToInsert);
+      }
+    }
+
+    toast({ title: "Produto criado!" });
+    setForm({ sku: "", name: "", type: "product", category: "", price: "", cost: "" });
+    setCustomValues({});
+    setDialogOpen(false);
+    fetchProducts();
+    fetchAllCustomValues();
+  };
+
+  const addCustomField = async () => {
+    if (!newFieldName.trim()) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    if (!profile) return;
+    const { error } = await supabase.from("product_custom_fields").insert({
+      tenant_id: profile.tenant_id,
+      field_name: newFieldName,
+      field_type: newFieldType,
+      options: newFieldType === "select" ? newFieldOptions.split(",").map((o) => o.trim()).filter(Boolean) : [],
+      is_required: newFieldRequired,
+      sort_order: customFields.length,
+    });
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Campo criado!" });
+      setNewFieldName(""); setNewFieldType("text"); setNewFieldOptions(""); setNewFieldRequired(false);
+      fetchCustomFields();
+    }
+  };
+
+  const deleteCustomField = async (id: string) => {
+    await supabase.from("product_custom_fields").delete().eq("id", id);
+    toast({ title: "Campo removido!" });
+    fetchCustomFields();
+    fetchAllCustomValues();
   };
 
   const filtered = products.filter(
@@ -78,54 +162,156 @@ export default function Products() {
           <h1 className="text-2xl font-bold tracking-tight">Produtos</h1>
           <p className="text-muted-foreground">Gerencie seu catálogo de produtos e serviços</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button><Plus className="mr-2 h-4 w-4" />Novo Produto</Button>
-          </DialogTrigger>
-          <DialogContent className="bg-card border-border">
-            <DialogHeader>
-              <DialogTitle>Novo Produto</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>SKU</Label>
-                  <Input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} required />
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setFieldsDialogOpen(true)}>
+            <Settings2 className="mr-2 h-4 w-4" />Campos
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button><Plus className="mr-2 h-4 w-4" />Novo Produto</Button>
+            </DialogTrigger>
+            <DialogContent className="bg-card border-border max-h-[85vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Novo Produto</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleCreate} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>SKU</Label>
+                    <Input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tipo</Label>
+                    <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="product">Produto</SelectItem>
+                        <SelectItem value="service">Serviço</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div className="space-y-2">
+                  <Label>Nome</Label>
+                  <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+                </div>
+                <div className="space-y-2">
+                  <Label>Categoria</Label>
+                  <Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Preço</Label>
+                    <Input type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Custo</Label>
+                    <Input type="number" step="0.01" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} />
+                  </div>
+                </div>
+
+                {/* Dynamic custom fields */}
+                {customFields.length > 0 && (
+                  <div className="space-y-3 pt-2 border-t border-border">
+                    <p className="text-sm font-medium text-muted-foreground">Campos Personalizados</p>
+                    {customFields.map((field) => (
+                      <div key={field.id} className="space-y-1">
+                        <Label>{field.field_name}{field.is_required && " *"}</Label>
+                        {field.field_type === "select" ? (
+                          <Select value={customValues[field.id] || ""} onValueChange={(v) => setCustomValues({ ...customValues, [field.id]: v })}>
+                            <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                            <SelectContent>
+                              {field.options.map((opt) => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        ) : field.field_type === "boolean" ? (
+                          <div className="flex items-center gap-2">
+                            <Switch checked={customValues[field.id] === "true"} onCheckedChange={(v) => setCustomValues({ ...customValues, [field.id]: v ? "true" : "false" })} />
+                            <span className="text-sm text-muted-foreground">{customValues[field.id] === "true" ? "Sim" : "Não"}</span>
+                          </div>
+                        ) : (
+                          <Input
+                            type={field.field_type === "number" ? "number" : "text"}
+                            value={customValues[field.id] || ""}
+                            onChange={(e) => setCustomValues({ ...customValues, [field.id]: e.target.value })}
+                            required={field.is_required}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <Button type="submit" className="w-full">Criar Produto</Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      {/* Custom Fields Management Dialog */}
+      <Dialog open={fieldsDialogOpen} onOpenChange={setFieldsDialogOpen}>
+        <DialogContent className="bg-card border-border max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Gerenciar Campos Personalizados</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label>Nome do Campo</Label>
+                <Input value={newFieldName} onChange={(e) => setNewFieldName(e.target.value)} placeholder="Ex: Cor, Tamanho, Peso..." />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
                   <Label>Tipo</Label>
-                  <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
+                  <Select value={newFieldType} onValueChange={setNewFieldType}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="product">Produto</SelectItem>
-                      <SelectItem value="service">Serviço</SelectItem>
+                      <SelectItem value="text">Texto</SelectItem>
+                      <SelectItem value="number">Número</SelectItem>
+                      <SelectItem value="boolean">Sim/Não</SelectItem>
+                      <SelectItem value="select">Lista de opções</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Nome</Label>
-                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-              </div>
-              <div className="space-y-2">
-                <Label>Categoria</Label>
-                <Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Preço</Label>
-                  <Input type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
-                </div>
-                <div className="space-y-2">
-                  <Label>Custo</Label>
-                  <Input type="number" step="0.01" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} />
+                <div className="space-y-2 flex items-end gap-2">
+                  <div className="flex items-center gap-2">
+                    <Switch checked={newFieldRequired} onCheckedChange={setNewFieldRequired} />
+                    <Label>Obrigatório</Label>
+                  </div>
                 </div>
               </div>
-              <Button type="submit" className="w-full">Criar Produto</Button>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+              {newFieldType === "select" && (
+                <div className="space-y-2">
+                  <Label>Opções (separadas por vírgula)</Label>
+                  <Input value={newFieldOptions} onChange={(e) => setNewFieldOptions(e.target.value)} placeholder="Ex: Pequeno, Médio, Grande" />
+                </div>
+              )}
+              <Button onClick={addCustomField} disabled={!newFieldName.trim()} className="w-full">
+                <Plus className="mr-2 h-4 w-4" />Adicionar Campo
+              </Button>
+            </div>
+
+            {customFields.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-border">
+                <p className="text-sm font-medium text-muted-foreground">Campos Existentes</p>
+                {customFields.map((field) => (
+                  <div key={field.id} className="flex items-center justify-between p-3 rounded-md border border-border">
+                    <div>
+                      <span className="font-medium text-sm">{field.field_name}</span>
+                      <div className="flex gap-1 mt-1">
+                        <Badge variant="outline" className="text-xs">{field.field_type === "text" ? "Texto" : field.field_type === "number" ? "Número" : field.field_type === "boolean" ? "Sim/Não" : "Lista"}</Badge>
+                        {field.is_required && <Badge variant="secondary" className="text-xs">Obrigatório</Badge>}
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => deleteCustomField(field.id)} className="h-8 w-8">
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -143,14 +329,15 @@ export default function Products() {
                 <TableHead>Categoria</TableHead>
                 <TableHead className="text-right">Preço</TableHead>
                 <TableHead className="text-right">Custo</TableHead>
+                {customFields.map((f) => <TableHead key={f.id}>{f.field_name}</TableHead>)}
                 <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7 + customFields.length} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum produto encontrado</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7 + customFields.length} className="text-center py-8 text-muted-foreground">Nenhum produto encontrado</TableCell></TableRow>
               ) : (
                 filtered.map((p) => (
                   <TableRow key={p.id} className="border-border">
@@ -162,6 +349,11 @@ export default function Products() {
                     <TableCell className="text-muted-foreground">{p.category || "—"}</TableCell>
                     <TableCell className="text-right">R$ {Number(p.price).toFixed(2)}</TableCell>
                     <TableCell className="text-right text-muted-foreground">R$ {Number(p.cost || 0).toFixed(2)}</TableCell>
+                    {customFields.map((f) => (
+                      <TableCell key={f.id} className="text-muted-foreground">
+                        {productCustomValues[p.id]?.[f.id] || "—"}
+                      </TableCell>
+                    ))}
                     <TableCell>
                       <Badge variant={p.is_active ? "default" : "secondary"}>
                         {p.is_active ? "Ativo" : "Inativo"}

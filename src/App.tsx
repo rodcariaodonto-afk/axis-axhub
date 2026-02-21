@@ -21,6 +21,7 @@ import Leads from "./pages/Leads";
 import Pipeline from "./pages/Pipeline";
 import DealDetail from "./pages/DealDetail";
 import Activities from "./pages/Activities";
+import FunnelReport from "./pages/FunnelReport";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -57,6 +58,7 @@ const App = () => (
             <Route path="/pipeline" element={<ProtectedRoute><Pipeline /></ProtectedRoute>} />
             <Route path="/deals/:id" element={<ProtectedRoute><DealDetail /></ProtectedRoute>} />
             <Route path="/activities" element={<ProtectedRoute><Activities /></ProtectedRoute>} />
+            <Route path="/funnel-report" element={<ProtectedRoute><FunnelReport /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -96,7 +96,27 @@ export default function Purchases() {
       await supabase.from("po_items").update({ received_quantity: item.quantity }).eq("id", item.id);
     }
     await supabase.from("purchase_orders").update({ status: "received" }).eq("id", poId);
-    toast({ title: "Mercadoria recebida e estoque atualizado!" }); fetchData();
+    
+    // Auto-create payable when PO is received
+    try {
+      const { data: po } = await supabase.from("purchase_orders").select("*").eq("id", poId).single();
+      if (po) {
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + 30);
+        await supabase.from("payables").insert({
+          tenant_id: profile.tenant_id,
+          description: `OC ${po.number}`,
+          amount: Number(po.total_amount),
+          due_date: dueDate.toISOString().split("T")[0],
+          supplier_id: po.supplier_id,
+          po_id: poId,
+        });
+        toast({ title: "Mercadoria recebida!", description: "Estoque atualizado e conta a pagar gerada (venc. 30 dias)." });
+      }
+    } catch {
+      toast({ title: "Mercadoria recebida e estoque atualizado!" });
+    }
+    fetchData();
   };
 
   return (
