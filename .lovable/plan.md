@@ -1,126 +1,191 @@
 
 
-# Sistema de Workflows - Builder Visual
+# Implementacao Completa - Itens Pendentes do Documento
 
-## Visao Geral
+## Resumo dos Gaps Identificados
 
-Criar um builder visual de workflows que permite ao usuario montar automacoes com triggers, acoes e condicoes. A definicao do workflow sera armazenada como JSONB (sem React Flow - complexo demais como dependencia). Sera um builder baseado em lista/cards arrastavel, similar ao N8N simplificado. A execucao real dos workflows sera delegada ao sistema de Event Outbox ja existente.
+| Item | Area | Status Atual | O que Falta |
+|------|------|-------------|-------------|
+| 7 | Auditoria & Governanca | Parcial | Visualizacao de before/after JSON, mais entidades no filtro |
+| 6 | Workflows | Base pronta | 15+ templates pre-construidos (Lead Nurturing, Follow-up, Cobranca, etc) |
+| 5 | Notificacoes | In-App OK | Mais tipos de notificacao (lead qualificado, proposta aceita/rejeitada, pedido enviado, etc) |
+| 4 | Relatorios | CSV/PDF OK | Exportacao Excel (XLSX), funcionalidade de agendamento de relatorios |
+| 2 | Integracoes | 10 conectores | Expandir catalogo para 25+ conectores (MS Teams, Calendly, SendGrid, Twilio, etc) |
+| 1 | Documentacao | Arquitetura OK | Conteudo real: guias por nicho, FAQ, glossario (seed de dados) |
 
-## Adaptacoes da spec ao projeto
+## Item 7 - Auditoria & Governanca
 
-- `workspace_id` sera `tenant_id` (padrao do projeto)
-- Sem React Flow - builder baseado em lista sequencial de nos com UI de cards (mais leve, sem nova dependencia pesada)
-- Sem Bull Queue/Redis - execucao sincrona via Edge Function `dispatch-events` ja existente
-- Sem Node.js backend - tudo via Supabase client + Edge Functions
-- Sem CHECK constraints - conforme guidelines do projeto
-- `created_by` como UUID sem FK para auth.users (padrao do projeto)
-- Definicao do workflow armazenada como JSONB no campo `definition` (nodes + edges inline)
-- Tabelas `workflow_nodes` e `workflow_edges` nao serao criadas separadamente - ficam dentro do JSONB `definition` para simplicidade
+### Melhorias no AuditLogsView
 
-## O que sera construido
+- Adicionar linhas expansiveis que mostram o JSON `before_json` e `after_json` formatado (diff visual)
+- Adicionar mais entidades no filtro (leads, deals, orders, customers, workflows, notifications)
+- Adicionar filtro por data (range picker)
+- Mostrar nome do usuario ao inves de apenas UUID (join com profiles)
+- Adicionar exportacao CSV dos logs
 
-### 1. Tabelas no banco de dados
+### Arquivos alterados
+- `src/pages/settings/AuditLogsView.tsx` - Reescrever com linhas expansiveis e filtros avancados
 
-**workflows** - Definicoes dos workflows
-- id, tenant_id, name, description, definition (JSONB com nodes e edges), is_active, is_published, version, created_by, created_at, updated_at, published_at, total_executions, successful_executions, failed_executions
+---
 
-**workflow_executions** - Historico de execucoes
-- id, workflow_id (FK), tenant_id, trigger_type, trigger_data (JSONB), status, result (JSONB), error_message, started_at, completed_at, duration_ms
+## Item 6 - Workflow Templates Pre-construidos
 
-**workflow_execution_steps** - Passos de cada execucao
-- id, execution_id (FK), tenant_id, node_id, node_type, status, input_data (JSONB), output_data (JSONB), error_message, started_at, completed_at, duration_ms
+### Criar 15 templates prontos para uso
 
-RLS: isolamento por tenant_id. Realtime habilitado para workflow_executions.
+Os templates serao constantes no frontend que pre-populam o builder com nodes e edges ja configurados:
 
-### 2. Catalogo de Triggers e Acoes (constante frontend)
+**Vendas (5):**
+1. Lead Nurturing - Trigger: lead.created -> Condicao: score > 50 -> Acao: criar notificacao + criar atividade de follow-up
+2. Follow-up Automatico - Trigger: deal.stage_changed -> Acao: criar atividade de ligacao
+3. Fechamento de Deal - Trigger: deal.won -> Acao: criar notificacao + criar tarefa de onboarding
+4. Perda de Oportunidade - Trigger: deal.lost -> Acao: criar notificacao + adicionar tag "perdido"
+5. Qualificacao de Lead - Trigger: lead.updated -> Condicao: score > 80 -> Acao: atualizar status para "qualified"
 
-**Triggers (baseados nos eventos do Event Outbox existente):**
-- lead.created, lead.updated, deal.won, deal.lost, deal.stage_changed, order.created, order.paid, customer.created, manual (execucao manual)
+**Operacoes (4):**
+6. Novo Pedido - Trigger: order.created -> Acao: criar notificacao + criar tarefa
+7. Pedido Pago - Trigger: order.paid -> Acao: criar notificacao
+8. Novo Cliente - Trigger: customer.created -> Acao: criar notificacao de boas-vindas + criar atividade
+9. Alerta de Integracao - Trigger: manual -> Acao: enviar webhook
 
-**Acoes:**
-- Enviar notificacao in-app, Atualizar campo de lead, Mover deal de etapa, Criar atividade, Adicionar tag ao lead, Enviar webhook externo, Aguardar (delay placeholder), Criar tarefa
+**Financeiro (3):**
+10. Cobranca Automatica - Trigger: manual -> Acao: criar notificacao de cobranca
+11. Alerta Financeiro - Trigger: order.paid -> Acao: criar notificacao para financeiro
+12. Reconciliacao - Trigger: order.paid -> Condicao: campo igual -> Acao: criar tarefa
 
-**Condicoes:**
-- Campo igual a, Campo contem, Campo maior que, Campo vazio/nao vazio
+**Marketing (3):**
+13. Segmentacao de Lead - Trigger: lead.created -> Condicao: campo contem -> Acao: adicionar tag
+14. Reengajamento - Trigger: manual -> Acao: criar atividade + criar notificacao
+15. Campanha Follow-up - Trigger: lead.updated -> Condicao: campo nao vazio -> Acao: criar atividade
 
-### 3. Componentes React
+### Arquivos alterados/criados
+- `src/components/workflows/workflowTemplates.ts` - Novo arquivo com 15 templates
+- `src/components/workflows/WorkflowList.tsx` - Adicionar botao "Criar a partir de template" com modal de selecao
+- `src/components/workflows/WorkflowTemplateSelector.tsx` - Novo componente modal para escolher template
 
-**WorkflowList** - Lista de workflows com status, estatisticas e acoes (ativar/desativar, editar, excluir)
-**WorkflowBuilder** - Builder sequencial com:
-  - Painel de adicao de nos (triggers, acoes, condicoes)
-  - Lista vertical de nos como cards conectados por setas
-  - Configuracao inline de cada no (click para expandir)
-  - Botoes salvar/publicar
-**WorkflowNodeCard** - Card de cada no com icone, tipo, configuracao resumida, botao remover
-**WorkflowExecutionList** - Lista de execucoes com status, duracao, filtros
-**WorkflowExecutionDetail** - Visualizacao passo-a-passo de uma execucao
+---
 
-### 4. Pagina e rotas
+## Item 5 - Notificacoes Adicionais
 
-- Nova pagina `src/pages/Workflows.tsx` com abas: Meus Workflows, Execucoes
-- Rota `/workflows` no App.tsx
-- Link "Workflows" na sidebar no grupo CRM (icone Zap ou GitBranch)
+### Expandir tipos de notificacao de 17 para 25+
 
-### 5. Edge Function para execucao
+Novos tipos a adicionar:
+- `lead_qualified` - Lead Qualificado (sales)
+- `proposal_accepted` - Proposta Aceita (sales)
+- `proposal_rejected` - Proposta Rejeitada (sales)
+- `deal_stage_approaching` - Deal Proximo do Fechamento (sales)
+- `order_shipped` - Pedido Enviado (operations)
+- `order_delivered` - Pedido Entregue (operations)
+- `stock_out` - Produto Sem Estoque (operations)
+- `return_received` - Devolucao Recebida (operations)
+- `payment_overdue_critical` - Pagamento Critico Vencido (financial)
+- `backup_completed` - Backup Concluido (system)
+- `maintenance_scheduled` - Manutencao Programada (system)
 
-- Nova edge function `workflow-runner` que:
-  1. Recebe workflow_id + trigger_data
-  2. Carrega a definicao do workflow
-  3. Percorre os nos sequencialmente
-  4. Para cada no, executa a acao correspondente (inserir notificacao, atualizar registro, etc)
-  5. Registra cada passo em workflow_execution_steps
-  6. Atualiza status da execucao e contadores do workflow
+### Arquivos alterados
+- `src/components/notifications/notificationTypes.ts` - Adicionar novos tipos
 
-## Detalhes Tecnicos
+---
 
-### Estrutura do JSONB `definition`
+## Item 4 - Relatorios: Excel Export + Agendamento
 
-```text
-{
-  "nodes": [
-    { "id": "trigger_1", "type": "trigger", "config": { "event": "lead.created" }, "position": 0 },
-    { "id": "condition_1", "type": "condition", "config": { "field": "score", "operator": "gte", "value": 50 }, "position": 1 },
-    { "id": "action_1", "type": "action", "config": { "action": "create_notification", "title": "Lead quente!" }, "position": 2 }
-  ],
-  "edges": [
-    { "source": "trigger_1", "target": "condition_1" },
-    { "source": "condition_1", "target": "action_1", "condition": "true" }
-  ]
-}
-```
+### Exportacao Excel
+- Adicionar botao "Excel" na ReportExportBar
+- Gerar arquivo XLSX client-side usando uma abordagem leve (gerar XML do formato Excel sem dependencia pesada, usando template SpreadsheetML)
 
-### Estrutura de arquivos
+### Agendamento de Relatorios
+- Criar tabela `report_schedules` (id, tenant_id, report_id, frequency, recipients_emails, next_run_at, is_active, created_by)
+- Adicionar UI de agendamento no ReportViewer (frequencia: diaria/semanal/mensal + emails destinatarios)
+- Nota: o envio real por email dependera de integracao com servico de email externo; a infraestrutura de agendamento ficara pronta
 
-```text
-src/components/workflows/
-  workflowCatalog.ts          -- triggers, acoes, condicoes disponiveis
-  WorkflowList.tsx
-  WorkflowBuilder.tsx
-  WorkflowNodeCard.tsx
-  WorkflowExecutionList.tsx
-  WorkflowExecutionDetail.tsx
-src/pages/Workflows.tsx
-supabase/functions/workflow-runner/index.ts
-```
+### Arquivos alterados/criados
+- `src/components/reports/ReportExportBar.tsx` - Adicionar botao Excel + logica de geracao XLSX
+- `src/components/reports/ReportScheduleDialog.tsx` - Novo componente para configurar agendamento
+- `src/pages/Reports.tsx` - Integrar dialog de agendamento
+- Migracao SQL para tabela `report_schedules`
 
-### Migracao SQL
+---
 
-```text
-- CREATE TABLE workflows (com campos listados acima)
-- CREATE TABLE workflow_executions (com campos listados acima)
-- CREATE TABLE workflow_execution_steps (com campos listados acima)
-- Indices em tenant_id, workflow_id, execution_id, status
-- RLS policies com get_user_tenant_id()
-- Trigger updated_at em workflows
-- Realtime habilitado para workflow_executions
-```
+## Item 2 - Expandir Catalogo de Integracoes
 
-## Sequencia de implementacao
+### Adicionar 15+ novos conectores ao catalogo
 
-1. Criar migracao com 3 tabelas + RLS + indices + realtime
-2. Criar catalogo de triggers/acoes/condicoes (workflowCatalog.ts)
-3. Criar componentes React (WorkflowList, Builder, NodeCard, ExecutionList, ExecutionDetail)
-4. Criar pagina Workflows.tsx com abas
-5. Adicionar rota e link na sidebar
-6. Criar edge function workflow-runner para execucao
+Novos conectores:
+1. Microsoft Teams (communication, webhook)
+2. Google Workspace (productivity, oauth2)
+3. Mailchimp (communication, api_key)
+4. WooCommerce (erp, api_key)
+5. Calendly (productivity, api_key)
+6. Google Sheets (productivity, oauth2)
+7. Airtable (productivity, api_key)
+8. Salesforce (crm, oauth2)
+9. Twilio SMS (communication, api_key)
+10. SendGrid (communication, api_key)
+11. PayPal (payment, api_key)
+12. Melhor Envio (erp, api_key) - logistica
+13. PipeDrive (crm, api_key)
+14. RD Station (crm, api_key)
+15. Tiny ERP (erp, api_key)
+16. Bling ERP (erp, api_key)
+17. Asaas (payment, api_key)
+
+Tambem adicionar nova categoria "logistics" ao catalogo.
+
+### Arquivos alterados
+- `src/components/integrations/connectorsCatalog.ts` - Adicionar 17 novos conectores + categoria logistics
+
+---
+
+## Item 1 - Documentacao: Conteudo Real
+
+### Seed de conteudo via SQL INSERT
+
+Inserir dados reais na tabela `documentation` cobrindo:
+
+**Guia Geral (3 artigos):**
+- Primeiros Passos com o AXHUB
+- Boas Praticas de Uso
+- Glossario de Termos
+
+**Guias por Nicho (7 x 2 artigos = 14 artigos):**
+- Varejo: Cadastro de Produtos, Processamento de Pedidos
+- Servicos: Gestao de Leads, Pipeline Consultivo
+- Saude: Gestao de Pacientes, Agendamentos
+- Manufatura: Controle de Estoque, Gestao de Fornecedores
+- B2B: Vendas Corporativas, Gestao de Contas
+- Imobiliario: Cadastro de Propriedades, Acompanhamento de Vendas
+- Educacao: Gestao de Alunos, Controle de Matriculas
+
+**FAQ (10 perguntas mais comuns):**
+- Como criar meu primeiro lead?
+- Como configurar meu pipeline?
+- Como gerar relatorios?
+- Como configurar integracoes?
+- Como gerenciar estoque?
+- (mais 5)
+
+Total: ~27 artigos de documentacao com conteudo em Markdown.
+
+Nota: O seed sera feito via ferramenta de insercao de dados (nao migracao). Sera necessario um tenant_id e user_id validos, que serao obtidos do banco na hora da implementacao.
+
+---
+
+## Sequencia de Implementacao
+
+1. Migracao: tabela `report_schedules`
+2. Codigo paralelo:
+   - `connectorsCatalog.ts` (expandir conectores)
+   - `notificationTypes.ts` (expandir tipos)
+   - `workflowTemplates.ts` + `WorkflowTemplateSelector.tsx` (templates de workflow)
+   - `ReportExportBar.tsx` (Excel export)
+   - `ReportScheduleDialog.tsx` (agendamento)
+   - `AuditLogsView.tsx` (melhorias)
+   - `WorkflowList.tsx` (integrar templates)
+3. Seed de documentacao (INSERT de artigos)
+
+## Observacoes Importantes
+
+- **Item 3 (Mobile App)**: Nao sera implementado - requer React Native/Flutter, fora do escopo Lovable
+- **Notificacoes multi-canal** (Email, SMS, WhatsApp, Slack): A infraestrutura in-app esta completa. Canais externos requerem integracao com servicos pagos (SendGrid, Twilio, Evolution API) que podem ser adicionados futuramente via Edge Functions
+- **Excel export**: Sera implementado com geracao de XML SpreadsheetML puro, sem dependencia adicional
+- **Seed de documentacao**: Conteudo em portugues, formatado em Markdown, com categorias e subcategorias organizadas por nicho
 
