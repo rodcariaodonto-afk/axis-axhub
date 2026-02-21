@@ -103,3 +103,34 @@ export function getVisibleFields(type: ProductType) {
       return base;
   }
 }
+
+// Categories/types where SKU is optional
+const SKU_OPTIONAL_CATEGORIES = [
+  "consultoria", "consultório", "clínica", "aula", "treinamento", "coaching",
+  "design gráfico", "web design", "fotografia", "vídeo", "assessoria", "auditoria",
+  "curso", "educação", "imóvel", "imóveis", "real estate",
+  "consultoria empresarial", "consultoria financeira", "consultoria de marketing",
+  "consultoria de rh", "consultoria de ti", "consultoria tributária",
+  "consultório médico", "consultório odontológico", "consultório psicológico",
+  "clínica geral", "aula de inglês", "aula de música", "aula de dança",
+  "treinamento corporativo", "serviço", "serviços", "software",
+];
+
+export function isSKURequired(productType: ProductType, category: string, hasVariations: boolean): boolean {
+  // If product has variations, SKU is always required
+  if (hasVariations || productType === "variable_product") return true;
+  // Services never require SKU
+  if (productType === "service") return false;
+  // Check if category is in the optional list
+  const lowerCat = (category || "").toLowerCase().trim();
+  if (SKU_OPTIONAL_CATEGORIES.some((c) => lowerCat.includes(c) || c.includes(lowerCat))) return false;
+  // Default: required for products
+  return true;
+}
+
+export function generateAutoSKU(category: string, productName: string): string {
+  const catPrefix = (category || "GEN").substring(0, 3).toUpperCase().replace(/\s/g, "");
+  const namePrefix = (productName || "PRD").substring(0, 3).toUpperCase().replace(/\s/g, "");
+  const timestamp = Date.now().toString().slice(-4);
+  return `${catPrefix}-${namePrefix}-${timestamp}`;
+}
