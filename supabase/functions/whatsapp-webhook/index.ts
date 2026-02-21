@@ -85,12 +85,13 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
 
+  // Search by name OR SKU
   const { data: products, error } = await supabase
     .from("products")
-    .select("name, description, price, image_url")
+    .select("name, description, price, image_url, sku")
     .eq("tenant_id", tenant_id)
     .eq("is_active", true)
-    .ilike("name", `%${searchTerm}%`)
+    .or(`name.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%`)
     .limit(5);
 
   if (error) {
