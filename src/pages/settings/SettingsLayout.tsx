@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Building2, Users, Key, Settings2, ScrollText, Tag, Warehouse, Plug } from "lucide-react";
+import { Building2, Users, Key, Settings2, ScrollText, Tag, Warehouse, Plug, UserCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type SettingsSection =
+  | "profile"
   | "company"
   | "users"
   | "api-keys"
@@ -24,6 +25,10 @@ interface MenuGroup {
 }
 
 const menuGroups: MenuGroup[] = [
+  {
+    title: "PERFIL",
+    items: [{ id: "profile", label: "Meu Perfil", icon: UserCircle }],
+  },
   {
     title: "EMPRESA",
     items: [{ id: "company", label: "Geral", icon: Building2 }],

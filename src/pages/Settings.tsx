@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ShieldAlert } from "lucide-react";
 import SettingsLayout, { type SettingsSection } from "./settings/SettingsLayout";
+import ProfileSettings from "./settings/ProfileSettings";
 import CompanyGeneral from "./settings/CompanyGeneral";
 import UsersManagement from "./settings/UsersManagement";
 import ApiKeysManagement from "./settings/ApiKeysManagement";
@@ -14,6 +15,7 @@ import WarehousesSettings from "./settings/WarehousesSettings";
 import IntegrationsSettings from "./settings/IntegrationsSettings";
 
 const SECTION_MAP: Record<SettingsSection, React.ComponentType> = {
+  profile: ProfileSettings,
   company: CompanyGeneral,
   users: UsersManagement,
   "api-keys": ApiKeysManagement,
@@ -26,7 +28,7 @@ const SECTION_MAP: Record<SettingsSection, React.ComponentType> = {
 
 export default function Settings() {
   const { user } = useAuth();
-  const [section, setSection] = useState<SettingsSection>("company");
+  const [section, setSection] = useState<SettingsSection>("profile");
 
   const { data: isAdmin, isLoading } = useQuery({
     queryKey: ["is-admin", user?.id],
@@ -39,11 +41,19 @@ export default function Settings() {
 
   if (isLoading) return <div className="flex items-center justify-center h-64"><div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
 
+  if (!isAdmin && section !== "profile") {
+    // Non-admins can only see their profile
+    setSection("profile");
+  }
+
   if (!isAdmin) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
-        <ShieldAlert className="h-12 w-12" />
-        <p className="text-lg font-medium">Acesso restrito a administradores</p>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Configurações</h1>
+          <p className="text-muted-foreground">Gerencie seu perfil</p>
+        </div>
+        <ProfileSettings />
       </div>
     );
   }
