@@ -5,11 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, CheckCircle } from "lucide-react";
+import { Plus, CheckCircle, Pencil, Trash2 } from "lucide-react";
+import PasswordConfirmDialog from "@/components/finance/PasswordConfirmDialog";
 
 const statusLabels: Record<string, string> = { pending: "Pendente", paid: "Pago", overdue: "Vencido", canceled: "Cancelado" };
 const statusFilter = ["all", "pending", "paid", "overdue", "canceled"];
@@ -20,7 +21,9 @@ export default function Receivables() {
   const [filter, setFilter] = useState("all");
   const [customers, setCustomers] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editItem, setEditItem] = useState<any>(null);
   const [form, setForm] = useState({ description: "", amount: "", due_date: "", customer_id: "" });
+  const [passwordDialog, setPasswordDialog] = useState<{ open: boolean; title: string; description: string; variant: "default" | "destructive"; onConfirm: () => Promise<void> }>({ open: false, title: "", description: "", variant: "default", onConfirm: async () => {} });
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
@@ -31,26 +34,95 @@ export default function Receivables() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const openDialog = async () => {
+  const loadCustomers = async () => {
     const { data } = await supabase.from("customers").select("id, name").order("name");
     setCustomers(data || []);
+  };
+
+  const openCreate = async () => {
+    await loadCustomers();
+    setEditItem(null);
     setForm({ description: "", amount: "", due_date: "", customer_id: "" });
     setDialogOpen(true);
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const openEdit = async (item: any) => {
+    await loadCustomers();
+    setEditItem(item);
+    setForm({ description: item.description, amount: String(item.amount), due_date: item.due_date, customer_id: item.customer_id || "" });
+    setPasswordDialog({
+      open: true,
+      title: "Editar Recebível",
+      description: "Confirme sua senha para editar este lançamento.",
+      variant: "default",
+      onConfirm: async () => {
+        setDialogOpen(true);
+      },
+    });
+  };
+
+  const openDelete = (item: any) => {
+    setPasswordDialog({
+      open: true,
+      title: "Excluir Recebível",
+      description: `Confirme sua senha para excluir "${item.description}". Esta ação não pode ser desfeita.`,
+      variant: "destructive",
+      onConfirm: async () => {
+        const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!profile || !user) return;
+        await supabase.from("audit_logs").insert({
+          tenant_id: profile.tenant_id,
+          entity: "receivable",
+          action: "delete",
+          entity_id: item.id,
+          actor_user_id: user.id,
+          before_json: item,
+          after_json: null,
+        });
+        const { error } = await supabase.from("receivables").delete().eq("id", item.id);
+        if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
+        else { toast({ title: "Recebível excluído!" }); fetchData(); }
+      },
+    });
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
-    if (!profile) return;
-    const { error } = await supabase.from("receivables").insert({
-      tenant_id: profile.tenant_id,
-      description: form.description,
-      amount: parseFloat(form.amount),
-      due_date: form.due_date,
-      customer_id: form.customer_id || null,
-    });
-    if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
-    else { toast({ title: "Conta a receber criada!" }); setDialogOpen(false); fetchData(); }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!profile || !user) return;
+
+    if (editItem) {
+      const updatedFields = {
+        description: form.description,
+        amount: parseFloat(form.amount),
+        due_date: form.due_date,
+        customer_id: form.customer_id || null,
+      };
+      await supabase.from("audit_logs").insert({
+        tenant_id: profile.tenant_id,
+        entity: "receivable",
+        action: "update",
+        entity_id: editItem.id,
+        actor_user_id: user.id,
+        before_json: editItem,
+        after_json: { ...editItem, ...updatedFields },
+      });
+      const { error } = await supabase.from("receivables").update(updatedFields).eq("id", editItem.id);
+      if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
+      else { toast({ title: "Recebível atualizado!" }); setDialogOpen(false); setEditItem(null); fetchData(); }
+    } else {
+      const { error } = await supabase.from("receivables").insert({
+        tenant_id: profile.tenant_id,
+        description: form.description,
+        amount: parseFloat(form.amount),
+        due_date: form.due_date,
+        customer_id: form.customer_id || null,
+      });
+      if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
+      else { toast({ title: "Conta a receber criada!" }); setDialogOpen(false); fetchData(); }
+    }
   };
 
   const markPaid = async (id: string) => {
@@ -69,13 +141,22 @@ export default function Receivables() {
           <h1 className="text-2xl font-bold tracking-tight">Contas a Receber</h1>
           <p className="text-muted-foreground">Acompanhe seus recebíveis</p>
         </div>
-        <Button onClick={openDialog}><Plus className="mr-2 h-4 w-4" />Nova Conta</Button>
+        <Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" />Nova Conta</Button>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <PasswordConfirmDialog
+        open={passwordDialog.open}
+        onOpenChange={(v) => setPasswordDialog((p) => ({ ...p, open: v }))}
+        title={passwordDialog.title}
+        description={passwordDialog.description}
+        onConfirm={passwordDialog.onConfirm}
+        variant={passwordDialog.variant}
+      />
+
+      <Dialog open={dialogOpen} onOpenChange={(v) => { setDialogOpen(v); if (!v) setEditItem(null); }}>
         <DialogContent className="bg-card border-border">
-          <DialogHeader><DialogTitle>Nova Conta a Receber</DialogTitle></DialogHeader>
-          <form onSubmit={handleCreate} className="space-y-4">
+          <DialogHeader><DialogTitle>{editItem ? "Editar Recebível" : "Nova Conta a Receber"}</DialogTitle></DialogHeader>
+          <form onSubmit={handleSave} className="space-y-4">
             <div className="space-y-2"><Label>Descrição</Label><Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} required /></div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2"><Label>Valor (R$)</Label><Input type="number" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required /></div>
@@ -88,7 +169,7 @@ export default function Receivables() {
                 <SelectContent>{customers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <Button type="submit" className="w-full">Criar</Button>
+            <Button type="submit" className="w-full">{editItem ? "Salvar" : "Criar"}</Button>
           </form>
         </DialogContent>
       </Dialog>
@@ -111,7 +192,7 @@ export default function Receivables() {
                 <TableHead>Vencimento</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
-                <TableHead className="w-10" />
+                <TableHead className="w-28" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -129,11 +210,19 @@ export default function Receivables() {
                   </TableCell>
                   <TableCell className="text-right font-medium">R$ {Number(r.amount).toFixed(2)}</TableCell>
                   <TableCell>
-                    {r.status === "pending" && (
-                      <Button variant="ghost" size="icon" onClick={() => markPaid(r.id)} title="Marcar como pago" className="h-8 w-8">
-                        <CheckCircle className="h-4 w-4 text-success" />
+                    <div className="flex gap-1 justify-end">
+                      {r.status === "pending" && (
+                        <Button variant="ghost" size="icon" onClick={() => markPaid(r.id)} title="Marcar como pago" className="h-8 w-8">
+                          <CheckCircle className="h-4 w-4 text-success" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(r)} title="Editar" className="h-8 w-8">
+                        <Pencil className="h-4 w-4" />
                       </Button>
-                    )}
+                      <Button variant="ghost" size="icon" onClick={() => openDelete(r)} title="Excluir" className="h-8 w-8">
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
