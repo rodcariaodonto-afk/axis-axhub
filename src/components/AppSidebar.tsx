@@ -1,59 +1,40 @@
 import {
-  LayoutDashboard,
-  Package,
-  Warehouse,
-  ShoppingCart,
-  Users,
-  Truck,
-  CreditCard,
-  Banknote,
-  Building2,
-  ArrowDownCircle,
-  ArrowUpCircle,
-  LogOut,
-  Settings,
+  LayoutDashboard, Package, Warehouse, ShoppingCart, Users, Truck,
+  Banknote, Building2, ArrowDownCircle, ArrowUpCircle, LogOut, Settings,
+  UserPlus, Kanban, Target, CalendarCheck,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarHeader,
-  SidebarFooter,
-  SidebarSeparator,
+  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
+  SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, SidebarSeparator,
 } from "@/components/ui/sidebar";
 
-const mainItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-];
-
+const mainItems = [{ title: "Dashboard", url: "/", icon: LayoutDashboard }];
 const erpItems = [
   { title: "Produtos", url: "/products", icon: Package },
   { title: "Estoque", url: "/stock", icon: Warehouse },
   { title: "Clientes", url: "/customers", icon: Users },
   { title: "Pedidos", url: "/orders", icon: ShoppingCart },
 ];
-
 const purchaseItems = [
   { title: "Fornecedores", url: "/suppliers", icon: Truck },
   { title: "Compras", url: "/purchases", icon: ArrowDownCircle },
 ];
-
 const financeItems = [
   { title: "A Receber", url: "/receivables", icon: ArrowUpCircle },
   { title: "A Pagar", url: "/payables", icon: ArrowDownCircle },
   { title: "Contas Bancárias", url: "/bank-accounts", icon: Building2 },
   { title: "Financeiro", url: "/finance", icon: Banknote },
 ];
+const crmItems = [
+  { title: "Leads", url: "/leads", icon: UserPlus },
+  { title: "Pipeline", url: "/pipeline", icon: Kanban },
+  { title: "Atividades", url: "/activities", icon: CalendarCheck },
+];
 
 export function AppSidebar() {
-  const { signOut, user } = useAuth();
+  const { signOut } = useAuth();
 
   const renderGroup = (label: string, items: typeof mainItems) => (
     <SidebarGroup>
@@ -63,14 +44,8 @@ export function AppSidebar() {
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton asChild>
-                <NavLink
-                  to={item.url}
-                  end={item.url === "/"}
-                  className="hover:bg-sidebar-accent/50"
-                  activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
-                >
-                  <item.icon className="mr-2 h-4 w-4" />
-                  <span>{item.title}</span>
+                <NavLink to={item.url} end={item.url === "/"} className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-sidebar-primary font-medium">
+                  <item.icon className="mr-2 h-4 w-4" /><span>{item.title}</span>
                 </NavLink>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -84,10 +59,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
-          <span className="text-xl font-bold tracking-tight">
-            <span className="text-primary">AX</span>
-            <span className="text-sidebar-foreground">HUB</span>
-          </span>
+          <span className="text-xl font-bold tracking-tight"><span className="text-primary">AX</span><span className="text-sidebar-foreground">HUB</span></span>
         </div>
       </SidebarHeader>
       <SidebarSeparator />
@@ -96,6 +68,7 @@ export function AppSidebar() {
         {renderGroup("Operação", erpItems)}
         {renderGroup("Compras", purchaseItems)}
         {renderGroup("Financeiro", financeItems)}
+        {renderGroup("CRM", crmItems)}
       </SidebarContent>
       <SidebarSeparator />
       <SidebarFooter className="p-2">
@@ -103,16 +76,12 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <NavLink to="/settings" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-sidebar-primary font-medium">
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Configurações</span>
+                <Settings className="mr-2 h-4 w-4" /><span>Configurações</span>
               </NavLink>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={signOut}>
-              <LogOut className="mr-2 h-4 w-4" />
-              <span>Sair</span>
-            </SidebarMenuButton>
+            <SidebarMenuButton onClick={signOut}><LogOut className="mr-2 h-4 w-4" /><span>Sair</span></SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
