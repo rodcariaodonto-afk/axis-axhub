@@ -12,10 +12,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     console.log("Webhook received:", JSON.stringify(body).substring(0, 2000));
 
-    // Extract event name - Evolution API v1 and v2 formats
     const event = body.event || body.action;
-
-    // Extract instance name - multiple possible locations
     const instanceName =
       typeof body.instance === "string" ? body.instance :
       body.instance?.instanceName ||
@@ -76,7 +73,6 @@ Deno.serve(async (req) => {
         updateData.last_connected_at = new Date().toISOString();
         updateData.qr_code = null;
         updateData.error_message = null;
-        // Try to extract phone number
         const wuid = data?.instance?.wuid || data?.wuid;
         if (wuid) {
           updateData.phone_number = wuid.split("@")[0];
@@ -99,15 +95,34 @@ Deno.serve(async (req) => {
         const phone = key.remoteJid?.split("@")[0];
         if (!phone || phone === "status") continue;
 
-        const messageContent = msg?.message?.conversation ||
-          msg?.message?.extendedTextMessage?.text ||
-          msg?.message?.imageMessage?.caption ||
-          "[media]";
+        // Extract media URL from Evolution API payload
+        const imgMsg = msg?.message?.imageMessage;
+        const audioMsg = msg?.message?.audioMessage;
+        const videoMsg = msg?.message?.videoMessage;
+        const docMsg = msg?.message?.documentMessage;
+        const stickerMsg = msg?.message?.stickerMessage;
 
-        const messageType = msg?.message?.imageMessage ? "image" :
-          msg?.message?.audioMessage ? "audio" :
-          msg?.message?.videoMessage ? "video" :
-          msg?.message?.documentMessage ? "document" : "text";
+        const mediaUrl = imgMsg?.url || audioMsg?.url || videoMsg?.url || docMsg?.url || stickerMsg?.url || null;
+        const caption = imgMsg?.caption || videoMsg?.caption || docMsg?.caption || null;
+
+        const textContent = msg?.message?.conversation ||
+          msg?.message?.extendedTextMessage?.text ||
+          caption ||
+          null;
+
+        const messageType = imgMsg ? "image" :
+          audioMsg ? "audio" :
+          videoMsg ? "video" :
+          docMsg ? "document" :
+          stickerMsg ? "sticker" : "text";
+
+        // Build content: for media, store JSON with url and caption; for text, store text
+        let messageContent: string;
+        if (mediaUrl && messageType !== "text") {
+          messageContent = JSON.stringify({ url: mediaUrl, caption: caption || null });
+        } else {
+          messageContent = textContent || "[media]";
+        }
 
         // Upsert contact
         const { data: existingContact } = await supabase
@@ -170,7 +185,7 @@ Deno.serve(async (req) => {
           sender_name: msg?.pushName || null,
           sender_phone: isFromMe ? session.phone_number : phone,
         });
-        console.log("Message saved:", isFromMe ? "outbound" : "inbound", "phone:", phone);
+        console.log("Message saved:", isFromMe ? "outbound" : "inbound", "phone:", phone, "type:", messageType, "hasMedia:", !!mediaUrl);
       }
     } else {
       console.log("Unhandled event:", event);
