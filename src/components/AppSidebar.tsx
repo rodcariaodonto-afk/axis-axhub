@@ -40,6 +40,7 @@ const crmItems = [
   { title: "Forecasting", url: "/forecasting", icon: TrendingUp },
   { title: "Relatórios", url: "/reports", icon: FileBarChart },
   { title: "Workflows", url: "/workflows", icon: GitBranch },
+  { title: "Funis de Venda", url: "/funis", icon: Zap },
 ];
 
 export function AppSidebar() {
