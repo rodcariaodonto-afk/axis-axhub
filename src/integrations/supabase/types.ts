@@ -3106,6 +3106,7 @@ export type Database = {
           display_name: string | null
           id: string
           is_favorite: boolean
+          is_group: boolean
           last_message_at: string | null
           phone_number: string
           priority: number
@@ -3122,6 +3123,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           is_favorite?: boolean
+          is_group?: boolean
           last_message_at?: string | null
           phone_number: string
           priority?: number
@@ -3138,6 +3140,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           is_favorite?: boolean
+          is_group?: boolean
           last_message_at?: string | null
           phone_number?: string
           priority?: number

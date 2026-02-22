@@ -45,6 +45,7 @@ interface Props {
   contactPhone?: string;
   contactStatus?: string;
   contactTags?: TagItem[];
+  isGroup?: boolean;
   onSend: (text: string) => void;
   onStatusChange?: (status: string) => void;
   onOpenTags?: () => void;
@@ -104,7 +105,7 @@ function ImageWithFallback({ url }: { url: string }) {
 }
 
 export function WhatsAppChat({
-  messages, contactName, contactPhone, contactStatus, contactTags,
+  messages, contactName, contactPhone, contactStatus, contactTags, isGroup,
   onSend, onStatusChange, onOpenTags, onDeleteChat, sending
 }: Props) {
   const [text, setText] = useState("");
@@ -219,6 +220,10 @@ export function WhatsAppChat({
                     : "bg-secondary text-secondary-foreground rounded-bl-none"
                 }`}
               >
+                {/* Show sender name in group chats for inbound messages */}
+                {isGroup && !isOutbound && msg.sender_name && (
+                  <p className="text-xs font-semibold text-primary mb-1">{msg.sender_name}</p>
+                )}
                 {/* Render media */}
                 {url && msg.message_type === "image" && (
                   <ImageWithFallback url={url} />

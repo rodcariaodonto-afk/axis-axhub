@@ -381,6 +381,7 @@ export default function WhatsApp() {
             contactPhone={selectedContact?.phone_number}
             contactStatus={selectedContact?.contact_status?.status || "open"}
             contactTags={selectedContact?.tags || []}
+            isGroup={selectedContact?.is_group === true}
             onSend={handleSend}
             onStatusChange={handleStatusChange}
             onOpenTags={() => setShowTagManager(true)}
