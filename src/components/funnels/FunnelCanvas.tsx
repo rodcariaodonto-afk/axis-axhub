@@ -17,6 +17,7 @@ import FunnelCustomNode from "./FunnelCustomNode";
 import FunnelCustomEdge from "./FunnelCustomEdge";
 import { FunnelSidebarPalette } from "./FunnelSidebarPalette";
 import { FunnelSettingsPanel } from "./FunnelSettingsPanel";
+import { FunnelExecutionDashboard } from "./FunnelExecutionDashboard";
 import { getBlockType } from "./funnelBlockTypes";
 import { Button } from "@/components/ui/button";
 import { Save, ArrowLeft } from "lucide-react";
@@ -172,6 +173,7 @@ export function FunnelCanvas({ funilId, funilNome, initialNodes, initialEdges, t
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <h2 className="font-semibold text-foreground">{funilNome}</h2>
+            <FunnelExecutionDashboard funilId={funilId} />
           </div>
           <Button size="sm" onClick={handleSave} disabled={saving}>
             <Save className="h-4 w-4 mr-1.5" />
