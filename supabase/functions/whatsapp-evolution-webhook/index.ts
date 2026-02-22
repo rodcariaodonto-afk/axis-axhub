@@ -10,18 +10,29 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { event, instance, data } = body;
+    console.log("Webhook received:", JSON.stringify(body).substring(0, 2000));
+
+    // Extract event name - Evolution API v1 and v2 formats
+    const event = body.event || body.action;
+
+    // Extract instance name - multiple possible locations
+    const instanceName =
+      typeof body.instance === "string" ? body.instance :
+      body.instance?.instanceName ||
+      body.instanceName ||
+      body.data?.instance?.instanceName;
+
+    console.log("Parsed event:", event, "instance:", instanceName);
+
+    if (!instanceName) {
+      console.log("No instance identifier found in payload");
+      return new Response(JSON.stringify({ error: "No instance identifier" }), { status: 400, headers: corsHeaders });
+    }
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
-
-    // Find session by instance name
-    const instanceName = instance || body?.instanceName || body?.instance?.instanceName;
-    if (!instanceName) {
-      return new Response(JSON.stringify({ error: "No instance identifier" }), { status: 400, headers: corsHeaders });
-    }
 
     const { data: session } = await supabase
       .from("whatsapp_sessions")
@@ -35,40 +46,54 @@ Deno.serve(async (req) => {
     }
 
     const tenantId = session.tenant_id;
+    const data = body.data || body;
+    console.log("Processing event:", event, "for session:", session.id);
 
-    // Handle events
+    // Handle QR code events
     if (event === "qrcode.updated" || event === "QRCODE_UPDATED") {
-      const qrCode = data?.qrcode?.base64 || data?.base64;
+      const qrCode = data?.qrcode?.base64 || data?.base64 || data?.qrcode;
+      console.log("QR code received, length:", qrCode?.length || 0);
       if (qrCode) {
         await supabase
           .from("whatsapp_sessions")
           .update({ qr_code: qrCode, status: "qr_pending" })
           .eq("id", session.id);
+        console.log("QR code updated in DB");
       }
-    } else if (event === "connection.update" || event === "CONNECTION_UPDATE") {
-      const state = data?.state || data?.status;
+    }
+    // Handle connection events
+    else if (event === "connection.update" || event === "CONNECTION_UPDATE") {
+      const state = data?.state || data?.status || data?.instance?.state || data?.statusReason;
+      console.log("Connection state:", state, "full data:", JSON.stringify(data).substring(0, 500));
+
       let status = "disconnected";
       if (state === "open" || state === "connected") status = "connected";
       else if (state === "close" || state === "disconnected") status = "disconnected";
-      else if (state === "connecting") status = "qr_pending";
+      else if (state === "connecting" || state === "qr") status = "qr_pending";
 
       const updateData: Record<string, unknown> = { status };
       if (status === "connected") {
         updateData.last_connected_at = new Date().toISOString();
         updateData.qr_code = null;
         updateData.error_message = null;
-        if (data?.instance?.wuid) {
-          updateData.phone_number = data.instance.wuid.split("@")[0];
+        // Try to extract phone number
+        const wuid = data?.instance?.wuid || data?.wuid;
+        if (wuid) {
+          updateData.phone_number = wuid.split("@")[0];
         }
       }
 
+      console.log("Updating session status to:", status);
       await supabase.from("whatsapp_sessions").update(updateData).eq("id", session.id);
-    } else if (event === "messages.upsert" || event === "MESSAGES_UPSERT") {
-      const messages = Array.isArray(data) ? data : [data];
+    }
+    // Handle message events
+    else if (event === "messages.upsert" || event === "MESSAGES_UPSERT") {
+      const messages = Array.isArray(data) ? data : data?.messages ? data.messages : [data];
+      console.log("Processing", messages.length, "messages");
 
       for (const msg of messages) {
         const key = msg?.key;
-        if (!key || key.fromMe) continue; // skip outbound echoes
+        if (!key || key.fromMe) continue;
 
         const phone = key.remoteJid?.split("@")[0];
         if (!phone || phone === "status") continue;
@@ -86,7 +111,7 @@ Deno.serve(async (req) => {
         // Upsert contact
         const { data: existingContact } = await supabase
           .from("whatsapp_contacts")
-          .select("id")
+          .select("id, unread_count")
           .eq("session_id", session.id)
           .eq("phone_number", phone)
           .single();
@@ -98,7 +123,7 @@ Deno.serve(async (req) => {
             .from("whatsapp_contacts")
             .update({
               last_message_at: new Date().toISOString(),
-              unread_count: (existingContact as any).unread_count + 1 || 1,
+              unread_count: (existingContact.unread_count || 0) + 1,
               display_name: msg?.pushName || undefined,
             })
             .eq("id", contactId);
@@ -132,7 +157,10 @@ Deno.serve(async (req) => {
           sender_name: msg?.pushName || null,
           sender_phone: phone,
         });
+        console.log("Message saved from:", phone);
       }
+    } else {
+      console.log("Unhandled event:", event);
     }
 
     return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });

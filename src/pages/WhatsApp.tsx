@@ -58,6 +58,19 @@ export default function WhatsApp() {
 
   useEffect(() => { loadSessions(); }, [loadSessions]);
 
+  // Load contacts for selected session
+  const loadContacts = useCallback(async () => {
+    if (!selectedSessionId) { setContacts([]); return; }
+    const { data } = await supabase
+      .from("whatsapp_contacts")
+      .select("*")
+      .eq("session_id", selectedSessionId)
+      .order("last_message_at", { ascending: false });
+    if (data) setContacts(data);
+  }, [selectedSessionId]);
+
+  useEffect(() => { loadContacts(); }, [loadContacts]);
+
   // Realtime sessions
   useEffect(() => {
     if (!tenantId) return;
@@ -65,28 +78,20 @@ export default function WhatsApp() {
       .channel("whatsapp-sessions-rt")
       .on("postgres_changes", { event: "*", schema: "public", table: "whatsapp_sessions" }, (payload) => {
         loadSessions();
-        // Auto-close QR dialog when connected
         if (payload.eventType === "UPDATE" && (payload.new as any).status === "connected") {
           if (qrSession?.id === (payload.new as any).id) {
             setShowQR(false);
             toast({ title: "WhatsApp conectado!" });
           }
+          // Reload contacts when session connects
+          if (selectedSessionId === (payload.new as any).id) {
+            loadContacts();
+          }
         }
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [tenantId, loadSessions, qrSession, toast]);
-
-  // Load contacts for selected session
-  useEffect(() => {
-    if (!selectedSessionId) { setContacts([]); return; }
-    supabase
-      .from("whatsapp_contacts")
-      .select("*")
-      .eq("session_id", selectedSessionId)
-      .order("last_message_at", { ascending: false })
-      .then(({ data }) => { if (data) setContacts(data); });
-  }, [selectedSessionId]);
+  }, [tenantId, loadSessions, loadContacts, qrSession, selectedSessionId, toast]);
 
   // Load messages for selected contact
   useEffect(() => {
@@ -116,19 +121,13 @@ export default function WhatsApp() {
         if (selectedContact && newMsg.contact_phone === selectedContact.phone_number && newMsg.session_id === selectedSessionId) {
           setMessages((prev) => [...prev, newMsg]);
         }
-        // Refresh contacts to update unread/last_message
         if (newMsg.session_id === selectedSessionId) {
-          supabase
-            .from("whatsapp_contacts")
-            .select("*")
-            .eq("session_id", selectedSessionId)
-            .order("last_message_at", { ascending: false })
-            .then(({ data }) => { if (data) setContacts(data); });
+          loadContacts();
         }
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [tenantId, selectedContact, selectedSessionId]);
+  }, [tenantId, selectedContact, selectedSessionId, loadContacts]);
 
   // Load settings
   useEffect(() => {
@@ -137,6 +136,29 @@ export default function WhatsApp() {
       if (data) setSettings(data);
     });
   }, [tenantId]);
+
+  // Polling for QR updates + status sync
+  useEffect(() => {
+    if (!showQR || !qrSession) return;
+    const interval = setInterval(async () => {
+      const { data } = await supabase
+        .from("whatsapp_sessions")
+        .select("qr_code, status, phone_number")
+        .eq("id", qrSession.id)
+        .single();
+      if (data) {
+        setQrSession((prev: any) => ({ ...prev, ...data }));
+        if (data.status === "connected") {
+          setShowQR(false);
+          toast({ title: "WhatsApp conectado!" });
+          loadSessions();
+          loadContacts();
+          clearInterval(interval);
+        }
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [showQR, qrSession, toast, loadSessions, loadContacts]);
 
   // Create session
   const handleCreateSession = async () => {
@@ -172,31 +194,34 @@ export default function WhatsApp() {
         body: {},
         headers: {},
       });
-      // QR will be updated via realtime
+      if (data?.status === "connected") {
+        setShowQR(false);
+        toast({ title: "WhatsApp já está conectado!" });
+        loadSessions();
+      }
     } catch (err) {
       console.error("QR fetch error:", err);
     }
   };
 
-  // Polling for QR updates
-  useEffect(() => {
-    if (!showQR || !qrSession) return;
-    const interval = setInterval(async () => {
-      const { data } = await supabase
-        .from("whatsapp_sessions")
-        .select("qr_code, status")
-        .eq("id", qrSession.id)
-        .single();
-      if (data) {
-        setQrSession((prev: any) => ({ ...prev, ...data }));
-        if (data.status === "connected") {
-          setShowQR(false);
-          clearInterval(interval);
-        }
+  // Check status manually
+  const handleCheckStatus = async (session: any) => {
+    try {
+      const { data } = await supabase.functions.invoke("get-whatsapp-qr", {
+        body: {},
+        headers: {},
+      });
+      loadSessions();
+      if (data?.status === "connected") {
+        toast({ title: "Sessão conectada!" });
+        loadContacts();
+      } else {
+        toast({ title: `Status: ${data?.status || "desconhecido"}` });
       }
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [showQR, qrSession]);
+    } catch (err: any) {
+      toast({ title: "Erro ao verificar status", variant: "destructive" });
+    }
+  };
 
   // Send message
   const handleSend = async (text: string) => {
@@ -273,6 +298,7 @@ export default function WhatsApp() {
             onNewSession={() => setShowNewSession(true)}
             onConnect={handleConnect}
             onDelete={handleDeleteSession}
+            onCheckStatus={handleCheckStatus}
           />
         </div>
 
