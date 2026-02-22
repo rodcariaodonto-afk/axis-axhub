@@ -1,76 +1,65 @@
 
 
-# Segmentacao de Conexoes WhatsApp
+# Correcao de Bugs do WhatsApp
 
-## Objetivo
+## Problemas Identificados
 
-Adicionar sistema de segmentacao ao modulo WhatsApp existente, incluindo abas de status (Abertos, Atendendo, Aguardando, Grupos), tags/rotulos coloridos para contatos, filtros avancados e contadores dinamicos.
+1. **Imagens nao carregam no chat** - Quando recebe imagens, o chat mostra apenas "[media]" em vez de renderizar a imagem. O webhook salva o tipo como "image" mas nao salva a URL da midia. Precisamos capturar a URL da imagem da Evolution API e renderizar no chat.
 
-## Alteracoes no Banco de Dados
+2. **Contador de nao lidas nao zera ao abrir chat** - Quando o usuario clica em um contato, o `unread_count` e zerado no banco mas a lista de contatos nao e atualizada visualmente.
 
-### Nova tabela: `whatsapp_contact_tags`
-- Armazena tags/rotulos por contato (ex: COMERCIAL, VIP, CLIENTE)
-- Colunas: id, tenant_id, contact_id, tag_name, tag_color
-- Constraint UNIQUE(contact_id, tag_name)
-- RLS com tenant isolation
+3. **Falta opcao de apagar chat** - Nao existe botao para deletar conversa com um contato.
 
-### Nova tabela: `whatsapp_contact_status`
-- Armazena status de atendimento por contato
-- Colunas: id, tenant_id, contact_id, status (open/attending/waiting/group/closed), assigned_to, last_status_change
-- Constraint UNIQUE(contact_id)
-- RLS com tenant isolation
+4. **Abas de segmentacao sobrepostas** - As abas "Todas", "Abertos", "Atendendo", "Aguardando", "Grupos" ficam cortadas/sobrepostas porque o container e muito estreito (w-72) e o texto das abas nao cabe.
 
-### Alteracoes em `whatsapp_contacts`
-- Adicionar coluna `color_code` (VARCHAR para cor visual)
-- Adicionar coluna `priority` (inteiro: -1 baixa, 0 normal, 1 alta)
+## Alteracoes Planejadas
 
-## Frontend - Componentes
+### 1. Webhook: Capturar URL de midia (`whatsapp-evolution-webhook`)
+- Extrair `mediaUrl` ou URL da midia do payload da Evolution API para mensagens de imagem, audio, video e documento
+- Salvar a URL no campo `content` quando a mensagem for de midia (ou criar logica para armazenar separadamente)
+- Para imagens com caption, salvar ambos
 
-### 1. `WhatsAppContactList.tsx` - Refatorar
-- Adicionar abas de segmentacao acima da lista: Todas, Abertos, Atendendo, Aguardando, Grupos
-- Cada aba mostra contador dinamico
-- Exibir tags coloridas em cada contato
-- Exibir icone de status ao lado do contato
+### 2. Chat: Renderizar imagens (`WhatsAppChat.tsx`)
+- Verificar `message_type` - se for "image", renderizar `<img>` com a URL
+- Manter o texto/caption abaixo da imagem se houver
+- Para audio/video/documento, mostrar icone apropriado em vez de "[media]"
 
-### 2. Novo componente: `WhatsAppTagManager.tsx`
-- Dialog para adicionar/remover tags de um contato
-- Seletor de cor para a tag
-- Tags pre-definidas sugeridas (COMERCIAL, AFILIADO, CLIENTE, VIP, BLOQUEADO)
+### 3. Zerar contador ao ler (`WhatsApp.tsx`)
+- Apos o `update({ unread_count: 0 })`, chamar `loadContacts()` para atualizar a lista
+- Atualizar tambem o estado local do contato selecionado
 
-### 3. `WhatsApp.tsx` - Atualizar
-- Carregar contatos com joins para tags e status
-- Adicionar estado para filtro de segmento ativo
-- Adicionar logica de mudanca de status via dropdown no chat header
-- Filtrar contatos localmente por segmento e busca
+### 4. Botao de apagar chat (`WhatsAppChat.tsx` e `WhatsApp.tsx`)
+- Adicionar botao de lixeira no header do chat
+- Ao clicar, mostrar confirmacao
+- Deletar todas as mensagens do contato e o proprio contato (cascade deleta tags e status)
+- Limpar selecao apos deletar
 
-### 4. `WhatsAppChat.tsx` - Atualizar header
-- Mostrar status atual do contato
-- Dropdown para mudar status (Aberto, Atendendo, Aguardando, Fechado)
-- Botao para adicionar tag ao contato
+### 5. Corrigir abas sobrepostas (`WhatsAppContactList.tsx`)
+- Reduzir texto das abas ou usar scroll horizontal funcional
+- Usar tamanhos menores de fonte e padding mais compacto
+- Garantir que as abas nao se sobreponham
+
+### 6. Corrigir warning de ref no WhatsAppTagManager
+- O console mostra "Function components cannot be given refs" - o Dialog tenta passar ref para WhatsAppTagManager. Nao afeta funcionalidade mas sera corrigido.
 
 ## Detalhes Tecnicos
 
-- As queries de contatos usarao joins com `whatsapp_contact_status` e `whatsapp_contact_tags` diretamente pelo Supabase client (sem necessidade de edge functions extras)
-- Contadores serao calculados no frontend a partir dos dados carregados
-- Mudancas de status e tags serao feitas diretamente via Supabase client (insert/update/delete)
-- O webhook `whatsapp-evolution-webhook` sera atualizado para criar automaticamente um registro em `whatsapp_contact_status` com status "open" quando um novo contato chega
-- Adaptar referencias de `workspace_id` do documento para `tenant_id` usado no projeto
+### Webhook - Captura de midia
+A Evolution API envia URLs de midia no payload. O campo `mediaUrl` ou `message.imageMessage.url` contem o link direto. Vamos extrair e salvar junto com o conteudo.
 
-## Arquivos Modificados/Criados
+### Arquivos modificados
+- `supabase/functions/whatsapp-evolution-webhook/index.ts` - Capturar URL de midia
+- `src/components/whatsapp/WhatsAppChat.tsx` - Renderizar imagens, botao apagar, icones de midia
+- `src/components/whatsapp/WhatsAppContactList.tsx` - Corrigir abas sobrepostas
+- `src/pages/WhatsApp.tsx` - Zerar unread ao abrir chat, logica de apagar chat
+- `src/components/whatsapp/WhatsAppTagManager.tsx` - Corrigir warning de ref
 
-- Migracao SQL para criar tabelas e alterar `whatsapp_contacts`
-- `src/components/whatsapp/WhatsAppContactList.tsx` - Adicionar abas, tags e status
-- `src/components/whatsapp/WhatsAppTagManager.tsx` - Novo componente
-- `src/components/whatsapp/WhatsAppChat.tsx` - Header com status e tags
-- `src/pages/WhatsApp.tsx` - Logica de segmentacao e filtros
-- `supabase/functions/whatsapp-evolution-webhook/index.ts` - Auto-criar status "open" para novos contatos
-
-## Ordem de Execucao
-
-1. Criar tabelas no banco (migracao)
-2. Atualizar webhook para criar status automaticamente
-3. Refatorar WhatsAppContactList com abas e tags
-4. Criar WhatsAppTagManager
-5. Atualizar WhatsAppChat com controles de status
-6. Integrar tudo no WhatsApp.tsx
+### Ordem de execucao
+1. Corrigir abas sobrepostas no ContactList
+2. Corrigir zeragem de unread no WhatsApp.tsx
+3. Adicionar botao e logica de apagar chat
+4. Atualizar webhook para capturar URL de midia
+5. Atualizar chat para renderizar imagens e midia
+6. Corrigir warning de ref no TagManager
+7. Deploy do webhook
 
