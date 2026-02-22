@@ -1,65 +1,68 @@
 
 
-# Correcao de Bugs do WhatsApp
+# Correcao de Imagens e Layout Redimensionavel no WhatsApp
 
-## Problemas Identificados
+## Problemas
 
-1. **Imagens nao carregam no chat** - Quando recebe imagens, o chat mostra apenas "[media]" em vez de renderizar a imagem. O webhook salva o tipo como "image" mas nao salva a URL da midia. Precisamos capturar a URL da imagem da Evolution API e renderizar no chat.
+1. **Imagens "indisponivel"**: As URLs de midia do WhatsApp (mmg.whatsapp.net) sao temporarias e expiram em poucos minutos. O webhook salva essas URLs, mas quando o usuario abre o chat, elas ja expiraram.
 
-2. **Contador de nao lidas nao zera ao abrir chat** - Quando o usuario clica em um contato, o `unread_count` e zerado no banco mas a lista de contatos nao e atualizada visualmente.
+2. **Lista de contatos cortada**: O layout usa larguras fixas (w-56 para sessoes, w-72 para contatos) que nao permitem ajuste. O texto dos contatos e abas fica cortado.
 
-3. **Falta opcao de apagar chat** - Nao existe botao para deletar conversa com um contato.
+## Solucao
 
-4. **Abas de segmentacao sobrepostas** - As abas "Todas", "Abertos", "Atendendo", "Aguardando", "Grupos" ficam cortadas/sobrepostas porque o container e muito estreito (w-72) e o texto das abas nao cabe.
+### 1. Download de midia no webhook e armazenamento permanente
 
-## Alteracoes Planejadas
+Atualizar o `whatsapp-evolution-webhook` para:
+- Quando receber uma mensagem com midia (imagem, audio, video, documento), fazer download da URL temporaria do WhatsApp
+- Salvar o arquivo no Supabase Storage (bucket `whatsapp-media`)
+- Armazenar a URL publica permanente do Storage no campo `content`
+- Isso garante que as imagens nunca expirem
 
-### 1. Webhook: Capturar URL de midia (`whatsapp-evolution-webhook`)
-- Extrair `mediaUrl` ou URL da midia do payload da Evolution API para mensagens de imagem, audio, video e documento
-- Salvar a URL no campo `content` quando a mensagem for de midia (ou criar logica para armazenar separadamente)
-- Para imagens com caption, salvar ambos
+Criar o bucket `whatsapp-media` via migracao SQL com politica publica de leitura.
 
-### 2. Chat: Renderizar imagens (`WhatsAppChat.tsx`)
-- Verificar `message_type` - se for "image", renderizar `<img>` com a URL
-- Manter o texto/caption abaixo da imagem se houver
-- Para audio/video/documento, mostrar icone apropriado em vez de "[media]"
+### 2. Melhorar fallback de imagem no chat
 
-### 3. Zerar contador ao ler (`WhatsApp.tsx`)
-- Apos o `update({ unread_count: 0 })`, chamar `loadContacts()` para atualizar a lista
-- Atualizar tambem o estado local do contato selecionado
+Atualizar `WhatsAppChat.tsx`:
+- Usar estado React para controlar fallback de imagem (em vez de manipulacao DOM direta)
+- Mostrar icone e texto "Imagem indisponivel" de forma limpa quando a imagem falha
 
-### 4. Botao de apagar chat (`WhatsAppChat.tsx` e `WhatsApp.tsx`)
-- Adicionar botao de lixeira no header do chat
-- Ao clicar, mostrar confirmacao
-- Deletar todas as mensagens do contato e o proprio contato (cascade deleta tags e status)
-- Limpar selecao apos deletar
+### 3. Layout redimensionavel com react-resizable-panels
 
-### 5. Corrigir abas sobrepostas (`WhatsAppContactList.tsx`)
-- Reduzir texto das abas ou usar scroll horizontal funcional
-- Usar tamanhos menores de fonte e padding mais compacto
-- Garantir que as abas nao se sobreponham
-
-### 6. Corrigir warning de ref no WhatsAppTagManager
-- O console mostra "Function components cannot be given refs" - o Dialog tenta passar ref para WhatsAppTagManager. Nao afeta funcionalidade mas sera corrigido.
+O projeto ja tem `react-resizable-panels` instalado. Atualizar `WhatsApp.tsx`:
+- Substituir o layout de 3 colunas com largura fixa por `ResizablePanelGroup` com `ResizablePanel` e `ResizableHandle`
+- Sessoes: painel com tamanho padrao ~15%, minimo 10%
+- Contatos: painel com tamanho padrao ~25%, minimo 15%
+- Chat: painel flexivel com o resto do espaco
+- O usuario podera arrastar as bordas para redimensionar cada coluna
 
 ## Detalhes Tecnicos
 
-### Webhook - Captura de midia
-A Evolution API envia URLs de midia no payload. O campo `mediaUrl` ou `message.imageMessage.url` contem o link direto. Vamos extrair e salvar junto com o conteudo.
-
 ### Arquivos modificados
-- `supabase/functions/whatsapp-evolution-webhook/index.ts` - Capturar URL de midia
-- `src/components/whatsapp/WhatsAppChat.tsx` - Renderizar imagens, botao apagar, icones de midia
-- `src/components/whatsapp/WhatsAppContactList.tsx` - Corrigir abas sobrepostas
-- `src/pages/WhatsApp.tsx` - Zerar unread ao abrir chat, logica de apagar chat
-- `src/components/whatsapp/WhatsAppTagManager.tsx` - Corrigir warning de ref
+- **Migracao SQL**: Criar bucket `whatsapp-media` no Supabase Storage
+- **`supabase/functions/whatsapp-evolution-webhook/index.ts`**: Download de midia e upload para Storage
+- **`src/components/whatsapp/WhatsAppChat.tsx`**: Fallback de imagem via estado React
+- **`src/pages/WhatsApp.tsx`**: Layout com ResizablePanelGroup
+
+### Fluxo de midia no webhook
+1. Recebe mensagem com `mediaUrl` da Evolution API
+2. Faz `fetch(mediaUrl)` para baixar o conteudo
+3. Faz upload para `whatsapp-media/{tenant_id}/{message_id}.{ext}` no Storage
+4. Obtem URL publica permanente
+5. Salva JSON `{url: publicUrl, caption}` no campo `content`
+
+### Layout redimensionavel
+```text
++------------------+------------------------+---------------------------+
+|   Sessoes (15%)  |  Contatos (25%)        |     Chat (60%)            |
+|   min: 10%       |  min: 15%              |     min: 30%              |
+|                  |                        |                           |
+|  [drag handle]   [drag handle]            |                           |
++------------------+------------------------+---------------------------+
+```
 
 ### Ordem de execucao
-1. Corrigir abas sobrepostas no ContactList
-2. Corrigir zeragem de unread no WhatsApp.tsx
-3. Adicionar botao e logica de apagar chat
-4. Atualizar webhook para capturar URL de midia
-5. Atualizar chat para renderizar imagens e midia
-6. Corrigir warning de ref no TagManager
-7. Deploy do webhook
+1. Criar migracao para bucket de storage
+2. Atualizar webhook para download + upload de midia
+3. Corrigir fallback de imagem no chat
+4. Implementar layout redimensionavel
 
