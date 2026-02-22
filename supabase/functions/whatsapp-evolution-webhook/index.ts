@@ -147,6 +147,13 @@ Deno.serve(async (req) => {
             .select("id")
             .single();
           contactId = newContact!.id;
+
+          // Auto-create open status for new contacts
+          await supabase.from("whatsapp_contact_status").insert({
+            tenant_id: tenantId,
+            contact_id: contactId,
+            status: "open",
+          });
         }
 
         // Insert message

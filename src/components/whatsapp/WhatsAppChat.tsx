@@ -1,7 +1,14 @@
-import { Send, MessageCircle } from "lucide-react";
+import { Send, MessageCircle, Tag, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useRef, useEffect, useState } from "react";
 import { format } from "date-fns";
 
@@ -15,15 +22,35 @@ interface Message {
   status?: string;
 }
 
+interface TagItem {
+  id: string;
+  tag_name: string;
+  tag_color: string;
+}
+
 interface Props {
   messages: Message[];
   contactName?: string;
   contactPhone?: string;
+  contactStatus?: string;
+  contactTags?: TagItem[];
   onSend: (text: string) => void;
+  onStatusChange?: (status: string) => void;
+  onOpenTags?: () => void;
   sending?: boolean;
 }
 
-export function WhatsAppChat({ messages, contactName, contactPhone, onSend, sending }: Props) {
+const STATUS_OPTIONS = [
+  { value: "open", label: "Aberto", color: "text-green-500" },
+  { value: "attending", label: "Atendendo", color: "text-blue-500" },
+  { value: "waiting", label: "Aguardando", color: "text-amber-500" },
+  { value: "closed", label: "Fechado", color: "text-muted-foreground" },
+];
+
+export function WhatsAppChat({
+  messages, contactName, contactPhone, contactStatus, contactTags,
+  onSend, onStatusChange, onOpenTags, sending
+}: Props) {
   const [text, setText] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -48,14 +75,57 @@ export function WhatsAppChat({ messages, contactName, contactPhone, onSend, send
     );
   }
 
+  const currentStatusLabel = STATUS_OPTIONS.find((s) => s.value === contactStatus)?.label || "Aberto";
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="p-3 border-b border-border flex items-center gap-3">
-        <div>
-          <p className="text-sm font-medium">{contactName || contactPhone}</p>
-          <p className="text-xs text-muted-foreground">{contactPhone}</p>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium truncate">{contactName || contactPhone}</p>
+            {/* Status dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-5 px-2 text-[10px] gap-1">
+                  {currentStatusLabel}
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {STATUS_OPTIONS.map((opt) => (
+                  <DropdownMenuItem
+                    key={opt.value}
+                    onClick={() => onStatusChange?.(opt.value)}
+                    className={opt.color}
+                  >
+                    {opt.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <div className="flex items-center gap-2 mt-0.5">
+            <p className="text-xs text-muted-foreground">{contactPhone}</p>
+            {/* Tags */}
+            {contactTags && contactTags.length > 0 && (
+              <div className="flex gap-1">
+                {contactTags.map((t) => (
+                  <span
+                    key={t.id}
+                    className="text-[8px] px-1.5 rounded-full text-white font-medium"
+                    style={{ backgroundColor: t.tag_color }}
+                  >
+                    {t.tag_name}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
+        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={onOpenTags}>
+          <Tag className="h-4 w-4" />
+        </Button>
       </div>
 
       {/* Messages */}

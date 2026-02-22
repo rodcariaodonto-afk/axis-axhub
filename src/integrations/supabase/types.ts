@@ -3011,8 +3011,96 @@ export type Database = {
           },
         ]
       }
+      whatsapp_contact_status: {
+        Row: {
+          assigned_to: string | null
+          contact_id: string
+          created_at: string
+          id: string
+          last_status_change: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          contact_id: string
+          created_at?: string
+          id?: string
+          last_status_change?: string
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          assigned_to?: string | null
+          contact_id?: string
+          created_at?: string
+          id?: string
+          last_status_change?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_contact_status_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: true
+            referencedRelation: "whatsapp_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_contact_status_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_contact_tags: {
+        Row: {
+          contact_id: string
+          created_at: string
+          id: string
+          tag_color: string
+          tag_name: string
+          tenant_id: string
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string
+          id?: string
+          tag_color?: string
+          tag_name: string
+          tenant_id: string
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string
+          id?: string
+          tag_color?: string
+          tag_name?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_contact_tags_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_contact_tags_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_contacts: {
         Row: {
+          color_code: string | null
           created_at: string
           customer_id: string | null
           display_name: string | null
@@ -3020,6 +3108,7 @@ export type Database = {
           is_favorite: boolean
           last_message_at: string | null
           phone_number: string
+          priority: number
           profile_picture_url: string | null
           session_id: string
           tenant_id: string
@@ -3027,6 +3116,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          color_code?: string | null
           created_at?: string
           customer_id?: string | null
           display_name?: string | null
@@ -3034,6 +3124,7 @@ export type Database = {
           is_favorite?: boolean
           last_message_at?: string | null
           phone_number: string
+          priority?: number
           profile_picture_url?: string | null
           session_id: string
           tenant_id: string
@@ -3041,6 +3132,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          color_code?: string | null
           created_at?: string
           customer_id?: string | null
           display_name?: string | null
@@ -3048,6 +3140,7 @@ export type Database = {
           is_favorite?: boolean
           last_message_at?: string | null
           phone_number?: string
+          priority?: number
           profile_picture_url?: string | null
           session_id?: string
           tenant_id?: string

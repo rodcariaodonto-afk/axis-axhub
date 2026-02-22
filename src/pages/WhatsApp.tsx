@@ -7,6 +7,7 @@ import { WhatsAppContactList } from "@/components/whatsapp/WhatsAppContactList";
 import { WhatsAppChat } from "@/components/whatsapp/WhatsAppChat";
 import { WhatsAppQRDialog } from "@/components/whatsapp/WhatsAppQRDialog";
 import { WhatsAppSettingsDialog } from "@/components/whatsapp/WhatsAppSettingsDialog";
+import { WhatsAppTagManager } from "@/components/whatsapp/WhatsAppTagManager";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +36,8 @@ export default function WhatsApp() {
   const [settings, setSettings] = useState<any>({});
   const [savingSettings, setSavingSettings] = useState(false);
 
+  const [showTagManager, setShowTagManager] = useState(false);
+
   const [tenantId, setTenantId] = useState<string>();
 
   // Load tenant
@@ -58,15 +61,31 @@ export default function WhatsApp() {
 
   useEffect(() => { loadSessions(); }, [loadSessions]);
 
-  // Load contacts for selected session
+  // Load contacts with tags and status
   const loadContacts = useCallback(async () => {
     if (!selectedSessionId) { setContacts([]); return; }
-    const { data } = await supabase
+    const { data: contactsData } = await supabase
       .from("whatsapp_contacts")
       .select("*")
       .eq("session_id", selectedSessionId)
       .order("last_message_at", { ascending: false });
-    if (data) setContacts(data);
+
+    if (!contactsData) { setContacts([]); return; }
+
+    // Load tags and status for all contacts
+    const contactIds = contactsData.map((c: any) => c.id);
+    const [{ data: tagsData }, { data: statusData }] = await Promise.all([
+      supabase.from("whatsapp_contact_tags").select("*").in("contact_id", contactIds),
+      supabase.from("whatsapp_contact_status").select("*").in("contact_id", contactIds),
+    ]);
+
+    const enriched = contactsData.map((c: any) => ({
+      ...c,
+      tags: (tagsData || []).filter((t: any) => t.contact_id === c.id),
+      contact_status: (statusData || []).find((s: any) => s.contact_id === c.id) || null,
+    }));
+
+    setContacts(enriched);
   }, [selectedSessionId]);
 
   useEffect(() => { loadContacts(); }, [loadContacts]);
@@ -83,7 +102,6 @@ export default function WhatsApp() {
             setShowQR(false);
             toast({ title: "WhatsApp conectado!" });
           }
-          // Reload contacts when session connects
           if (selectedSessionId === (payload.new as any).id) {
             loadContacts();
           }
@@ -104,7 +122,6 @@ export default function WhatsApp() {
       .order("created_at", { ascending: true })
       .then(({ data }) => { if (data) setMessages(data); });
 
-    // Mark as read
     supabase
       .from("whatsapp_contacts")
       .update({ unread_count: 0 })
@@ -137,7 +154,7 @@ export default function WhatsApp() {
     });
   }, [tenantId]);
 
-  // Polling for QR updates + status sync
+  // Polling for QR updates
   useEffect(() => {
     if (!showQR || !qrSession) return;
     const interval = setInterval(async () => {
@@ -185,7 +202,6 @@ export default function WhatsApp() {
     }
   };
 
-  // Connect / show QR
   const handleConnect = async (session: any) => {
     setQrSession(session);
     setShowQR(true);
@@ -206,7 +222,6 @@ export default function WhatsApp() {
     }
   };
 
-  // Check status manually
   const handleCheckStatus = async (session: any) => {
     try {
       const { data } = await supabase.functions.invoke("get-whatsapp-qr", {
@@ -219,12 +234,11 @@ export default function WhatsApp() {
       } else {
         toast({ title: `Status: ${data?.status || "desconhecido"}` });
       }
-    } catch (err: any) {
+    } catch {
       toast({ title: "Erro ao verificar status", variant: "destructive" });
     }
   };
 
-  // Send message
   const handleSend = async (text: string) => {
     if (!selectedContact || !selectedSessionId) return;
     setSending(true);
@@ -245,7 +259,6 @@ export default function WhatsApp() {
     }
   };
 
-  // Save settings
   const handleSaveSettings = async (newSettings: any) => {
     if (!tenantId) return;
     setSavingSettings(true);
@@ -254,7 +267,6 @@ export default function WhatsApp() {
       delete payload.id;
       delete payload.created_at;
       delete payload.updated_at;
-
       if (settings?.id) {
         await supabase.from("whatsapp_settings").update(payload).eq("id", settings.id);
       } else {
@@ -270,7 +282,6 @@ export default function WhatsApp() {
     }
   };
 
-  // Delete session
   const handleDeleteSession = async (id: string) => {
     await supabase.from("whatsapp_sessions").delete().eq("id", id);
     if (selectedSessionId === id) {
@@ -278,6 +289,35 @@ export default function WhatsApp() {
       setSelectedContact(null);
     }
     loadSessions();
+  };
+
+  // Change contact status
+  const handleStatusChange = async (newStatus: string) => {
+    if (!selectedContact || !tenantId) return;
+    const { data: existing } = await supabase
+      .from("whatsapp_contact_status")
+      .select("id")
+      .eq("contact_id", selectedContact.id)
+      .single();
+
+    if (existing) {
+      await supabase.from("whatsapp_contact_status")
+        .update({ status: newStatus, last_status_change: new Date().toISOString() })
+        .eq("id", existing.id);
+    } else {
+      await supabase.from("whatsapp_contact_status").insert({
+        tenant_id: tenantId,
+        contact_id: selectedContact.id,
+        status: newStatus,
+      });
+    }
+
+    // Update local state
+    setSelectedContact((prev: any) => ({
+      ...prev,
+      contact_status: { ...(prev?.contact_status || {}), status: newStatus },
+    }));
+    loadContacts();
   };
 
   return (
@@ -290,7 +330,6 @@ export default function WhatsApp() {
       </div>
 
       <div className="flex h-[calc(100%-53px)]">
-        {/* Sessions */}
         <div className="w-56 shrink-0 border-r border-border">
           <WhatsAppSessionList
             sessions={sessions}
@@ -303,7 +342,6 @@ export default function WhatsApp() {
           />
         </div>
 
-        {/* Contacts */}
         <div className="w-72 shrink-0">
           <WhatsAppContactList
             contacts={contacts}
@@ -312,13 +350,16 @@ export default function WhatsApp() {
           />
         </div>
 
-        {/* Chat */}
         <div className="flex-1">
           <WhatsAppChat
             messages={messages}
             contactName={selectedContact?.display_name}
             contactPhone={selectedContact?.phone_number}
+            contactStatus={selectedContact?.contact_status?.status || "open"}
+            contactTags={selectedContact?.tags || []}
             onSend={handleSend}
+            onStatusChange={handleStatusChange}
+            onOpenTags={() => setShowTagManager(true)}
             sending={sending}
           />
         </div>
@@ -350,7 +391,6 @@ export default function WhatsApp() {
         </DialogContent>
       </Dialog>
 
-      {/* QR Dialog */}
       <WhatsAppQRDialog
         open={showQR}
         onOpenChange={setShowQR}
@@ -359,7 +399,6 @@ export default function WhatsApp() {
         status={qrSession?.status}
       />
 
-      {/* Settings Dialog */}
       <WhatsAppSettingsDialog
         open={showSettings}
         onOpenChange={setShowSettings}
@@ -367,6 +406,27 @@ export default function WhatsApp() {
         onSave={handleSaveSettings}
         saving={savingSettings}
       />
+
+      {/* Tag Manager */}
+      {selectedContact && tenantId && (
+        <WhatsAppTagManager
+          open={showTagManager}
+          onOpenChange={setShowTagManager}
+          contactId={selectedContact.id}
+          tenantId={tenantId}
+          tags={selectedContact.tags || []}
+          onTagsChanged={() => {
+            loadContacts();
+            // Refresh selected contact tags
+            supabase.from("whatsapp_contact_tags")
+              .select("*")
+              .eq("contact_id", selectedContact.id)
+              .then(({ data }) => {
+                if (data) setSelectedContact((prev: any) => ({ ...prev, tags: data }));
+              });
+          }}
+        />
+      )}
     </div>
   );
 }
