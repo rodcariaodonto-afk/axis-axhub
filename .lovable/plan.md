@@ -1,119 +1,60 @@
 
+# Integracao Contas Bancarias com A Pagar, A Receber e Financeiro
 
-# Templates de Mensagens (Aprimorado) + Chat Interno
+## Problema Atual
+As contas bancarias existem isoladas -- nao se conectam com os pagamentos e recebimentos. Quando um recebivel e marcado como "pago" ou uma despesa e quitada, o saldo bancario nao e atualizado e nenhuma transacao e registrada.
 
-## Visao Geral
+## Solucao
 
-Duas grandes funcionalidades para a plataforma AXIS:
-1. **Templates de Mensagens aprimorados** com campo `type` (whatsapp/campanha/geral) e integracao direta no chat WhatsApp e nas Campanhas
-2. **Chat Interno** entre funcionarios com conversas diretas e em grupo, em tempo real
+### 1. Banco de Dados
+- Adicionar coluna `bank_account_id` (opcional) nas tabelas `receivables` e `payables` para vincular lancamentos a contas bancarias
+- Criar funcao SQL `update_bank_balance_on_payment()` que, ao marcar como pago:
+  - Cria um registro em `bank_transactions` vinculando ao receivable/payable
+  - Atualiza o `balance` da conta bancaria (soma para recebimentos, subtrai para pagamentos)
 
----
+### 2. Tela "A Receber" (Receivables)
+- Ao clicar "Marcar como pago", abrir mini-dialog pedindo:
+  - Conta bancaria de destino (select com as contas cadastradas)
+  - Data do recebimento (default: hoje)
+- Ao confirmar, o sistema:
+  - Atualiza o status para "paid"
+  - Insere transacao bancaria tipo "credit"
+  - Incrementa o saldo da conta selecionada
 
-## Parte 1: Templates de Mensagens Aprimorados
+### 3. Tela "A Pagar" (Payables)
+- Mesmo fluxo: ao marcar como pago, selecionar conta bancaria de origem
+- Insere transacao tipo "debit" e decrementa o saldo
 
-### O que ja existe
-- Tabela `email_templates` com campos `name`, `subject`, `body`, `variables`
-- Painel em Configuracoes > Templates (`MessageTemplatesSettings.tsx`)
+### 4. Tela "Contas Bancarias" (BankAccounts)
+- Ao clicar em uma conta, expandir/abrir detalhes com:
+  - Extrato de transacoes (consulta `bank_transactions` filtrado por `account_id`)
+  - Ultimas movimentacoes com tipo (credito/debito), descricao, valor e data
+  - Indicador de reconciliacao
+- Editar e excluir contas
 
-### O que precisa mudar
-
-**Banco de Dados:**
-- Adicionar coluna `type TEXT DEFAULT 'geral'` na tabela `email_templates` (valores: whatsapp, campanha, geral)
-
-**Frontend - MessageTemplatesSettings.tsx:**
-- Adicionar campo `type` (select) no formulario de criacao/edicao
-- Adicionar filtro por tipo na listagem
-- Adicionar busca por nome
-
-**Integracao WhatsApp - WhatsAppChat.tsx:**
-- Adicionar botao "Inserir Template" ao lado do emoji picker na barra de input
-- Ao clicar, abre modal listando templates (filtrados por type = 'whatsapp' ou 'geral')
-- Ao selecionar, insere o conteudo na caixa de texto substituindo variaveis como `{{nome}}` pelo nome do contato
-
-**Integracao Campanhas - Campanhas.tsx:**
-- Adicionar dropdown "Selecionar Template" no formulario de criacao de campanha
-- Ao selecionar, preenche o campo `mensagem_template` com o conteudo do template
-
----
-
-## Parte 2: Chat Interno (Nova Funcionalidade)
-
-### Banco de Dados - 3 novas tabelas
-
-**Tabela `internal_conversations`:**
-- id, tenant_id, type (direct/group), name (para grupos), created_at, updated_at
-- RLS com tenant isolation
-- Realtime habilitado
-
-**Tabela `internal_conversation_participants`:**
-- id, conversation_id (FK), user_id, joined_at
-- RLS com tenant isolation (via join com conversations)
-
-**Tabela `internal_messages`:**
-- id, conversation_id (FK), sender_id, content, created_at, read_at
-- RLS com tenant isolation (via join com conversations)
-- Realtime habilitado
-
-### Frontend - Novos Componentes
-
-**Pagina `src/pages/InternalChat.tsx`:**
-- Layout de 3 colunas similar ao WhatsApp usando `react-resizable-panels`
-- Coluna esquerda: lista de conversas com busca, indicador de nao-lidas
-- Coluna principal: area de chat com historico de mensagens, campo de input
-- Botao "Nova Conversa" abrindo modal
-
-**Componente `src/components/internal-chat/InternalChatSidebar.tsx`:**
-- Lista de conversas do usuario logado
-- Busca por nome
-- Badge de mensagens nao lidas
-- Separacao visual entre diretas e grupos
-
-**Componente `src/components/internal-chat/InternalChatWindow.tsx`:**
-- Historico de mensagens com avatar e nome do remetente
-- Campo de input com envio por Enter
-- Scroll automatico para mensagens novas
-- Supabase Realtime para mensagens em tempo real
-
-**Componente `src/components/internal-chat/NewConversationModal.tsx`:**
-- Selecao de tipo (Direta ou Grupo)
-- Busca de usuarios do mesmo tenant (tabela profiles)
-- Para grupo: nome do grupo + selecao multipla de participantes
-
-### Navegacao
-- Adicionar item "Chat Interno" no sidebar (`AppSidebar.tsx`) no grupo "Comunicacao" com icone `MessageSquare`
-- Adicionar rota `/internal-chat` no `App.tsx`
-
-### Realtime
-- Habilitar Realtime nas tabelas `internal_messages` e `internal_conversations`
-- Subscription por conversation_id para receber mensagens em tempo real
-- Contador de nao-lidas no sidebar (badge no icone)
+### 5. Tela "Financeiro" (Finance)
+- Ja busca o saldo bancario -- nenhuma mudanca necessaria, pois o saldo sera atualizado automaticamente via as operacoes acima
 
 ---
 
 ## Detalhes Tecnicos
 
-### Arquivos Novos
-- `src/pages/InternalChat.tsx`
-- `src/components/internal-chat/InternalChatSidebar.tsx`
-- `src/components/internal-chat/InternalChatWindow.tsx`
-- `src/components/internal-chat/NewConversationModal.tsx`
+### Migracao SQL
+```text
+ALTER TABLE receivables ADD COLUMN bank_account_id uuid REFERENCES bank_accounts(id);
+ALTER TABLE payables ADD COLUMN bank_account_id uuid REFERENCES bank_accounts(id);
+```
 
 ### Arquivos Modificados
-- `src/pages/settings/MessageTemplatesSettings.tsx` - tipo + filtro + busca
-- `src/components/whatsapp/WhatsAppChat.tsx` - botao inserir template
-- `src/pages/Campanhas.tsx` - dropdown de template
-- `src/components/AppSidebar.tsx` - item Chat Interno
-- `src/App.tsx` - rota /internal-chat
+- `src/pages/Receivables.tsx` -- dialog de confirmacao de pagamento com selecao de conta bancaria + logica de criar transacao e atualizar saldo
+- `src/pages/Payables.tsx` -- mesmo fluxo para despesas
+- `src/pages/BankAccounts.tsx` -- adicionar extrato de transacoes por conta, botoes editar/excluir conta
 
-### Migracao SQL
-- ALTER TABLE email_templates ADD COLUMN type TEXT DEFAULT 'geral'
-- CREATE TABLE internal_conversations (com RLS)
-- CREATE TABLE internal_conversation_participants (com RLS)
-- CREATE TABLE internal_messages (com RLS)
-- ALTER PUBLICATION supabase_realtime ADD TABLE internal_messages, internal_conversations
-
-### Seguranca (RLS)
-- Todas as novas tabelas terao RLS com tenant isolation via `get_user_tenant_id()`
-- Participantes so podem ver conversas das quais fazem parte
-- Mensagens so visiveis para participantes da conversa
+### Fluxo de Pagamento
+1. Usuario clica "Marcar como pago"
+2. Modal pede: qual conta bancaria? qual a data?
+3. Sistema executa em sequencia:
+   - `UPDATE receivables SET status='paid', paid_at=..., bank_account_id=...`
+   - `INSERT INTO bank_transactions (account_id, type, description, amount, transaction_date, receivable_id/payable_id, ...)`
+   - `UPDATE bank_accounts SET balance = balance +/- amount WHERE id = ...`
+4. Saldo atualizado automaticamente em todas as telas
