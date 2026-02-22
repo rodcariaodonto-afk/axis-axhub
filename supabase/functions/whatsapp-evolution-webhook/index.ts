@@ -148,8 +148,20 @@ Deno.serve(async (req) => {
         if (!key) continue;
 
         const isFromMe = key.fromMe === true;
+        const isGroup = key.remoteJid?.endsWith("@g.us") === true;
         const phone = key.remoteJid?.split("@")[0];
         if (!phone || phone === "status") continue;
+
+        const participant = isGroup ? (key.participant?.split("@")[0] || null) : null;
+
+        // Extract group name from various possible locations in the payload
+        let groupName: string | null = null;
+        if (isGroup) {
+          groupName = data?.groupMetadata?.subject
+            || msg?.groupMetadata?.subject
+            || msg?.messageStubParameters?.[0]
+            || null;
+        }
 
         // Extract media URL from Evolution API payload
         const imgMsg = msg?.message?.imageMessage;
@@ -206,33 +218,44 @@ Deno.serve(async (req) => {
           if (!isFromMe) {
             updateData.unread_count = (existingContact.unread_count || 0) + 1;
           }
-          if (msg?.pushName) {
+          // Only update display_name with pushName for individual contacts, NOT groups
+          if (!isGroup && msg?.pushName) {
             updateData.display_name = msg.pushName;
+          }
+          // Update group name if we got a new one
+          if (isGroup && groupName) {
+            updateData.display_name = groupName;
           }
           await supabase
             .from("whatsapp_contacts")
             .update(updateData)
             .eq("id", contactId);
         } else {
+          // For groups: use group name or JID as display_name; for individuals: use pushName
+          const displayName = isGroup
+            ? (groupName || `Grupo ${phone}`)
+            : (msg?.pushName || phone);
+
           const { data: newContact } = await supabase
             .from("whatsapp_contacts")
             .insert({
               tenant_id: tenantId,
               session_id: session.id,
               phone_number: phone,
-              display_name: msg?.pushName || phone,
+              display_name: displayName,
               last_message_at: new Date().toISOString(),
               unread_count: isFromMe ? 0 : 1,
+              is_group: isGroup,
             })
             .select("id")
             .single();
           contactId = newContact!.id;
 
-          // Auto-create open status for new contacts
+          // Auto-create status: "group" for groups, "open" for individuals
           await supabase.from("whatsapp_contact_status").insert({
             tenant_id: tenantId,
             contact_id: contactId,
-            status: "open",
+            status: isGroup ? "group" : "open",
           });
         }
 
@@ -248,7 +271,7 @@ Deno.serve(async (req) => {
           status: isFromMe ? "sent" : "received",
           whatsapp_message_id: key.id,
           sender_name: msg?.pushName || null,
-          sender_phone: isFromMe ? session.phone_number : phone,
+          sender_phone: isGroup ? (isFromMe ? session.phone_number : participant) : (isFromMe ? session.phone_number : phone),
         });
         console.log("Message saved:", isFromMe ? "outbound" : "inbound", "phone:", phone, "type:", messageType, "hasMedia:", !!mediaUrl);
       }

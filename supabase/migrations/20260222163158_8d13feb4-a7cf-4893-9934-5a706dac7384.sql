@@ -1,0 +1,1 @@
+ALTER TABLE public.whatsapp_contacts ADD COLUMN IF NOT EXISTS is_group boolean NOT NULL DEFAULT false;
