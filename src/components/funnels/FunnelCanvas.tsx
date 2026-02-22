@@ -14,6 +14,7 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 import FunnelCustomNode from "./FunnelCustomNode";
+import FunnelCustomEdge from "./FunnelCustomEdge";
 import { FunnelSidebarPalette } from "./FunnelSidebarPalette";
 import { FunnelSettingsPanel } from "./FunnelSettingsPanel";
 import { getBlockType } from "./funnelBlockTypes";
@@ -25,6 +26,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 const nodeTypes = { funnelBlock: FunnelCustomNode };
+const edgeTypes = { funnelEdge: FunnelCustomEdge };
 
 interface Props {
   funilId: string;
@@ -49,6 +51,7 @@ export function FunnelCanvas({ funilId, funilNome, initialNodes, initialEdges, t
         addEdge(
           {
             ...params,
+            type: "funnelEdge",
             animated: true,
             style: { stroke: "hsl(var(--primary))", strokeWidth: 2 },
           },
@@ -190,6 +193,8 @@ export function FunnelCanvas({ funilId, funilNome, initialNodes, initialEdges, t
             onNodeClick={onNodeClick}
             onPaneClick={onPaneClick}
             nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            defaultEdgeOptions={{ type: "funnelEdge" }}
             fitView
             deleteKeyCode={["Backspace", "Delete"]}
             className="bg-background"

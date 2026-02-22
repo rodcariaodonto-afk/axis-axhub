@@ -1,8 +1,20 @@
-import { memo } from "react";
-import { Handle, Position, NodeProps } from "reactflow";
+import { memo, useCallback } from "react";
+import { Handle, Position, NodeProps, useReactFlow } from "reactflow";
 import { getBlockType } from "./funnelBlockTypes";
+import { Trash2 } from "lucide-react";
 
-function FunnelCustomNode({ data, selected }: NodeProps) {
+function FunnelCustomNode({ id, data, selected }: NodeProps) {
+  const { setNodes, setEdges } = useReactFlow();
+
+  const onDelete = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setNodes((nds) => nds.filter((n) => n.id !== id));
+      setEdges((eds) => eds.filter((edge) => edge.source !== id && edge.target !== id));
+    },
+    [id, setNodes, setEdges]
+  );
+
   const blockDef = getBlockType(data.tipo);
   if (!blockDef) return null;
 
@@ -12,10 +24,19 @@ function FunnelCustomNode({ data, selected }: NodeProps) {
 
   return (
     <div
-      className={`rounded-lg border-2 bg-card shadow-md min-w-[180px] transition-all ${
+      className={`relative rounded-lg border-2 bg-card shadow-md min-w-[180px] transition-all group ${
         selected ? "ring-2 ring-primary border-primary" : "border-border"
       }`}
     >
+      {/* Delete button */}
+      <button
+        onClick={onDelete}
+        className="absolute -top-2.5 -right-2.5 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10"
+        title="Remover bloco"
+      >
+        <Trash2 className="h-3 w-3" />
+      </button>
+
       {hasTargets && (
         <Handle
           type="target"
