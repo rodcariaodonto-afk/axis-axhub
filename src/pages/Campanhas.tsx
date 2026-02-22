@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Play, Pause, Trash2, Settings, Users, BarChart3, GitBranch } from "lucide-react";
+import { Plus, Play, Pause, Trash2, Settings, Users, BarChart3, GitBranch, FileText } from "lucide-react";
 import { CampaignSettings } from "@/components/campanhas/CampaignSettings";
 import { CampaignContactList } from "@/components/campanhas/CampaignContactList";
 import { CampaignDashboard } from "@/components/campanhas/CampaignDashboard";
@@ -40,17 +40,20 @@ export default function Campanhas() {
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [form, setForm] = useState({ nome: "", descricao: "", mensagem_template: "", session_id: "", funil_id: "" });
   const [funis, setFunis] = useState<{ id: string; nome: string }[]>([]);
+  const [templates, setTemplates] = useState<{ id: string; name: string; body: string }[]>([]);
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
-    const [{ data: c }, { data: s }, { data: f }] = await Promise.all([
+    const [{ data: c }, { data: s }, { data: f }, { data: t }] = await Promise.all([
       supabase.from("campanhas").select("*").order("created_at", { ascending: false }),
       supabase.from("whatsapp_sessions").select("id, session_name, status"),
       supabase.from("funis").select("id, nome").order("nome"),
+      supabase.from("email_templates").select("id, name, body").in("type", ["campanha", "geral"]).order("name"),
     ]);
     setCampaigns(c || []);
     setSessions((s || []).map((x: any) => ({ id: x.id, name: x.session_name, status: x.status })));
     setFunis(f || []);
+    setTemplates((t as any[]) || []);
     setLoading(false);
   }, []);
 
@@ -188,7 +191,19 @@ export default function Campanhas() {
                 <SelectContent>{sessions.map((s) => <SelectItem key={s.id} value={s.id}>{s.name} ({s.status})</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div className="space-y-2"><Label>Mensagem Template</Label><Textarea value={form.mensagem_template} onChange={(e) => setForm({ ...form, mensagem_template: e.target.value })} rows={4} placeholder="Use {nome} para personalizar" required /></div>
+            <div className="space-y-2">
+              <Label>Mensagem Template</Label>
+              {templates.length > 0 && (
+                <Select onValueChange={(v) => {
+                  const tpl = templates.find((t) => t.id === v);
+                  if (tpl) setForm({ ...form, mensagem_template: tpl.body });
+                }}>
+                  <SelectTrigger className="mb-2"><SelectValue placeholder="Usar template salvo..." /></SelectTrigger>
+                  <SelectContent>{templates.map((t) => <SelectItem key={t.id} value={t.id}><div className="flex items-center gap-2"><FileText className="h-3 w-3" />{t.name}</div></SelectItem>)}</SelectContent>
+                </Select>
+              )}
+              <Textarea value={form.mensagem_template} onChange={(e) => setForm({ ...form, mensagem_template: e.target.value })} rows={4} placeholder="Use {nome} para personalizar" required />
+            </div>
             <div className="space-y-2"><Label>Funil de Venda (opcional)</Label>
               <Select value={form.funil_id} onValueChange={(v) => setForm({ ...form, funil_id: v })}>
                 <SelectTrigger><SelectValue placeholder="Nenhum funil vinculado" /></SelectTrigger>

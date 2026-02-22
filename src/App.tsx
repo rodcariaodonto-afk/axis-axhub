@@ -39,6 +39,7 @@ import WhatsApp from "./pages/WhatsApp";
 import Campanhas from "./pages/Campanhas";
 import Funis from "./pages/Funis";
 import FunilEditor from "./pages/FunilEditor";
+import InternalChat from "./pages/InternalChat";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -91,6 +92,7 @@ const App = () => (
             <Route path="/campanhas" element={<ProtectedRoute><Campanhas /></ProtectedRoute>} />
             <Route path="/funis" element={<ProtectedRoute><Funis /></ProtectedRoute>} />
             <Route path="/funis/:id" element={<ProtectedRoute><FunilEditor /></ProtectedRoute>} />
+            <Route path="/internal-chat" element={<ProtectedRoute><InternalChat /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
