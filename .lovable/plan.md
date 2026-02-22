@@ -1,72 +1,76 @@
 
 
-# Correcao do WhatsApp - Webhook e Sincronizacao
+# Segmentacao de Conexoes WhatsApp
 
-## Problema Raiz
+## Objetivo
 
-A funcao `create-whatsapp-session` cria a instancia na Evolution API mas **nao configura o webhook URL**. A Evolution API nao sabe para onde enviar eventos, entao:
-- O status nunca muda de `qr_pending` para `connected`
-- O dialog do QR Code nao fecha automaticamente
-- Contatos e mensagens nunca sao recebidos
+Adicionar sistema de segmentacao ao modulo WhatsApp existente, incluindo abas de status (Abertos, Atendendo, Aguardando, Grupos), tags/rotulos coloridos para contatos, filtros avancados e contadores dinamicos.
 
-## Correcoes Necessarias
+## Alteracoes no Banco de Dados
 
-### 1. Edge Function `create-whatsapp-session` - Configurar Webhook
+### Nova tabela: `whatsapp_contact_tags`
+- Armazena tags/rotulos por contato (ex: COMERCIAL, VIP, CLIENTE)
+- Colunas: id, tenant_id, contact_id, tag_name, tag_color
+- Constraint UNIQUE(contact_id, tag_name)
+- RLS com tenant isolation
 
-Apos criar a instancia, fazer um segundo POST para `{evolutionUrl}/webhook/set/{instanceName}` configurando:
+### Nova tabela: `whatsapp_contact_status`
+- Armazena status de atendimento por contato
+- Colunas: id, tenant_id, contact_id, status (open/attending/waiting/group/closed), assigned_to, last_status_change
+- Constraint UNIQUE(contact_id)
+- RLS com tenant isolation
 
-```text
-{
-  "url": "https://dgybxarkvmaajfeesqdv.supabase.co/functions/v1/whatsapp-evolution-webhook",
-  "webhook_by_events": false,
-  "webhook_base64": true,
-  "events": [
-    "QRCODE_UPDATED",
-    "CONNECTION_UPDATE", 
-    "MESSAGES_UPSERT"
-  ]
-}
-```
+### Alteracoes em `whatsapp_contacts`
+- Adicionar coluna `color_code` (VARCHAR para cor visual)
+- Adicionar coluna `priority` (inteiro: -1 baixa, 0 normal, 1 alta)
 
-Isso garante que a Evolution API envie eventos para o nosso webhook.
+## Frontend - Componentes
 
-### 2. Edge Function `whatsapp-evolution-webhook` - Melhorar Parsing
+### 1. `WhatsAppContactList.tsx` - Refatorar
+- Adicionar abas de segmentacao acima da lista: Todas, Abertos, Atendendo, Aguardando, Grupos
+- Cada aba mostra contador dinamico
+- Exibir tags coloridas em cada contato
+- Exibir icone de status ao lado do contato
 
-A Evolution API v2 envia o payload em formatos ligeiramente diferentes. Precisamos:
-- Aceitar `event` tambem como `body.event` ou `body.apikey` (v2 format)
-- Tratar `instance` como string ou como objeto `{ instanceName: "..." }`
-- Logar o payload recebido para facilitar debug
-- Tratar `connection.update` com `state` que pode vir como `data.state` ou `data.instance?.state`
+### 2. Novo componente: `WhatsAppTagManager.tsx`
+- Dialog para adicionar/remover tags de um contato
+- Seletor de cor para a tag
+- Tags pre-definidas sugeridas (COMERCIAL, AFILIADO, CLIENTE, VIP, BLOQUEADO)
 
-### 3. Frontend `WhatsApp.tsx` - Melhorar Polling e Status
+### 3. `WhatsApp.tsx` - Atualizar
+- Carregar contatos com joins para tags e status
+- Adicionar estado para filtro de segmento ativo
+- Adicionar logica de mudanca de status via dropdown no chat header
+- Filtrar contatos localmente por segmento e busca
 
-- O polling ja existe (a cada 5s), mas precisa atualizar a lista de sessoes alem do qrSession
-- Quando o status mudar para `connected`, forcar reload de contacts
-- Adicionar badge de status visual na sessao ("Conectado" verde vs "QR Code" amarelo)
+### 4. `WhatsAppChat.tsx` - Atualizar header
+- Mostrar status atual do contato
+- Dropdown para mudar status (Aberto, Atendendo, Aguardando, Fechado)
+- Botao para adicionar tag ao contato
 
-### 4. Sessao Existente - Corrigir Status Manualmente
+## Detalhes Tecnicos
 
-Como a sessao "Vendas" ja esta conectada na Evolution mas presa como `qr_pending` no banco, precisamos:
-- Adicionar um botao "Verificar Status" na sessao que chama a Evolution API para checar o status real
-- Ou criar uma funcao `get-whatsapp-qr` que tambem verifica e sincroniza o status
+- As queries de contatos usarao joins com `whatsapp_contact_status` e `whatsapp_contact_tags` diretamente pelo Supabase client (sem necessidade de edge functions extras)
+- Contadores serao calculados no frontend a partir dos dados carregados
+- Mudancas de status e tags serao feitas diretamente via Supabase client (insert/update/delete)
+- O webhook `whatsapp-evolution-webhook` sera atualizado para criar automaticamente um registro em `whatsapp_contact_status` com status "open" quando um novo contato chega
+- Adaptar referencias de `workspace_id` do documento para `tenant_id` usado no projeto
 
-### 5. Edge Function `get-whatsapp-qr` - Sincronizar Status
+## Arquivos Modificados/Criados
 
-Atualizar para que alem de buscar o QR, tambem verifique o status da instancia na Evolution e atualize o banco. Se ja estiver conectada, atualizar para `connected`.
-
-## Arquivos Modificados
-
-- `supabase/functions/create-whatsapp-session/index.ts` - Adicionar configuracao do webhook apos criar instancia
-- `supabase/functions/whatsapp-evolution-webhook/index.ts` - Melhorar parsing do payload e adicionar logs
-- `supabase/functions/get-whatsapp-qr/index.ts` - Sincronizar status da instancia
-- `src/pages/WhatsApp.tsx` - Melhorar logica de polling e recarregar contatos apos conexao
-- `src/components/whatsapp/WhatsAppSessionList.tsx` - Badge de status visual
+- Migracao SQL para criar tabelas e alterar `whatsapp_contacts`
+- `src/components/whatsapp/WhatsAppContactList.tsx` - Adicionar abas, tags e status
+- `src/components/whatsapp/WhatsAppTagManager.tsx` - Novo componente
+- `src/components/whatsapp/WhatsAppChat.tsx` - Header com status e tags
+- `src/pages/WhatsApp.tsx` - Logica de segmentacao e filtros
+- `supabase/functions/whatsapp-evolution-webhook/index.ts` - Auto-criar status "open" para novos contatos
 
 ## Ordem de Execucao
 
-1. Corrigir `create-whatsapp-session` para configurar webhook
-2. Melhorar `whatsapp-evolution-webhook` com logs e parsing robusto
-3. Atualizar `get-whatsapp-qr` para sincronizar status
-4. Ajustar frontend para reagir a mudancas de status
-5. Testar recriando a sessao ou verificando status da existente
+1. Criar tabelas no banco (migracao)
+2. Atualizar webhook para criar status automaticamente
+3. Refatorar WhatsAppContactList com abas e tags
+4. Criar WhatsAppTagManager
+5. Atualizar WhatsAppChat com controles de status
+6. Integrar tudo no WhatsApp.tsx
 
