@@ -25,7 +25,6 @@ async function downloadAndUploadMedia(
     const arrayBuffer = await blob.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
 
-    // Determine file extension from content type
     const extMap: Record<string, string> = {
       "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif",
       "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a",
@@ -59,6 +58,59 @@ async function downloadAndUploadMedia(
     console.error("Media download/upload error:", err);
     return null;
   }
+}
+
+async function fetchGroupName(
+  supabase: any,
+  tenantId: string,
+  instanceName: string,
+  groupJid: string
+): Promise<string | null> {
+  try {
+    // Get tenant WhatsApp settings for Evolution API credentials
+    const { data: settings } = await supabase
+      .from("whatsapp_settings")
+      .select("evolution_api_url, evolution_api_key")
+      .eq("tenant_id", tenantId)
+      .single();
+
+    if (!settings?.evolution_api_url || !settings?.evolution_api_key) {
+      // Try env vars as fallback
+      const evolutionUrl = settings?.evolution_api_url || Deno.env.get("EVOLUTION_API_URL");
+      const evolutionKey = settings?.evolution_api_key || Deno.env.get("EVOLUTION_API_KEY");
+      if (!evolutionUrl || !evolutionKey) {
+        console.log("No Evolution API credentials found for group name fetch");
+        return null;
+      }
+      return await callGroupApi(evolutionUrl, evolutionKey, instanceName, groupJid);
+    }
+
+    return await callGroupApi(settings.evolution_api_url, settings.evolution_api_key, instanceName, groupJid);
+  } catch (err) {
+    console.error("Error fetching group name:", err);
+    return null;
+  }
+}
+
+async function callGroupApi(
+  evolutionUrl: string,
+  evolutionKey: string,
+  instanceName: string,
+  groupJid: string
+): Promise<string | null> {
+  const url = `${evolutionUrl}/group/findGroupInfos/${instanceName}?groupJid=${groupJid}`;
+  console.log("Fetching group info from:", url);
+  const resp = await fetch(url, {
+    headers: { apikey: evolutionKey },
+  });
+  if (!resp.ok) {
+    console.error("Group info fetch failed:", resp.status);
+    return null;
+  }
+  const data = await resp.json();
+  const subject = data?.subject || data?.groupMetadata?.subject || null;
+  console.log("Group name fetched:", subject);
+  return subject;
 }
 
 Deno.serve(async (req) => {
@@ -152,17 +204,16 @@ Deno.serve(async (req) => {
         const phone = key.remoteJid?.split("@")[0];
         if (!phone || phone === "status") continue;
 
-        // Use participantAlt (phone format) over participant (LID format)
         const participantRaw = key.participantAlt || key.participant;
         const participant = isGroup ? (participantRaw?.split("@")[0] || null) : null;
 
-        // Skip reaction messages - they are not real messages
+        // Skip reaction messages
         if (msg?.messageType === "reactionMessage" || msg?.message?.reactionMessage) {
           console.log("Skipping reaction message");
           continue;
         }
 
-        // Extract group name from various possible locations in the payload
+        // Extract group name from payload
         let groupName: string | null = null;
         if (isGroup) {
           groupName = data?.groupMetadata?.subject
@@ -171,7 +222,7 @@ Deno.serve(async (req) => {
             || null;
         }
 
-        // Extract media URL from Evolution API payload
+        // Extract media URL
         const imgMsg = msg?.message?.imageMessage;
         const audioMsg = msg?.message?.audioMessage;
         const videoMsg = msg?.message?.videoMessage;
@@ -192,17 +243,15 @@ Deno.serve(async (req) => {
           docMsg ? "document" :
           stickerMsg ? "sticker" : "text";
 
-        // Generate a unique message ID for storage path
         const msgId = key.id || crypto.randomUUID();
 
-        // Build content: for media, download and upload to permanent storage
+        // Build content
         let messageContent: string;
         if (mediaUrl && messageType !== "text") {
           const permanentUrl = await downloadAndUploadMedia(supabase, mediaUrl, tenantId, msgId, messageType);
           if (permanentUrl) {
             messageContent = JSON.stringify({ url: permanentUrl, caption: caption || null });
           } else {
-            // Fallback: store original URL if download fails
             messageContent = JSON.stringify({ url: mediaUrl, caption: caption || null });
           }
         } else {
@@ -212,7 +261,7 @@ Deno.serve(async (req) => {
         // Upsert contact
         const { data: existingContact } = await supabase
           .from("whatsapp_contacts")
-          .select("id, unread_count")
+          .select("id, unread_count, display_name")
           .eq("session_id", session.id)
           .eq("phone_number", phone)
           .single();
@@ -226,23 +275,42 @@ Deno.serve(async (req) => {
           if (!isFromMe) {
             updateData.unread_count = (existingContact.unread_count || 0) + 1;
           }
-          // Only update display_name with pushName for individual contacts, NOT groups
           if (!isGroup && msg?.pushName) {
             updateData.display_name = msg.pushName;
           }
-          // Update group name if we got a new one
-          if (isGroup && groupName) {
-            updateData.display_name = groupName;
+          // Update group name: from payload or fetch from API if still generic
+          if (isGroup) {
+            if (groupName) {
+              updateData.display_name = groupName;
+            } else if (
+              existingContact.display_name &&
+              (existingContact.display_name.startsWith("Grupo ") || existingContact.display_name === phone)
+            ) {
+              // Try to fetch real group name from Evolution API
+              const realName = await fetchGroupName(supabase, tenantId, instanceName, `${phone}@g.us`);
+              if (realName) {
+                updateData.display_name = realName;
+                console.log("Updated group name from API:", realName);
+              }
+            }
           }
           await supabase
             .from("whatsapp_contacts")
             .update(updateData)
             .eq("id", contactId);
         } else {
-          // For groups: use group name or JID as display_name; for individuals: use pushName
-          const displayName = isGroup
+          let displayName = isGroup
             ? (groupName || `Grupo ${phone}`)
             : (msg?.pushName || phone);
+
+          // For new groups without a name from payload, try API
+          if (isGroup && !groupName) {
+            const realName = await fetchGroupName(supabase, tenantId, instanceName, `${phone}@g.us`);
+            if (realName) {
+              displayName = realName;
+              console.log("New group name from API:", realName);
+            }
+          }
 
           const { data: newContact } = await supabase
             .from("whatsapp_contacts")
@@ -259,12 +327,30 @@ Deno.serve(async (req) => {
             .single();
           contactId = newContact!.id;
 
-          // Auto-create status: "group" for groups, "open" for individuals
+          // Auto-create status
           await supabase.from("whatsapp_contact_status").insert({
             tenant_id: tenantId,
             contact_id: contactId,
             status: isGroup ? "group" : "open",
           });
+        }
+
+        // Auto-status: inbound individual message -> "waiting"
+        if (!isFromMe && !isGroup) {
+          const { data: currentStatus } = await supabase
+            .from("whatsapp_contact_status")
+            .select("id, status")
+            .eq("contact_id", contactId)
+            .single();
+
+          if (currentStatus) {
+            if (currentStatus.status === "open" || currentStatus.status === "closed" || currentStatus.status === "attending") {
+              await supabase.from("whatsapp_contact_status")
+                .update({ status: "waiting", last_status_change: new Date().toISOString() })
+                .eq("id", currentStatus.id);
+              console.log("Auto-status: changed to waiting for contact:", contactId);
+            }
+          }
         }
 
         // Insert message
@@ -281,7 +367,8 @@ Deno.serve(async (req) => {
           sender_name: msg?.pushName || null,
           sender_phone: isGroup ? (isFromMe ? session.phone_number : participant) : (isFromMe ? session.phone_number : phone),
         });
-        // Check if this inbound message is a campaign response
+
+        // Check campaign response
         if (!isFromMe) {
           const { data: campaignContact } = await supabase
             .from("campanhas_contatos")
@@ -292,9 +379,7 @@ Deno.serve(async (req) => {
             .maybeSingle();
 
           if (campaignContact) {
-            // Mark contact as responded
             await supabase.from("campanhas_contatos").update({ status: "respondeu" }).eq("id", campaignContact.id);
-            // Log response
             await supabase.from("fluxo_recebimento_logs").insert({
               tenant_id: tenantId,
               campanha_id: campaignContact.campanha_id,
