@@ -95,6 +95,74 @@ Deno.serve(async (req) => {
             error_message: null,
           })
           .eq("id", sessionId);
+
+        // Ensure webhook is configured for this instance
+        const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/whatsapp-evolution-webhook`;
+        try {
+          // Try v2 format with webhook wrapper
+          await fetch(`${evolutionUrl}/webhook/set/${session.evolution_instance_id}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", apikey: evolutionKey! },
+            body: JSON.stringify({
+              webhook: {
+                enabled: true,
+                url: webhookUrl,
+                byEvents: false,
+                base64: true,
+                events: ["QRCODE_UPDATED", "CONNECTION_UPDATE", "MESSAGES_UPSERT"],
+              },
+            }),
+          });
+          console.log("Webhook configured for connected instance");
+        } catch (whErr) {
+          console.error("Webhook set error:", whErr);
+        }
+
+        // Fetch contacts from Evolution API and sync to DB
+        try {
+          const contactsRes = await fetch(
+            `${evolutionUrl}/chat/findContacts/${session.evolution_instance_id}`,
+            { 
+              method: "POST",
+              headers: { "Content-Type": "application/json", apikey: evolutionKey! },
+              body: JSON.stringify({}),
+            }
+          );
+          if (contactsRes.ok) {
+            const contactsData = await contactsRes.json();
+            console.log("Fetched contacts count:", Array.isArray(contactsData) ? contactsData.length : 0);
+            
+            if (Array.isArray(contactsData)) {
+              for (const contact of contactsData.slice(0, 100)) {
+                const phone = contact.id?.split("@")[0];
+                if (!phone || phone === "status" || contact.id?.includes("@g.us")) continue;
+                
+                const displayName = contact.pushName || contact.name || phone;
+                
+                // Upsert contact
+                const { data: existing } = await serviceClient
+                  .from("whatsapp_contacts")
+                  .select("id")
+                  .eq("session_id", sessionId)
+                  .eq("phone_number", phone)
+                  .single();
+
+                if (!existing) {
+                  await serviceClient.from("whatsapp_contacts").insert({
+                    tenant_id: profile.tenant_id,
+                    session_id: sessionId,
+                    phone_number: phone,
+                    display_name: displayName,
+                    last_message_at: new Date().toISOString(),
+                    unread_count: 0,
+                  });
+                }
+              }
+            }
+          }
+        } catch (contactErr) {
+          console.error("Contacts fetch error:", contactErr);
+        }
         
         return new Response(JSON.stringify({
           qr_code: null,
