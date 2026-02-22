@@ -651,21 +651,101 @@ export type Database = {
           },
         ]
       }
+      deal_history: {
+        Row: {
+          campo_alterado: string | null
+          coluna_destino_id: string | null
+          coluna_origem_id: string | null
+          comentario: string | null
+          created_at: string
+          deal_id: string
+          id: string
+          tenant_id: string
+          tipo_acao: string
+          usuario_id: string | null
+          valor_anterior: string | null
+          valor_novo: string | null
+        }
+        Insert: {
+          campo_alterado?: string | null
+          coluna_destino_id?: string | null
+          coluna_origem_id?: string | null
+          comentario?: string | null
+          created_at?: string
+          deal_id: string
+          id?: string
+          tenant_id: string
+          tipo_acao: string
+          usuario_id?: string | null
+          valor_anterior?: string | null
+          valor_novo?: string | null
+        }
+        Update: {
+          campo_alterado?: string | null
+          coluna_destino_id?: string | null
+          coluna_origem_id?: string | null
+          comentario?: string | null
+          created_at?: string
+          deal_id?: string
+          id?: string
+          tenant_id?: string
+          tipo_acao?: string
+          usuario_id?: string | null
+          valor_anterior?: string | null
+          valor_novo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_history_coluna_destino_id_fkey"
+            columns: ["coluna_destino_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_history_coluna_origem_id_fkey"
+            columns: ["coluna_origem_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_history_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deals: {
         Row: {
           account_id: string | null
           contact_id: string | null
           created_at: string
+          descricao: string | null
           estimated_value: number | null
           expected_close_date: string | null
           id: string
           lead_id: string | null
           lost_reason: string | null
           name: string
+          observacoes: string | null
           pipeline_id: string
+          posicao_na_coluna: number | null
+          prioridade: string | null
+          probabilidade_percentual: number | null
           responsible_user_id: string | null
           stage_id: string
           status: string
+          tags: string[] | null
           tenant_id: string
           updated_at: string
         }
@@ -673,16 +753,22 @@ export type Database = {
           account_id?: string | null
           contact_id?: string | null
           created_at?: string
+          descricao?: string | null
           estimated_value?: number | null
           expected_close_date?: string | null
           id?: string
           lead_id?: string | null
           lost_reason?: string | null
           name: string
+          observacoes?: string | null
           pipeline_id: string
+          posicao_na_coluna?: number | null
+          prioridade?: string | null
+          probabilidade_percentual?: number | null
           responsible_user_id?: string | null
           stage_id: string
           status?: string
+          tags?: string[] | null
           tenant_id: string
           updated_at?: string
         }
@@ -690,16 +776,22 @@ export type Database = {
           account_id?: string | null
           contact_id?: string | null
           created_at?: string
+          descricao?: string | null
           estimated_value?: number | null
           expected_close_date?: string | null
           id?: string
           lead_id?: string | null
           lost_reason?: string | null
           name?: string
+          observacoes?: string | null
           pipeline_id?: string
+          posicao_na_coluna?: number | null
+          prioridade?: string | null
+          probabilidade_percentual?: number | null
           responsible_user_id?: string | null
           stage_id?: string
           status?: string
+          tags?: string[] | null
           tenant_id?: string
           updated_at?: string
         }
@@ -1913,6 +2005,7 @@ export type Database = {
       }
       pipeline_stages: {
         Row: {
+          cor_hex: string | null
           created_at: string
           id: string
           name: string
@@ -1922,6 +2015,7 @@ export type Database = {
           tenant_id: string
         }
         Insert: {
+          cor_hex?: string | null
           created_at?: string
           id?: string
           name: string
@@ -1931,6 +2025,7 @@ export type Database = {
           tenant_id: string
         }
         Update: {
+          cor_hex?: string | null
           created_at?: string
           id?: string
           name?: string
