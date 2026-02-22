@@ -334,6 +334,219 @@ export type Database = {
           },
         ]
       }
+      campanhas: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          id: string
+          mensagem_template: string
+          nome: string
+          session_id: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          mensagem_template?: string
+          nome: string
+          session_id?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          mensagem_template?: string
+          nome?: string
+          session_id?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campanhas_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campanhas_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campanhas_configuracoes: {
+        Row: {
+          campanha_id: string
+          delay_maximo_segundos: number
+          delay_minimo_segundos: number
+          hora_fim_disparo: string
+          hora_inicio_disparo: string
+          id: string
+          nao_disparar_domingos: boolean
+          nao_disparar_feriados: boolean
+          nao_disparar_sabados: boolean
+          tenant_id: string
+          usar_sequencia_aleatoria: boolean
+        }
+        Insert: {
+          campanha_id: string
+          delay_maximo_segundos?: number
+          delay_minimo_segundos?: number
+          hora_fim_disparo?: string
+          hora_inicio_disparo?: string
+          id?: string
+          nao_disparar_domingos?: boolean
+          nao_disparar_feriados?: boolean
+          nao_disparar_sabados?: boolean
+          tenant_id: string
+          usar_sequencia_aleatoria?: boolean
+        }
+        Update: {
+          campanha_id?: string
+          delay_maximo_segundos?: number
+          delay_minimo_segundos?: number
+          hora_fim_disparo?: string
+          hora_inicio_disparo?: string
+          id?: string
+          nao_disparar_domingos?: boolean
+          nao_disparar_feriados?: boolean
+          nao_disparar_sabados?: boolean
+          tenant_id?: string
+          usar_sequencia_aleatoria?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campanhas_configuracoes_campanha_id_fkey"
+            columns: ["campanha_id"]
+            isOneToOne: false
+            referencedRelation: "campanhas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campanhas_configuracoes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campanhas_contatos: {
+        Row: {
+          campanha_id: string
+          enviado_em: string | null
+          erro_mensagem: string | null
+          id: string
+          nome: string | null
+          status: string
+          telefone: string
+          tempo_espera_segundos: number | null
+          tenant_id: string
+        }
+        Insert: {
+          campanha_id: string
+          enviado_em?: string | null
+          erro_mensagem?: string | null
+          id?: string
+          nome?: string | null
+          status?: string
+          telefone: string
+          tempo_espera_segundos?: number | null
+          tenant_id: string
+        }
+        Update: {
+          campanha_id?: string
+          enviado_em?: string | null
+          erro_mensagem?: string | null
+          id?: string
+          nome?: string | null
+          status?: string
+          telefone?: string
+          tempo_espera_segundos?: number | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campanhas_contatos_campanha_id_fkey"
+            columns: ["campanha_id"]
+            isOneToOne: false
+            referencedRelation: "campanhas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campanhas_contatos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campanhas_historico_envios: {
+        Row: {
+          campanha_id: string
+          contato_telefone: string
+          created_at: string
+          enviado_em: string | null
+          erro_mensagem: string | null
+          id: string
+          mensagem_texto: string
+          status: string
+          tempo_espera_segundos: number
+          tenant_id: string
+        }
+        Insert: {
+          campanha_id: string
+          contato_telefone: string
+          created_at?: string
+          enviado_em?: string | null
+          erro_mensagem?: string | null
+          id?: string
+          mensagem_texto?: string
+          status?: string
+          tempo_espera_segundos?: number
+          tenant_id: string
+        }
+        Update: {
+          campanha_id?: string
+          contato_telefone?: string
+          created_at?: string
+          enviado_em?: string | null
+          erro_mensagem?: string | null
+          id?: string
+          mensagem_texto?: string
+          status?: string
+          tempo_espera_segundos?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campanhas_historico_envios_campanha_id_fkey"
+            columns: ["campanha_id"]
+            isOneToOne: false
+            referencedRelation: "campanhas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campanhas_historico_envios_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       category_import_logs: {
         Row: {
           created_at: string | null
@@ -1276,6 +1489,51 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "event_outbox_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fluxo_recebimento_logs: {
+        Row: {
+          campanha_id: string
+          created_at: string
+          id: string
+          mensagem_recebida: string | null
+          status_fluxo: string
+          telefone: string
+          tenant_id: string
+        }
+        Insert: {
+          campanha_id: string
+          created_at?: string
+          id?: string
+          mensagem_recebida?: string | null
+          status_fluxo?: string
+          telefone: string
+          tenant_id: string
+        }
+        Update: {
+          campanha_id?: string
+          created_at?: string
+          id?: string
+          mensagem_recebida?: string | null
+          status_fluxo?: string
+          telefone?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fluxo_recebimento_logs_campanha_id_fkey"
+            columns: ["campanha_id"]
+            isOneToOne: false
+            referencedRelation: "campanhas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fluxo_recebimento_logs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
