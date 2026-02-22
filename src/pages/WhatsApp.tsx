@@ -258,6 +258,34 @@ export default function WhatsApp() {
         },
       });
       if (error) throw error;
+
+      // Auto-status: when sending a message, change status to "attending"
+      if (!selectedContact.is_group && tenantId) {
+        const currentStatus = selectedContact.contact_status?.status;
+        if (currentStatus === "waiting" || currentStatus === "open") {
+          const { data: statusRow } = await supabase
+            .from("whatsapp_contact_status")
+            .select("id")
+            .eq("contact_id", selectedContact.id)
+            .single();
+          if (statusRow) {
+            await supabase.from("whatsapp_contact_status")
+              .update({ status: "attending", last_status_change: new Date().toISOString() })
+              .eq("id", statusRow.id);
+          } else {
+            await supabase.from("whatsapp_contact_status").insert({
+              tenant_id: tenantId,
+              contact_id: selectedContact.id,
+              status: "attending",
+            });
+          }
+          setSelectedContact((prev: any) => ({
+            ...prev,
+            contact_status: { ...(prev?.contact_status || {}), status: "attending" },
+          }));
+          loadContacts();
+        }
+      }
     } catch (err: any) {
       toast({ title: "Erro ao enviar", description: err.message, variant: "destructive" });
     } finally {

@@ -1,4 +1,5 @@
 import { Send, MessageCircle, Tag, ChevronDown, Trash2, Image, FileText, Video, Mic } from "lucide-react";
+import { EmojiPicker } from "./EmojiPicker";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -252,6 +253,7 @@ export function WhatsAppChat({
 
       {/* Input */}
       <div className="p-3 border-t border-border flex gap-2">
+        <EmojiPicker onEmojiSelect={(emoji) => setText((prev) => prev + emoji)} />
         <Textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
