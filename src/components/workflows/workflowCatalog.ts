@@ -1,7 +1,7 @@
 import {
   Zap, UserPlus, RefreshCw, Trophy, XCircle, GitBranch, ShoppingCart, CreditCard, Users,
   Bell, Edit, ArrowRight, CalendarPlus, Tag, Webhook, Clock, ClipboardList,
-  Equal, Search, TrendingUp, HelpCircle, Play,
+  Equal, Search, TrendingUp, HelpCircle, Play, MessageSquare, Send,
 } from "lucide-react";
 
 export interface CatalogItem {
@@ -33,6 +33,13 @@ export const triggersCatalog: CatalogItem[] = [
   { id: "order.paid", label: "Pedido pago", description: "Quando um pedido é marcado como pago", icon: CreditCard, category: "trigger" },
   { id: "customer.created", label: "Cliente criado", description: "Quando um novo cliente é cadastrado", icon: Users, category: "trigger" },
   { id: "manual", label: "Execução manual", description: "Executado manualmente pelo usuário", icon: Play, category: "trigger" },
+  {
+    id: "whatsapp.message_received", label: "Mensagem recebida no WhatsApp", description: "Quando uma mensagem é recebida via WhatsApp", icon: MessageSquare, category: "trigger",
+    configFields: [
+      { key: "session_id", label: "Sessão WhatsApp", type: "text", required: true, placeholder: "ID da sessão" },
+      { key: "keyword", label: "Palavra-chave (opcional)", type: "text", placeholder: "Ex: oi, ajuda, preço" },
+    ],
+  },
 ];
 
 // ── Actions ──
@@ -90,6 +97,14 @@ export const actionsCatalog: CatalogItem[] = [
     configFields: [
       { key: "title", label: "Título", type: "text", required: true, placeholder: "Título da tarefa" },
       { key: "description", label: "Descrição", type: "textarea", placeholder: "Descrição" },
+    ],
+  },
+  {
+    id: "send_whatsapp_message", label: "Enviar mensagem WhatsApp", description: "Envia uma mensagem via WhatsApp", icon: Send, category: "action",
+    configFields: [
+      { key: "session_id", label: "Sessão WhatsApp", type: "text", required: true, placeholder: "ID da sessão" },
+      { key: "phone", label: "Telefone", type: "text", required: true, placeholder: "5511999999999" },
+      { key: "message", label: "Mensagem", type: "textarea", required: true, placeholder: "Texto da mensagem" },
     ],
   },
 ];

@@ -9,8 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Trophy, XCircle, Trash2, Clock } from "lucide-react";
+import { Trophy, XCircle, Trash2, Clock, MessageSquare } from "lucide-react";
 import { emitEvent } from "@/lib/emitEvent";
+import { DealWhatsAppTab } from "./DealWhatsAppTab";
 import type { Deal } from "./KanbanCard";
 import type { Stage } from "./KanbanColumn";
 
@@ -171,6 +172,7 @@ export function CardDetailModal({ deal, stages, open, onOpenChange, onRefresh }:
             <TabsList className="w-full">
               <TabsTrigger value="detalhes" className="flex-1">Detalhes</TabsTrigger>
               <TabsTrigger value="historico" className="flex-1">Histórico</TabsTrigger>
+              <TabsTrigger value="whatsapp" className="flex-1 gap-1"><MessageSquare className="h-3 w-3" />WhatsApp</TabsTrigger>
             </TabsList>
 
             <TabsContent value="detalhes" className="space-y-4 mt-4">
@@ -290,6 +292,13 @@ export function CardDetailModal({ deal, stages, open, onOpenChange, onRefresh }:
                   ))}
                 </div>
               )}
+            </TabsContent>
+
+            <TabsContent value="whatsapp" className="mt-4">
+              <DealWhatsAppTab
+                dealId={deal.id}
+                contactName={deal.leads?.name || (deal.contacts ? `${deal.contacts.first_name} ${deal.contacts.last_name || ""}` : null)}
+              />
             </TabsContent>
           </Tabs>
         </DialogContent>

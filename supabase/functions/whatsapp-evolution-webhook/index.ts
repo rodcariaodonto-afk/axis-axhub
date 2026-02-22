@@ -391,6 +391,26 @@ Deno.serve(async (req) => {
         }
 
         console.log("Message saved:", isFromMe ? "outbound" : "inbound", "phone:", phone, "type:", messageType, "hasMedia:", !!mediaUrl);
+
+        // Sync to CRM
+        try {
+          const syncUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/sync-whatsapp-contact-to-crm`;
+          await fetch(syncUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+            body: JSON.stringify({
+              tenant_id: tenantId,
+              phone,
+              display_name: msg?.pushName || null,
+              message: messageContent,
+              message_type: messageType,
+              direction: isFromMe ? "outbound" : "inbound",
+              whatsapp_message_id: key.id,
+            }),
+          });
+        } catch (syncErr) {
+          console.error("CRM sync error (non-blocking):", syncErr);
+        }
       }
     } else {
       console.log("Unhandled event:", event);

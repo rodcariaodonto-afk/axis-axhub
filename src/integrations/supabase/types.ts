@@ -701,6 +701,7 @@ export type Database = {
           position: string | null
           tenant_id: string
           updated_at: string | null
+          whatsapp_jid: string | null
         }
         Insert: {
           account_id?: string | null
@@ -714,6 +715,7 @@ export type Database = {
           position?: string | null
           tenant_id: string
           updated_at?: string | null
+          whatsapp_jid?: string | null
         }
         Update: {
           account_id?: string | null
@@ -727,6 +729,7 @@ export type Database = {
           position?: string | null
           tenant_id?: string
           updated_at?: string | null
+          whatsapp_jid?: string | null
         }
         Relationships: [
           {
@@ -2201,6 +2204,70 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "leads_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mensagens_historico: {
+        Row: {
+          contato_id: string | null
+          created_at: string
+          deal_id: string | null
+          destinatario: string
+          id: string
+          mensagem: string | null
+          message_type: string
+          remetente: string
+          tenant_id: string
+          timestamp: string
+          whatsapp_message_id: string | null
+        }
+        Insert: {
+          contato_id?: string | null
+          created_at?: string
+          deal_id?: string | null
+          destinatario: string
+          id?: string
+          mensagem?: string | null
+          message_type?: string
+          remetente: string
+          tenant_id: string
+          timestamp?: string
+          whatsapp_message_id?: string | null
+        }
+        Update: {
+          contato_id?: string | null
+          created_at?: string
+          deal_id?: string | null
+          destinatario?: string
+          id?: string
+          mensagem?: string | null
+          message_type?: string
+          remetente?: string
+          tenant_id?: string
+          timestamp?: string
+          whatsapp_message_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mensagens_historico_contato_id_fkey"
+            columns: ["contato_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensagens_historico_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensagens_historico_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
