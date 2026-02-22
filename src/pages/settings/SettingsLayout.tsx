@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Building2, Users, Key, Settings2, ScrollText, Tag, Warehouse, Plug, UserCircle, Bell } from "lucide-react";
+import { Building2, Users, Key, Settings2, ScrollText, Tag, Warehouse, Plug, UserCircle, Bell, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type SettingsSection =
@@ -12,7 +12,8 @@ type SettingsSection =
   | "audit-logs"
   | "categories"
   | "warehouses"
-  | "integrations";
+  | "integrations"
+  | "templates";
 
 interface MenuItem {
   id: SettingsSection;
@@ -53,6 +54,10 @@ const menuGroups: MenuGroup[] = [
   {
     title: "SUPRIMENTOS",
     items: [{ id: "warehouses", label: "Depósitos", icon: Warehouse }],
+  },
+  {
+    title: "COMUNICAÇÃO",
+    items: [{ id: "templates", label: "Templates", icon: FileText }],
   },
   {
     title: "INTEGRAÇÕES",

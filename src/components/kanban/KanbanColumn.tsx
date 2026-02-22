@@ -1,6 +1,10 @@
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Plus } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { KanbanCard, type Deal } from "./KanbanCard";
 
 interface Stage {
@@ -23,6 +27,34 @@ interface KanbanColumnProps {
 
 export function KanbanColumn({ stage, deals, onDragStart, onDragOver, onDrop, onCardClick, onAddClick }: KanbanColumnProps) {
   const total = deals.reduce((s, d) => s + Number(d.estimated_value), 0);
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(stage.name);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  const handleSaveName = async () => {
+    const trimmed = editName.trim();
+    if (!trimmed || trimmed === stage.name) {
+      setEditName(stage.name);
+      setEditing(false);
+      return;
+    }
+    const { error } = await supabase.from("pipeline_stages").update({ name: trimmed }).eq("id", stage.id);
+    if (error) {
+      toast({ title: "Erro ao renomear", description: error.message, variant: "destructive" });
+      setEditName(stage.name);
+    } else {
+      stage.name = trimmed;
+    }
+    setEditing(false);
+  };
 
   return (
     <div
@@ -35,7 +67,27 @@ export function KanbanColumn({ stage, deals, onDragStart, onDragOver, onDrop, on
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full" style={{ backgroundColor: stage.cor_hex }} />
             <div>
-              <h3 className="font-semibold text-sm">{stage.name}</h3>
+              {editing ? (
+                <Input
+                  ref={inputRef}
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onBlur={handleSaveName}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSaveName();
+                    if (e.key === "Escape") { setEditName(stage.name); setEditing(false); }
+                  }}
+                  className="h-6 text-sm font-semibold px-1 py-0"
+                />
+              ) : (
+                <h3
+                  className="font-semibold text-sm cursor-pointer hover:text-primary transition-colors"
+                  onDoubleClick={() => { setEditName(stage.name); setEditing(true); }}
+                  title="Duplo-clique para editar"
+                >
+                  {stage.name}
+                </h3>
+              )}
               <p className="text-xs text-muted-foreground">
                 {deals.length} {deals.length === 1 ? "deal" : "deals"} · R$ {total.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
               </p>
