@@ -1,182 +1,102 @@
 
 
-# Kanban Profissional + Campanhas WhatsApp
+# Correcoes WhatsApp: Imagens, Grupos, Emojis e Abas
 
-## Contexto
+## Problemas identificados e solucoes
 
-O documento solicita 3 funcionalidades: Kanban profissional, Campanhas com delay, e Fluxo de recebimento automatico. O projeto ja possui um Pipeline basico com drag & drop na tabela `deals` e `pipeline_stages`, e uma pagina `DealDetail.tsx`.
+### 1. Aba "Grupos" vazia (BUG CRITICO - RLS)
 
-A estrategia e: **melhorar o Pipeline existente** ao inves de criar tabelas novas do zero (como o documento sugere com `kanban_colunas`, `kanban_cards`, etc.), pois o projeto ja usa `deals` + `pipeline_stages` com tenant isolation. Criar tabelas paralelas seria redundante.
+**Causa raiz**: As tabelas `whatsapp_contact_status` e `whatsapp_contact_tags` tem politicas RLS do tipo `RESTRICTIVE` sem nenhuma politica `PERMISSIVE`. No PostgreSQL, politicas RESTRICTIVE so restringem acesso -- elas exigem que pelo menos uma politica PERMISSIVE exista para conceder acesso. Resultado: o frontend nao consegue ler NENHUM registro dessas tabelas, entao `contact_status` e sempre `null` e a aba Grupos aparece vazia.
 
-## Fase 1: Kanban Profissional (Melhorar Pipeline existente)
+**Solucao**: Migracao SQL para trocar as politicas de RESTRICTIVE para PERMISSIVE em ambas as tabelas.
 
-### 1.1 Adicionar campos faltantes na tabela `deals`
+### 2. Nomes dos grupos mostrando IDs
 
-Campos novos:
-- `descricao` (text) - Descricao do deal
-- `observacoes` (text) - Observacoes/notas
-- `probabilidade_percentual` (int, default 50) - Probabilidade individual do card
-- `prioridade` (text, default 'normal') - baixa/normal/alta/urgente
-- `tags` (text[], default '{}') - Array de tags
-- `posicao_na_coluna` (int, default 0) - Ordem dentro da coluna
+**Causa raiz**: A Evolution API raramente envia `groupMetadata.subject` no payload de mensagens. O webhook tenta ler esse campo, mas ele vem null, entao o nome fica como "Grupo {ID}".
 
-### 1.2 Criar tabela `deal_history` (historico de movimentacoes)
+**Solucao**: Quando o webhook detecta uma mensagem de grupo e o display_name ainda e generico (comeca com "Grupo 1"), chamar a Evolution API `/group/findGroupInfos/{instance}` para buscar o nome real do grupo e atualizar no banco.
 
-```text
-deal_history
-- id (uuid PK)
-- tenant_id (uuid)
-- deal_id (uuid)
-- tipo_acao (text) - 'criado', 'movido', 'editado', 'deletado'
-- coluna_origem_id (uuid, nullable)
-- coluna_destino_id (uuid, nullable)
-- campo_alterado (text, nullable)
-- valor_anterior (text, nullable)
-- valor_novo (text, nullable)
-- usuario_id (uuid, nullable)
-- comentario (text, nullable)
-- created_at (timestamptz)
-```
+### 3. Imagens indisponiveis
 
-RLS: tenant isolation via `get_user_tenant_id()`.
+**Causa raiz**: As mensagens RECENTES ja estao sendo salvas corretamente no storage permanente (os logs confirmam upload bem-sucedido). Porem, mensagens ANTIGAS ainda tem URLs temporarias do WhatsApp (`mmg.whatsapp.net`) que ja expiraram. Essas URLs nao podem ser recuperadas.
 
-### 1.3 Adicionar cor nas pipeline_stages
+**Solucao**: 
+- Melhorar o componente `ImageWithFallback` para tentar usar a URL do storage quando disponivel
+- Para mensagens antigas com URL expirada, exibir uma mensagem mais amigavel
+- Nao ha como recuperar imagens antigas com URLs expiradas
 
-- `cor_hex` (varchar(7), default '#3B82F6') na tabela `pipeline_stages`
+### 4. Emoji picker e reacoes
 
-### 1.4 Reescrever `Pipeline.tsx` com Kanban profissional
+**Solucao**: 
+- Adicionar um seletor de emojis no campo de input do chat (popup com emojis organizados por categoria)
+- Nao vamos implementar reacoes em mensagens neste momento pois a Evolution API tem suporte limitado para isso e exigiria mudancas significativas no schema
 
-- Cards com todos os campos novos (descricao, observacoes, valor, probabilidade, prioridade, tags)
-- Drag & drop nativo (HTML5 API, ja usado no projeto - sem dependencia nova)
-- Filtros avancados (busca, prioridade, responsavel)
-- Total de valor por coluna
-- Cores por coluna
-- Badges de prioridade coloridas
-- Contagem de cards por coluna
+### 5. Abas interligadas (logica de status automatico)
 
-### 1.5 Reescrever `DealDetail.tsx` como modal/dialog
+**Logica solicitada**:
+- Mensagem recebida sem resposta = "Aguardando" (waiting)
+- Conversa aberta/respondida = "Aberto" (open)
+- Grupos = "Grupos" (group)
 
-- Modal completo ao clicar no card (em vez de navegar para outra pagina)
-- Campos editaveis: titulo, descricao, observacoes, valor, probabilidade, data fechamento, prioridade, tags
-- Aba de historico de movimentacoes
-- Botoes: Salvar, Cancelar, Deletar
-- Manter compatibilidade com a rota `/deals/:id` existente
+**Solucao**: No webhook, quando uma mensagem inbound chega de um contato individual:
+- Se o status atual e "open" ou nao existe, mudar para "waiting" (aguardando resposta)
+- Quando o usuario ENVIA uma mensagem (outbound), mudar o status para "attending" (atendendo)
+- Manter "group" para grupos
 
-## Fase 2: Campanhas com Delay
-
-### 2.1 Criar tabelas de campanhas
-
-```text
-campanhas
-- id (uuid PK)
-- tenant_id (uuid)
-- nome (text)
-- descricao (text, nullable)
-- status (text, default 'rascunho') - rascunho/ativa/pausada/concluida
-- mensagem_template (text)
-- session_id (uuid, FK whatsapp_sessions) - sessao WhatsApp para envio
-- created_at, updated_at
-
-campanhas_configuracoes
-- id (uuid PK)
-- tenant_id (uuid)
-- campanha_id (uuid FK)
-- delay_minimo_segundos (int, default 2)
-- delay_maximo_segundos (int, default 5)
-- usar_sequencia_aleatoria (bool, default true)
-- nao_disparar_sabados (bool, default false)
-- nao_disparar_domingos (bool, default false)
-- nao_disparar_feriados (bool, default true)
-- hora_inicio_disparo (time, default '08:00')
-- hora_fim_disparo (time, default '20:00')
-
-campanhas_contatos
-- id (uuid PK)
-- tenant_id (uuid)
-- campanha_id (uuid FK)
-- telefone (text)
-- nome (text, nullable)
-- status (text, default 'pendente')
-- enviado_em (timestamptz, nullable)
-- erro_mensagem (text, nullable)
-- tempo_espera_segundos (int, nullable)
-
-campanhas_historico_envios
-- id (uuid PK)
-- tenant_id (uuid)
-- campanha_id (uuid FK)
-- contato_telefone (text)
-- status (text) - pendente/enviado/entregue/lido/erro
-- mensagem_texto (text)
-- erro_mensagem (text, nullable)
-- tempo_espera_segundos (int)
-- enviado_em (timestamptz)
-- created_at
-```
-
-Todas com RLS tenant isolation.
-
-### 2.2 Edge Function: `send-campaign-with-delay`
-
-- Recebe campanha_id, processa lista de contatos
-- Valida horario de disparo e dias bloqueados
-- Aplica delay aleatorio entre min/max
-- Envia mensagem via Evolution API (reusando logica do `send-whatsapp-message`)
-- Registra historico de envios
-
-### 2.3 Pagina `Campanhas.tsx`
-
-- Listagem de campanhas com status
-- Criar/editar campanha (nome, template de mensagem, sessao WhatsApp)
-- Importar contatos (manual ou da lista de contatos WhatsApp)
-- Configuracoes de delay (componente CampaignSettings)
-- Dashboard de envios (enviados, erros, pendentes)
-- Botao para iniciar/pausar campanha
-
-### 2.4 Rota e Sidebar
-
-- Rota `/campanhas` no App.tsx
-- Item "Campanhas" na sidebar em Comunicacao (ao lado de WhatsApp)
-
-## Fase 3: Fluxo de Recebimento (Simplificado)
-
-### 3.1 Tabela `fluxo_recebimento_logs`
-
-Registra quando alguem responde a uma campanha:
-- campanha_id, telefone, mensagem_recebida, status_fluxo, created_at
-
-### 3.2 Integracao no webhook
-
-No `whatsapp-evolution-webhook`, ao receber mensagem inbound:
-- Verificar se o telefone esta em alguma campanha ativa
-- Se sim, registrar no `fluxo_recebimento_logs`
-- Marcar contato como "respondeu" na `campanhas_contatos`
-
-## Arquivos a criar/modificar
+## Arquivos a modificar
 
 | Arquivo | Acao |
 |---------|------|
-| Migracao SQL | Alterar `deals` + `pipeline_stages`, criar `deal_history`, criar tabelas de campanhas |
-| `src/pages/Pipeline.tsx` | Reescrever com Kanban profissional |
-| `src/pages/DealDetail.tsx` | Converter para modal reutilizavel |
-| `src/components/kanban/KanbanCard.tsx` | Novo - card do kanban |
-| `src/components/kanban/KanbanColumn.tsx` | Novo - coluna do kanban |
-| `src/components/kanban/CardDetailModal.tsx` | Novo - modal de detalhes |
-| `src/components/kanban/KanbanFilters.tsx` | Novo - filtros e busca |
-| `src/pages/Campanhas.tsx` | Novo - gestao de campanhas |
-| `src/components/campanhas/CampaignSettings.tsx` | Novo - config de delay |
-| `src/components/campanhas/CampaignContactList.tsx` | Novo - lista de contatos |
-| `src/components/campanhas/CampaignDashboard.tsx` | Novo - dashboard envios |
-| `supabase/functions/send-campaign-with-delay/index.ts` | Novo - envio com delay |
-| `src/components/AppSidebar.tsx` | Adicionar item Campanhas |
-| `src/App.tsx` | Adicionar rota /campanhas |
+| Migracao SQL | Corrigir RLS de `whatsapp_contact_status` e `whatsapp_contact_tags` |
+| `supabase/functions/whatsapp-evolution-webhook/index.ts` | Buscar nome do grupo via API + auto-status "waiting" para inbound |
+| `src/pages/WhatsApp.tsx` | Atualizar status para "attending" ao enviar mensagem |
+| `src/components/whatsapp/WhatsAppChat.tsx` | Adicionar emoji picker no input |
+| `src/components/whatsapp/WhatsAppContactList.tsx` | Ajustar filtro de grupos para usar `is_group` como fallback |
+
+## Detalhes tecnicos
+
+### Migracao SQL
+```text
+- DROP POLICY "Tenant isolation" ON whatsapp_contact_status
+- CREATE POLICY "Tenant isolation" ON whatsapp_contact_status FOR ALL USING (tenant_id = get_user_tenant_id()) -- PERMISSIVE (default)
+- Mesmo para whatsapp_contact_tags
+```
+
+### Webhook - busca de nome do grupo
+Ao processar mensagem de grupo, se display_name comeca com "Grupo 1":
+1. Buscar settings do tenant (evolution_api_url, evolution_api_key)
+2. Chamar `GET {evolutionUrl}/group/findGroupInfos/{instanceName}?groupJid={phone}@g.us`
+3. Atualizar display_name com o `subject` retornado
+
+### Webhook - auto-status
+Ao receber mensagem inbound de contato individual (nao grupo):
+- Se status atual e "open" ou "closed", atualizar para "waiting"
+- Isso faz a conversa aparecer na aba "Aguard."
+
+### WhatsApp.tsx - status ao enviar
+Na funcao `handleSend`, apos enviar com sucesso:
+- Se o contato atual tem status "waiting", atualizar para "attending"
+- Isso move a conversa para a aba "Atend."
+
+### Emoji picker
+Implementar um popup simples com emojis organizados (sem dependencia externa):
+- Botao de emoji ao lado do campo de texto
+- Popover com grid de emojis comuns
+- Ao clicar, insere o emoji no campo de texto
+
+### Filtro de grupos (fallback)
+Na `WhatsAppContactList`, o filtro da aba Grupos vai usar:
+```text
+c.contact_status?.status === "group" || c.is_group === true
+```
+Isso garante que grupos aparecem mesmo se o status nao for carregado corretamente.
 
 ## Ordem de implementacao
 
-1. Migracao do banco (campos novos em deals, deal_history, pipeline_stages cor)
-2. Kanban profissional (Pipeline.tsx + componentes)
-3. Tabelas de campanhas (migracao)
-4. Pagina de campanhas + componentes
-5. Edge function de envio com delay
-6. Integracao fluxo de recebimento no webhook
+1. Migracao SQL (corrigir RLS) -- resolve aba Grupos e tags
+2. Webhook (nome do grupo + auto-status waiting)
+3. WhatsApp.tsx (status attending ao enviar)
+4. WhatsAppChat.tsx (emoji picker)
+5. WhatsAppContactList.tsx (filtro fallback)
+6. Deploy edge functions
 
