@@ -5,6 +5,62 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+async function downloadAndUploadMedia(
+  supabase: any,
+  mediaUrl: string,
+  tenantId: string,
+  messageId: string,
+  messageType: string
+): Promise<string | null> {
+  try {
+    console.log("Downloading media from:", mediaUrl.substring(0, 100));
+    const response = await fetch(mediaUrl);
+    if (!response.ok) {
+      console.error("Failed to download media:", response.status);
+      return null;
+    }
+
+    const contentType = response.headers.get("content-type") || "application/octet-stream";
+    const blob = await response.blob();
+    const arrayBuffer = await blob.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+
+    // Determine file extension from content type
+    const extMap: Record<string, string> = {
+      "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif",
+      "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a",
+      "video/mp4": "mp4", "video/3gpp": "3gp",
+      "application/pdf": "pdf",
+    };
+    const ext = extMap[contentType] || messageType === "image" ? "jpg" : messageType === "audio" ? "ogg" : messageType === "video" ? "mp4" : "bin";
+
+    const filePath = `${tenantId}/${messageId}.${ext}`;
+    console.log("Uploading to storage:", filePath, "size:", uint8Array.length);
+
+    const { error: uploadError } = await supabase.storage
+      .from("whatsapp-media")
+      .upload(filePath, uint8Array, {
+        contentType,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("Upload error:", uploadError.message);
+      return null;
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from("whatsapp-media")
+      .getPublicUrl(filePath);
+
+    console.log("Media uploaded, public URL:", publicUrlData.publicUrl);
+    return publicUrlData.publicUrl;
+  } catch (err) {
+    console.error("Media download/upload error:", err);
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -116,10 +172,19 @@ Deno.serve(async (req) => {
           docMsg ? "document" :
           stickerMsg ? "sticker" : "text";
 
-        // Build content: for media, store JSON with url and caption; for text, store text
+        // Generate a unique message ID for storage path
+        const msgId = key.id || crypto.randomUUID();
+
+        // Build content: for media, download and upload to permanent storage
         let messageContent: string;
         if (mediaUrl && messageType !== "text") {
-          messageContent = JSON.stringify({ url: mediaUrl, caption: caption || null });
+          const permanentUrl = await downloadAndUploadMedia(supabase, mediaUrl, tenantId, msgId, messageType);
+          if (permanentUrl) {
+            messageContent = JSON.stringify({ url: permanentUrl, caption: caption || null });
+          } else {
+            // Fallback: store original URL if download fails
+            messageContent = JSON.stringify({ url: mediaUrl, caption: caption || null });
+          }
         } else {
           messageContent = textContent || "[media]";
         }

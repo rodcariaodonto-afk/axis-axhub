@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Settings2 } from "lucide-react";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 
 export default function WhatsApp() {
   const { user } = useAuth();
@@ -348,8 +349,8 @@ export default function WhatsApp() {
         </Button>
       </div>
 
-      <div className="flex h-[calc(100%-53px)]">
-        <div className="w-56 shrink-0 border-r border-border">
+      <ResizablePanelGroup direction="horizontal" className="h-[calc(100%-53px)]">
+        <ResizablePanel defaultSize={15} minSize={10}>
           <WhatsAppSessionList
             sessions={sessions}
             selectedId={selectedSessionId}
@@ -359,17 +360,21 @@ export default function WhatsApp() {
             onDelete={handleDeleteSession}
             onCheckStatus={handleCheckStatus}
           />
-        </div>
+        </ResizablePanel>
 
-        <div className="w-72 shrink-0">
+        <ResizableHandle withHandle />
+
+        <ResizablePanel defaultSize={25} minSize={15}>
           <WhatsAppContactList
             contacts={contacts}
             selectedId={selectedContact?.id}
             onSelect={(c) => setSelectedContact(c)}
           />
-        </div>
+        </ResizablePanel>
 
-        <div className="flex-1">
+        <ResizableHandle withHandle />
+
+        <ResizablePanel defaultSize={60} minSize={30}>
           <WhatsAppChat
             messages={messages}
             contactName={selectedContact?.display_name}
@@ -382,8 +387,8 @@ export default function WhatsApp() {
             onDeleteChat={handleDeleteChat}
             sending={sending}
           />
-        </div>
-      </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
 
       {/* New Session Dialog */}
       <Dialog open={showNewSession} onOpenChange={setShowNewSession}>
