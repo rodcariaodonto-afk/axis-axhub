@@ -1,7 +1,8 @@
-import { Plus, Wifi, WifiOff, QrCode, AlertCircle, Trash2 } from "lucide-react";
+import { Plus, Wifi, WifiOff, QrCode, AlertCircle, Trash2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Session {
   id: string;
@@ -17,6 +18,7 @@ interface Props {
   onNewSession: () => void;
   onConnect: (session: Session) => void;
   onDelete: (id: string) => void;
+  onCheckStatus?: (session: Session) => void;
 }
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: typeof Wifi }> = {
@@ -26,7 +28,7 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
   error: { label: "Erro", variant: "destructive", icon: AlertCircle },
 };
 
-export function WhatsAppSessionList({ sessions, selectedId, onSelect, onNewSession, onConnect, onDelete }: Props) {
+export function WhatsAppSessionList({ sessions, selectedId, onSelect, onNewSession, onConnect, onDelete, onCheckStatus }: Props) {
   return (
     <div className="flex flex-col h-full">
       <div className="p-3 border-b border-border">
@@ -46,7 +48,7 @@ export function WhatsAppSessionList({ sessions, selectedId, onSelect, onNewSessi
               <div
                 key={s.id}
                 onClick={() => onSelect(s.id)}
-                className={`flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors ${
+                className={`flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors group ${
                   selectedId === s.id ? "bg-secondary" : "hover:bg-secondary/50"
                 }`}
               >
@@ -55,7 +57,39 @@ export function WhatsAppSessionList({ sessions, selectedId, onSelect, onNewSessi
                   <p className="text-sm font-medium truncate">{s.session_name}</p>
                   {s.phone_number && <p className="text-xs text-muted-foreground">{s.phone_number}</p>}
                 </div>
-                <Badge variant={cfg.variant} className="text-[10px] shrink-0">{cfg.label}</Badge>
+                <div className="flex items-center gap-1">
+                  <Badge variant={cfg.variant} className="text-[10px] shrink-0">{cfg.label}</Badge>
+                  <div className="hidden group-hover:flex items-center gap-0.5">
+                    {onCheckStatus && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={(e) => { e.stopPropagation(); onCheckStatus(s); }}
+                          >
+                            <RefreshCw className="h-3 w-3" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Verificar status</TooltipContent>
+                      </Tooltip>
+                    )}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-destructive"
+                          onClick={(e) => { e.stopPropagation(); onDelete(s.id); }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Excluir sessão</TooltipContent>
+                    </Tooltip>
+                  </div>
+                </div>
               </div>
             );
           })}

@@ -27,7 +27,6 @@ Deno.serve(async (req) => {
     }
     const userId = claimsData.claims.sub;
 
-    // Get tenant
     const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", userId).single();
     if (!profile) {
       return new Response(JSON.stringify({ error: "Profile not found" }), { status: 404, headers: corsHeaders });
@@ -55,6 +54,8 @@ Deno.serve(async (req) => {
 
     // Create instance on Evolution API
     const instanceName = `axhub_${tenantId.substring(0, 8)}_${Date.now()}`;
+    console.log("Creating instance:", instanceName);
+
     const evolutionRes = await fetch(`${evolutionUrl}/instance/create`, {
       method: "POST",
       headers: { "Content-Type": "application/json", apikey: evolutionKey },
@@ -66,8 +67,35 @@ Deno.serve(async (req) => {
     });
 
     const evolutionData = await evolutionRes.json();
+    console.log("Evolution create response:", JSON.stringify(evolutionData));
+
     if (!evolutionRes.ok) {
       return new Response(JSON.stringify({ error: "Evolution API error", details: evolutionData }), { status: 502, headers: corsHeaders });
+    }
+
+    // Configure webhook on Evolution API
+    const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/whatsapp-evolution-webhook`;
+    console.log("Setting webhook:", webhookUrl);
+
+    try {
+      const webhookRes = await fetch(`${evolutionUrl}/webhook/set/${instanceName}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: evolutionKey },
+        body: JSON.stringify({
+          url: webhookUrl,
+          webhook_by_events: false,
+          webhook_base64: true,
+          events: [
+            "QRCODE_UPDATED",
+            "CONNECTION_UPDATE",
+            "MESSAGES_UPSERT",
+          ],
+        }),
+      });
+      const webhookData = await webhookRes.json();
+      console.log("Webhook set response:", JSON.stringify(webhookData));
+    } catch (whErr) {
+      console.error("Failed to set webhook (non-fatal):", whErr);
     }
 
     // Save session
@@ -94,6 +122,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({ session, qrcode: evolutionData?.qrcode }), { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
+    console.error("create-whatsapp-session error:", err);
     return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
   }
 });

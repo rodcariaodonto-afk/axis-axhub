@@ -38,7 +38,6 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "session_id required" }), { status: 400, headers: corsHeaders });
     }
 
-    // Get session
     const { data: session } = await supabase
       .from("whatsapp_sessions")
       .select("*")
@@ -60,20 +59,53 @@ Deno.serve(async (req) => {
     const evolutionUrl = settings?.evolution_api_url || Deno.env.get("EVOLUTION_API_URL");
     const evolutionKey = settings?.evolution_api_key || Deno.env.get("EVOLUTION_API_KEY");
 
+    const serviceClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // Check instance status from Evolution API
+    let instanceStatus = session.status;
+    try {
+      const statusRes = await fetch(
+        `${evolutionUrl}/instance/connectionState/${session.evolution_instance_id}`,
+        { headers: { apikey: evolutionKey! } }
+      );
+      const statusData = await statusRes.json();
+      console.log("Instance status:", JSON.stringify(statusData));
+
+      const state = statusData?.instance?.state || statusData?.state;
+      if (state === "open" || state === "connected") {
+        instanceStatus = "connected";
+        await serviceClient
+          .from("whatsapp_sessions")
+          .update({
+            status: "connected",
+            last_connected_at: new Date().toISOString(),
+            qr_code: null,
+            error_message: null,
+          })
+          .eq("id", sessionId);
+        
+        return new Response(JSON.stringify({
+          qr_code: null,
+          status: "connected",
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    } catch (statusErr) {
+      console.error("Status check error:", statusErr);
+    }
+
     // Fetch QR from Evolution
     const evolutionRes = await fetch(
       `${evolutionUrl}/instance/connect/${session.evolution_instance_id}`,
       { headers: { apikey: evolutionKey! } }
     );
-
     const evolutionData = await evolutionRes.json();
+    console.log("Connect response keys:", Object.keys(evolutionData));
 
     // Update QR in DB
     if (evolutionData?.base64) {
-      const serviceClient = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-      );
       await serviceClient
         .from("whatsapp_sessions")
         .update({ qr_code: evolutionData.base64, status: "qr_pending" })
@@ -82,9 +114,10 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       qr_code: evolutionData?.base64 || session.qr_code,
-      status: session.status,
+      status: instanceStatus,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
+    console.error("get-whatsapp-qr error:", err);
     return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
   }
 });
