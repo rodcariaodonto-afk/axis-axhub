@@ -14,3 +14,12 @@ verify_jwt = false
 
 [functions.whatsapp-evolution-webhook]
 verify_jwt = false
+
+[functions.start-funnel-execution]
+verify_jwt = false
+
+[functions.process-funnel-block]
+verify_jwt = false
+
+[functions.sync-whatsapp-contact-to-crm]
+verify_jwt = false
