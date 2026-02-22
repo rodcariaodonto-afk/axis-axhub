@@ -75,6 +75,7 @@ export default function FunilEditor() {
     target: c.target_bloco_id,
     sourceHandle: c.source_handle || undefined,
     targetHandle: c.target_handle || undefined,
+    type: "funnelEdge",
     animated: true,
     style: { stroke: "hsl(var(--primary))", strokeWidth: 2 },
   }));
