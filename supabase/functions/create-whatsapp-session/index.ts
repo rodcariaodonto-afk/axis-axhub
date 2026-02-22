@@ -52,9 +52,10 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Evolution API not configured" }), { status: 400, headers: corsHeaders });
     }
 
-    // Create instance on Evolution API
+    // Create instance on Evolution API with webhook included
     const instanceName = `axhub_${tenantId.substring(0, 8)}_${Date.now()}`;
-    console.log("Creating instance:", instanceName);
+    const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/whatsapp-evolution-webhook`;
+    console.log("Creating instance:", instanceName, "with webhook:", webhookUrl);
 
     const evolutionRes = await fetch(`${evolutionUrl}/instance/create`, {
       method: "POST",
@@ -63,33 +64,43 @@ Deno.serve(async (req) => {
         instanceName,
         integration: "WHATSAPP-BAILEYS",
         qrcode: true,
-      }),
-    });
-
-    const evolutionData = await evolutionRes.json();
-    console.log("Evolution create response:", JSON.stringify(evolutionData));
-
-    if (!evolutionRes.ok) {
-      return new Response(JSON.stringify({ error: "Evolution API error", details: evolutionData }), { status: 502, headers: corsHeaders });
-    }
-
-    // Configure webhook on Evolution API
-    const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/whatsapp-evolution-webhook`;
-    console.log("Setting webhook:", webhookUrl);
-
-    try {
-      const webhookRes = await fetch(`${evolutionUrl}/webhook/set/${instanceName}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", apikey: evolutionKey },
-        body: JSON.stringify({
+        webhook: {
           url: webhookUrl,
-          webhook_by_events: false,
-          webhook_base64: true,
+          byEvents: false,
+          base64: true,
           events: [
             "QRCODE_UPDATED",
             "CONNECTION_UPDATE",
             "MESSAGES_UPSERT",
           ],
+        },
+      }),
+    });
+
+    const evolutionData = await evolutionRes.json();
+    console.log("Evolution create response:", JSON.stringify(evolutionData).substring(0, 1000));
+
+    if (!evolutionRes.ok) {
+      return new Response(JSON.stringify({ error: "Evolution API error", details: evolutionData }), { status: 502, headers: corsHeaders });
+    }
+
+    // Also try the webhook set endpoint with correct v2 format as fallback
+    try {
+      const webhookRes = await fetch(`${evolutionUrl}/webhook/set/${instanceName}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: evolutionKey },
+        body: JSON.stringify({
+          webhook: {
+            enabled: true,
+            url: webhookUrl,
+            byEvents: false,
+            base64: true,
+            events: [
+              "QRCODE_UPDATED",
+              "CONNECTION_UPDATE",
+              "MESSAGES_UPSERT",
+            ],
+          },
         }),
       });
       const webhookData = await webhookRes.json();
