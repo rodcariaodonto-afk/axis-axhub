@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Play, Pause, Trash2, Settings, Users, BarChart3 } from "lucide-react";
+import { Plus, Play, Pause, Trash2, Settings, Users, BarChart3, GitBranch } from "lucide-react";
 import { CampaignSettings } from "@/components/campanhas/CampaignSettings";
 import { CampaignContactList } from "@/components/campanhas/CampaignContactList";
 import { CampaignDashboard } from "@/components/campanhas/CampaignDashboard";
@@ -22,6 +22,7 @@ interface Campaign {
   status: string;
   mensagem_template: string;
   session_id: string | null;
+  funil_id: string | null;
   created_at: string;
 }
 
@@ -37,16 +38,19 @@ export default function Campanhas() {
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
-  const [form, setForm] = useState({ nome: "", descricao: "", mensagem_template: "", session_id: "" });
+  const [form, setForm] = useState({ nome: "", descricao: "", mensagem_template: "", session_id: "", funil_id: "" });
+  const [funis, setFunis] = useState<{ id: string; nome: string }[]>([]);
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
-    const [{ data: c }, { data: s }] = await Promise.all([
+    const [{ data: c }, { data: s }, { data: f }] = await Promise.all([
       supabase.from("campanhas").select("*").order("created_at", { ascending: false }),
       supabase.from("whatsapp_sessions").select("id, session_name, status"),
+      supabase.from("funis").select("id, nome").order("nome"),
     ]);
     setCampaigns(c || []);
     setSessions((s || []).map((x: any) => ({ id: x.id, name: x.session_name, status: x.status })));
+    setFunis(f || []);
     setLoading(false);
   }, []);
 
@@ -58,7 +62,7 @@ export default function Campanhas() {
     if (!profile) return;
     const { data: campaign, error } = await supabase.from("campanhas").insert({
       tenant_id: profile.tenant_id, nome: form.nome, descricao: form.descricao || null,
-      mensagem_template: form.mensagem_template, session_id: form.session_id || null,
+      mensagem_template: form.mensagem_template, session_id: form.session_id || null, funil_id: form.funil_id || null,
     }).select().single();
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     // Create default config
@@ -131,7 +135,7 @@ export default function Campanhas() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div><h1 className="text-2xl font-bold tracking-tight">Campanhas WhatsApp</h1><p className="text-muted-foreground">Gerencie campanhas de envio em massa</p></div>
-        <Button onClick={() => { setForm({ nome: "", descricao: "", mensagem_template: "", session_id: sessions[0]?.id || "" }); setCreateOpen(true); }}>
+        <Button onClick={() => { setForm({ nome: "", descricao: "", mensagem_template: "", session_id: sessions[0]?.id || "", funil_id: "" }); setCreateOpen(true); }}>
           <Plus className="mr-2 h-4 w-4" />Nova Campanha
         </Button>
       </div>
@@ -170,6 +174,15 @@ export default function Campanhas() {
               </Select>
             </div>
             <div className="space-y-2"><Label>Mensagem Template</Label><Textarea value={form.mensagem_template} onChange={(e) => setForm({ ...form, mensagem_template: e.target.value })} rows={4} placeholder="Use {nome} para personalizar" required /></div>
+            <div className="space-y-2"><Label>Funil de Venda (opcional)</Label>
+              <Select value={form.funil_id} onValueChange={(v) => setForm({ ...form, funil_id: v })}>
+                <SelectTrigger><SelectValue placeholder="Nenhum funil vinculado" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {funis.map((f) => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             <Button type="submit" className="w-full">Criar Campanha</Button>
           </form>
         </DialogContent>
