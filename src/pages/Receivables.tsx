@@ -114,16 +114,13 @@ export default function Receivables() {
       else { toast({ title: "Recebível atualizado!" }); setDialogOpen(false); setEditItem(null); fetchData(); }
     } else {
       const numInstallments = Math.max(1, parseInt(form.installments) || 1);
-      const totalAmount = parseFloat(form.amount);
-      const baseAmount = Math.floor((totalAmount / numInstallments) * 100) / 100;
+      const amount = parseFloat(form.amount);
       const baseDate = new Date(form.due_date + "T12:00:00");
 
       const records = [];
       for (let i = 0; i < numInstallments; i++) {
         const dueDate = new Date(baseDate);
         dueDate.setMonth(dueDate.getMonth() + i);
-        const isLast = i === numInstallments - 1;
-        const amount = isLast ? Math.round((totalAmount - baseAmount * (numInstallments - 1)) * 100) / 100 : baseAmount;
         const description = numInstallments > 1 ? `${form.description} (${i + 1}/${numInstallments})` : form.description;
         records.push({
           tenant_id: profile.tenant_id,
