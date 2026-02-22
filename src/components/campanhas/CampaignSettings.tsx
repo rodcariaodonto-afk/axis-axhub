@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 
 interface CampaignSettingsProps {
   campaignId: string;
-  campaign: { mensagem_template: string; session_id: string | null };
+  campaign: { mensagem_template: string; session_id: string | null; funil_id: string | null };
   sessions: { id: string; name: string; status: string }[];
   onUpdate: () => void;
 }
@@ -24,6 +24,8 @@ export function CampaignSettings({ campaignId, campaign, sessions, onUpdate }: C
   });
   const [template, setTemplate] = useState(campaign.mensagem_template);
   const [sessionId, setSessionId] = useState(campaign.session_id || "");
+  const [funilId, setFunilId] = useState(campaign.funil_id || "");
+  const [funis, setFunis] = useState<{ id: string; nome: string }[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -36,11 +38,14 @@ export function CampaignSettings({ campaignId, campaign, sessions, onUpdate }: C
         hora_inicio_disparo: data.hora_inicio_disparo, hora_fim_disparo: data.hora_fim_disparo,
       });
     });
+    supabase.from("funis").select("id, nome").order("nome").then(({ data }) => {
+      if (data) setFunis(data);
+    });
   }, [campaignId]);
 
   const save = async () => {
     await supabase.from("campanhas_configuracoes").update(config).eq("campanha_id", campaignId);
-    await supabase.from("campanhas").update({ mensagem_template: template, session_id: sessionId || null }).eq("id", campaignId);
+    await supabase.from("campanhas").update({ mensagem_template: template, session_id: sessionId || null, funil_id: funilId === "none" || !funilId ? null : funilId }).eq("id", campaignId);
     toast({ title: "Configurações salvas!" }); onUpdate();
   };
 
@@ -61,9 +66,19 @@ export function CampaignSettings({ campaignId, campaign, sessions, onUpdate }: C
             <Textarea value={template} onChange={(e) => setTemplate(e.target.value)} rows={4} placeholder="Use {nome} para personalizar" />
             <p className="text-xs text-muted-foreground">Variáveis: {"{nome}"} = nome do contato</p>
           </div>
+          <div className="space-y-2">
+            <Label>Funil de Venda (opcional)</Label>
+            <Select value={funilId || "none"} onValueChange={setFunilId}>
+              <SelectTrigger><SelectValue placeholder="Nenhum funil vinculado" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Nenhum</SelectItem>
+                {funis.map((f) => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">Vincule um funil para os contatos seguirem o fluxo ao iniciar a campanha</p>
+          </div>
         </CardContent>
       </Card>
-
       <Card className="border-border bg-card">
         <CardHeader><CardTitle className="text-base">Delay entre Envios</CardTitle></CardHeader>
         <CardContent className="space-y-4">

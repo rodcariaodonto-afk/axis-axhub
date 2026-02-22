@@ -338,6 +338,7 @@ export type Database = {
         Row: {
           created_at: string
           descricao: string | null
+          funil_id: string | null
           id: string
           mensagem_template: string
           nome: string
@@ -349,6 +350,7 @@ export type Database = {
         Insert: {
           created_at?: string
           descricao?: string | null
+          funil_id?: string | null
           id?: string
           mensagem_template?: string
           nome: string
@@ -360,6 +362,7 @@ export type Database = {
         Update: {
           created_at?: string
           descricao?: string | null
+          funil_id?: string | null
           id?: string
           mensagem_template?: string
           nome?: string
@@ -369,6 +372,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "campanhas_funil_id_fkey"
+            columns: ["funil_id"]
+            isOneToOne: false
+            referencedRelation: "funis"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "campanhas_session_id_fkey"
             columns: ["session_id"]

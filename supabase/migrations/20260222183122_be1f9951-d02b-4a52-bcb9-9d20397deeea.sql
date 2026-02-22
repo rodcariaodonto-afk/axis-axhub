@@ -1,0 +1,1 @@
+ALTER TABLE public.campanhas ADD COLUMN funil_id uuid REFERENCES public.funis(id) ON DELETE SET NULL;
