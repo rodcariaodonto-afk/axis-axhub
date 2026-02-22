@@ -22,7 +22,7 @@ export default function Receivables() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
-  const [form, setForm] = useState({ description: "", amount: "", due_date: "", customer_id: "" });
+  const [form, setForm] = useState({ description: "", amount: "", due_date: "", customer_id: "", installments: "1" });
   const [passwordDialog, setPasswordDialog] = useState<{ open: boolean; title: string; description: string; variant: "default" | "destructive"; onConfirm: () => Promise<void> }>({ open: false, title: "", description: "", variant: "default", onConfirm: async () => {} });
   const { toast } = useToast();
 
@@ -42,14 +42,14 @@ export default function Receivables() {
   const openCreate = async () => {
     await loadCustomers();
     setEditItem(null);
-    setForm({ description: "", amount: "", due_date: "", customer_id: "" });
+    setForm({ description: "", amount: "", due_date: "", customer_id: "", installments: "1" });
     setDialogOpen(true);
   };
 
   const openEdit = async (item: any) => {
     await loadCustomers();
     setEditItem(item);
-    setForm({ description: item.description, amount: String(item.amount), due_date: item.due_date, customer_id: item.customer_id || "" });
+    setForm({ description: item.description, amount: String(item.amount), due_date: item.due_date, customer_id: item.customer_id || "", installments: "1" });
     setPasswordDialog({
       open: true,
       title: "Editar Recebível",
@@ -113,15 +113,30 @@ export default function Receivables() {
       if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
       else { toast({ title: "Recebível atualizado!" }); setDialogOpen(false); setEditItem(null); fetchData(); }
     } else {
-      const { error } = await supabase.from("receivables").insert({
-        tenant_id: profile.tenant_id,
-        description: form.description,
-        amount: parseFloat(form.amount),
-        due_date: form.due_date,
-        customer_id: form.customer_id || null,
-      });
+      const numInstallments = Math.max(1, parseInt(form.installments) || 1);
+      const totalAmount = parseFloat(form.amount);
+      const baseAmount = Math.floor((totalAmount / numInstallments) * 100) / 100;
+      const baseDate = new Date(form.due_date + "T12:00:00");
+
+      const records = [];
+      for (let i = 0; i < numInstallments; i++) {
+        const dueDate = new Date(baseDate);
+        dueDate.setMonth(dueDate.getMonth() + i);
+        const isLast = i === numInstallments - 1;
+        const amount = isLast ? Math.round((totalAmount - baseAmount * (numInstallments - 1)) * 100) / 100 : baseAmount;
+        const description = numInstallments > 1 ? `${form.description} (${i + 1}/${numInstallments})` : form.description;
+        records.push({
+          tenant_id: profile.tenant_id,
+          description,
+          amount,
+          due_date: dueDate.toISOString().split("T")[0],
+          customer_id: form.customer_id || null,
+        });
+      }
+
+      const { error } = await supabase.from("receivables").insert(records);
       if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
-      else { toast({ title: "Conta a receber criada!" }); setDialogOpen(false); fetchData(); }
+      else { toast({ title: numInstallments > 1 ? `${numInstallments} parcelas criadas!` : "Conta a receber criada!" }); setDialogOpen(false); fetchData(); }
     }
   };
 
@@ -158,9 +173,12 @@ export default function Receivables() {
           <DialogHeader><DialogTitle>{editItem ? "Editar Recebível" : "Nova Conta a Receber"}</DialogTitle></DialogHeader>
           <form onSubmit={handleSave} className="space-y-4">
             <div className="space-y-2"><Label>Descrição</Label><Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} required /></div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className={`grid gap-4 ${!editItem ? "grid-cols-3" : "grid-cols-2"}`}>
               <div className="space-y-2"><Label>Valor (R$)</Label><Input type="number" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required /></div>
               <div className="space-y-2"><Label>Vencimento</Label><Input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} required /></div>
+              {!editItem && (
+                <div className="space-y-2"><Label>Parcelas</Label><Input type="number" min="1" max="120" value={form.installments} onChange={(e) => setForm({ ...form, installments: e.target.value })} required /></div>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Cliente (opcional)</Label>
