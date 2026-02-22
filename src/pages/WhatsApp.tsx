@@ -191,13 +191,15 @@ export default function WhatsApp() {
     setShowQR(true);
     try {
       const { data } = await supabase.functions.invoke("get-whatsapp-qr", {
-        body: {},
-        headers: {},
+        body: { session_id: session.id },
       });
       if (data?.status === "connected") {
         setShowQR(false);
         toast({ title: "WhatsApp já está conectado!" });
         loadSessions();
+        loadContacts();
+      } else if (data?.qr_code) {
+        setQrSession((prev: any) => ({ ...prev, qr_code: data.qr_code }));
       }
     } catch (err) {
       console.error("QR fetch error:", err);
@@ -208,8 +210,7 @@ export default function WhatsApp() {
   const handleCheckStatus = async (session: any) => {
     try {
       const { data } = await supabase.functions.invoke("get-whatsapp-qr", {
-        body: {},
-        headers: {},
+        body: { session_id: session.id },
       });
       loadSessions();
       if (data?.status === "connected") {

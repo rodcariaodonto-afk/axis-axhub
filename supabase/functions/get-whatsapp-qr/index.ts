@@ -33,7 +33,16 @@ Deno.serve(async (req) => {
     }
 
     const url = new URL(req.url);
-    const sessionId = url.searchParams.get("session_id");
+    let sessionId = url.searchParams.get("session_id");
+    
+    // Also accept session_id from POST body
+    if (!sessionId && req.method === "POST") {
+      try {
+        const body = await req.json();
+        sessionId = body.session_id;
+      } catch {}
+    }
+    
     if (!sessionId) {
       return new Response(JSON.stringify({ error: "session_id required" }), { status: 400, headers: corsHeaders });
     }
