@@ -71,9 +71,24 @@ export default function Campanhas() {
   };
 
   const startCampaign = async (id: string) => {
-    const { error } = await supabase.functions.invoke("send-campaign-with-delay", { body: { campanha_id: id } });
-    if (error) toast({ title: "Erro ao iniciar", description: error.message, variant: "destructive" });
-    else { toast({ title: "Campanha iniciada!" }); fetchData(); }
+    toast({ title: "Iniciando campanha...", description: "Processando contatos em segundo plano." });
+    const { data, error } = await supabase.functions.invoke("send-campaign-with-delay", { body: { campanha_id: id } });
+    if (error) {
+      toast({ title: "Erro ao iniciar", description: error.message, variant: "destructive" });
+    } else {
+      toast({
+        title: "Campanha iniciada!",
+        description: `${data?.total_contacts || 0} contatos sendo processados em segundo plano.`,
+      });
+      fetchData();
+      // Poll for updates every 10s for 5 minutes
+      let polls = 0;
+      const interval = setInterval(() => {
+        fetchData();
+        polls++;
+        if (polls >= 30) clearInterval(interval);
+      }, 10000);
+    }
   };
 
   const pauseCampaign = async (id: string) => {
