@@ -152,7 +152,15 @@ Deno.serve(async (req) => {
         const phone = key.remoteJid?.split("@")[0];
         if (!phone || phone === "status") continue;
 
-        const participant = isGroup ? (key.participant?.split("@")[0] || null) : null;
+        // Use participantAlt (phone format) over participant (LID format)
+        const participantRaw = key.participantAlt || key.participant;
+        const participant = isGroup ? (participantRaw?.split("@")[0] || null) : null;
+
+        // Skip reaction messages - they are not real messages
+        if (msg?.messageType === "reactionMessage" || msg?.message?.reactionMessage) {
+          console.log("Skipping reaction message");
+          continue;
+        }
 
         // Extract group name from various possible locations in the payload
         let groupName: string | null = null;
