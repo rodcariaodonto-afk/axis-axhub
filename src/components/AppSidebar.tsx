@@ -31,7 +31,7 @@ const financeItems = [
 const crmItems = [
   { title: "Dashboard CRM", url: "/crm-dashboard", icon: Gauge },
   { title: "Leads", url: "/leads", icon: UserPlus },
-  { title: "Pipeline", url: "/pipeline", icon: Kanban },
+  { title: "Kanban", url: "/pipeline", icon: Kanban },
   { title: "Contatos", url: "/contacts", icon: Contact },
   { title: "Propostas", url: "/proposals", icon: FileText },
   { title: "Atividades", url: "/activities", icon: CalendarCheck },
