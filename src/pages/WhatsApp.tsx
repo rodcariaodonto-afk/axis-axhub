@@ -122,11 +122,16 @@ export default function WhatsApp() {
       .order("created_at", { ascending: true })
       .then(({ data }) => { if (data) setMessages(data); });
 
+    // Zero unread and refresh contacts list
     supabase
       .from("whatsapp_contacts")
       .update({ unread_count: 0 })
-      .eq("id", selectedContact.id);
-  }, [selectedContact, selectedSessionId]);
+      .eq("id", selectedContact.id)
+      .then(() => {
+        loadContacts();
+        setSelectedContact((prev: any) => prev ? { ...prev, unread_count: 0 } : prev);
+      });
+  }, [selectedContact?.id, selectedSessionId]);
 
   // Realtime messages
   useEffect(() => {
@@ -291,6 +296,20 @@ export default function WhatsApp() {
     loadSessions();
   };
 
+  // Delete chat (contact + messages)
+  const handleDeleteChat = async () => {
+    if (!selectedContact) return;
+    // Delete messages first, then contact (cascade handles tags/status)
+    await supabase.from("whatsapp_messages").delete().eq("contact_id", selectedContact.id);
+    await supabase.from("whatsapp_contact_tags").delete().eq("contact_id", selectedContact.id);
+    await supabase.from("whatsapp_contact_status").delete().eq("contact_id", selectedContact.id);
+    await supabase.from("whatsapp_contacts").delete().eq("id", selectedContact.id);
+    setSelectedContact(null);
+    setMessages([]);
+    loadContacts();
+    toast({ title: "Conversa apagada!" });
+  };
+
   // Change contact status
   const handleStatusChange = async (newStatus: string) => {
     if (!selectedContact || !tenantId) return;
@@ -360,6 +379,7 @@ export default function WhatsApp() {
             onSend={handleSend}
             onStatusChange={handleStatusChange}
             onOpenTags={() => setShowTagManager(true)}
+            onDeleteChat={handleDeleteChat}
             sending={sending}
           />
         </div>

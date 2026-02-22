@@ -46,12 +46,12 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
   group: <Users className="h-2.5 w-2.5 text-purple-500" />,
 };
 
-const TABS: { key: SegmentTab; label: string }[] = [
-  { key: "all", label: "Todas" },
-  { key: "open", label: "Abertos" },
-  { key: "attending", label: "Atendendo" },
-  { key: "waiting", label: "Aguardando" },
-  { key: "group", label: "Grupos" },
+const TABS: { key: SegmentTab; label: string; shortLabel: string }[] = [
+  { key: "all", label: "Todas", shortLabel: "All" },
+  { key: "open", label: "Aberto", shortLabel: "Abrt" },
+  { key: "attending", label: "Atend.", shortLabel: "Atnd" },
+  { key: "waiting", label: "Aguard.", shortLabel: "Agrd" },
+  { key: "group", label: "Grupos", shortLabel: "Grp" },
 ];
 
 export function WhatsAppContactList({ contacts, selectedId, onSelect }: Props) {
@@ -77,20 +77,22 @@ export function WhatsAppContactList({ contacts, selectedId, onSelect }: Props) {
 
   return (
     <div className="flex flex-col h-full border-x border-border">
-      {/* Segment tabs */}
-      <div className="flex border-b border-border overflow-x-auto">
+      {/* Segment tabs - compact */}
+      <div className="flex border-b border-border">
         {TABS.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`flex-1 min-w-0 px-2 py-2 text-[10px] font-medium transition-colors whitespace-nowrap ${
+            className={`flex-1 min-w-0 px-1 py-1.5 text-[9px] font-medium transition-colors text-center truncate ${
               activeTab === tab.key
                 ? "text-primary border-b-2 border-primary"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
             {tab.label}
-            <span className="ml-1 text-[9px] opacity-70">({counts[tab.key]})</span>
+            {counts[tab.key] > 0 && (
+              <span className="ml-0.5 opacity-70">{counts[tab.key]}</span>
+            )}
           </button>
         ))}
       </div>
@@ -151,7 +153,6 @@ export function WhatsAppContactList({ contacts, selectedId, onSelect }: Props) {
                     </Badge>
                   )}
                 </div>
-                {/* Tags */}
                 {c.tags && c.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-1">
                     {c.tags.slice(0, 3).map((t) => (
