@@ -1,86 +1,99 @@
 
 
-# Sistema de Gerenciamento de Usuarios (Funcionarios) - AXIS
+# Correções e Features - Documento de Feedback
 
-## Resumo
+## Analise do Documento vs. Codebase Atual
 
-Implementar um sistema completo de gerenciamento de usuarios/funcionarios com 3 abas: Geral (dados pessoais/profissionais), Horarios de Trabalho (dias e horarios por semana), e Permissoes (controle granular por modulo). Adaptado para a arquitetura existente do AXIS que ja usa `profiles`, `user_roles` e `tenants`.
+O documento lista 8 bugs e 3 features. Apos analise detalhada do codigo existente, muitos itens ja estao implementados ou nao se aplicam. Abaixo esta o que realmente precisa ser feito:
 
-## O que ja existe
+### Itens JA RESOLVIDOS (nao precisam de acao)
+- **BUG #1 (RLS custom fields)**: A tabela `product_custom_fields` ja tem RLS com `tenant_id = get_user_tenant_id()` corretamente configurada
+- **BUG #3/4 (Importacao de Leads)**: Ja implementado com importacao CSV, export, deduplicacao e scoring em `Leads.tsx`
+- **BUG #7/8 (RLS sales_cadences)**: Ja tem RLS com tenant isolation correta
 
-- Tabela `profiles` (id, tenant_id, full_name, email, phone, avatar_url, status)
-- Tabela `user_roles` com enum `app_role` (admin, sales, finance, operations, accounting, readonly)
-- Tabela `audit_logs` para auditoria
-- Pagina `UsersManagement.tsx` basica (lista usuarios + troca de role via select)
-- Sistema de auth com Supabase Auth
+### Itens que PRECISAM ser corrigidos
 
-## O que sera implementado
+---
 
-### Etapa A - Banco de Dados (Migracao SQL)
+## Correcao 1: Descricao do Produto nao aparece na edicao (BUG #2)
 
-1. **Adicionar colunas na tabela `profiles`**: `birth_date` (DATE), `default_theme` (TEXT, default 'dark'), `default_menu` (TEXT, default 'open'), `farewell_message` (TEXT)
+**Problema**: A interface `Product` nao inclui `description`, o formulario de edicao nao carrega nem salva a descricao.
 
-2. **Criar tabela `user_work_hours`**:
-   - id (UUID PK), tenant_id (UUID), user_id (UUID), day_of_week (INTEGER 0-6), start_time (TIME), end_time (TIME), is_working_day (BOOLEAN default true), created_at, updated_at
-   - RLS com tenant isolation
-   - Indices em user_id e day_of_week
+**Solucao**:
+- Adicionar `description` na interface `Product`
+- Adicionar campo `description` no `editForm` state
+- Incluir `description` no `handleEdit` ao preencher formulario
+- Incluir `description` no `handleEditSave` ao salvar
+- Adicionar campo Textarea de descricao no dialog de edicao
 
-3. **Criar tabela `user_permissions`**:
-   - id (UUID PK), tenant_id (UUID), user_id (UUID), module_name (VARCHAR), can_view (BOOLEAN), can_create (BOOLEAN), can_edit (BOOLEAN), can_delete (BOOLEAN), can_export (BOOLEAN), can_manage_users (BOOLEAN), created_at, updated_at
-   - Constraint UNIQUE(user_id, module_name)
-   - RLS com tenant isolation
-   - Indices em user_id e module_name
+**Arquivo**: `src/pages/Products.tsx`
 
-4. **Modulos de permissoes**: whatsapp, crm, kanban, campanhas, workflows, automacao, dashboard, contatos, relatorios, configuracoes, financeiro, produtos, funis
+---
 
-### Etapa B - Edge Function
+## Correcao 2: Editar Contato (BUG #5)
 
-1. **create-user-with-permissions**: Cria usuario no Auth (com admin API), insere profile, horarios de trabalho e permissoes de uma so vez. Registra auditoria.
+**Problema**: A pagina de Contatos so permite criar, nao editar.
 
-### Etapa C - Frontend
+**Solucao**:
+- Adicionar estado de edicao (`editingContact`, `editDialogOpen`)
+- Criar formulario de edicao em dialog
+- Adicionar botoes de editar e excluir em cada linha da tabela
+- Funcao para carregar dados do contato no formulario e salvar alteracoes
 
-1. **Reescrever `UsersManagement.tsx`** com:
-   - Lista de usuarios com busca, filtros por status/perfil
-   - Botao "Adicionar Usuario"
-   - Acoes de editar/excluir por usuario
-   - Indicador visual de status (ativo/inativo)
+**Arquivo**: `src/pages/Contacts.tsx`
 
-2. **Criar `UserFormModal.tsx`** com 3 abas:
-   - **Aba Geral**: Nome, email, senha (so criacao), telefone, data nascimento, perfil (role), avatar, tema padrao, menu padrao, mensagem de despedida
-   - **Aba Horarios de Trabalho**: Grid com dias da semana (Seg-Dom), toggle ativo/inativo, horario inicio/fim para cada dia
-   - **Aba Permissoes**: Grid com modulos x acoes (visualizar, criar, editar, deletar, exportar, gerenciar usuarios). Checkboxes por modulo. Toggle "Acesso Total" para marcar tudo
+---
 
-3. **Criar hook `useUserPermissions.ts`**: Hook que carrega permissoes do usuario logado e expoe funcao `hasPermission(module, action)` para uso em toda a aplicacao
+## Correcao 3: Converter Contato em Cliente (BUG #6)
 
-### Detalhes Tecnicos
+**Problema**: Nao ha opcao de transformar contato em cliente (tabela `customers`).
 
-**Arquivos novos:**
-- `src/components/users/UserFormModal.tsx` - Modal com 3 abas (Geral, Horarios, Permissoes)
-- `src/components/users/WorkHoursTab.tsx` - Aba de horarios de trabalho
-- `src/components/users/PermissionsTab.tsx` - Aba de permissoes granulares
-- `src/hooks/useUserPermissions.ts` - Hook de verificacao de permissoes
-- `supabase/functions/create-user-with-permissions/index.ts` - Edge function
+**Solucao**:
+- Adicionar botao "Converter em Cliente" na tabela de contatos
+- Criar dialog de conversao com campos: nome, documento (CPF/CNPJ), email, telefone, endereco
+- Ao converter, criar registro na tabela `customers` com os dados do contato
+- Os dados pre-existentes do contato (nome, email, phone) serao pre-preenchidos
 
-**Arquivos modificados:**
-- `src/pages/settings/UsersManagement.tsx` - Reescrita completa com lista rica + modal
-- Migracao SQL para novas tabelas e colunas
+**Arquivo**: `src/pages/Contacts.tsx`
 
-**Fluxo de criacao de usuario:**
-```text
-Admin clica "Adicionar Usuario"
-  -> Modal abre na aba Geral
-  -> Preenche dados pessoais + perfil
-  -> Aba Horarios: configura dias/horas de trabalho
-  -> Aba Permissoes: marca checkboxes por modulo
-  -> Clica Salvar
-  -> Edge Function cria usuario no Auth + profile + work_hours + permissions
-  -> Lista atualiza
-```
+---
 
-**Fluxo de verificacao de permissoes:**
-```text
-Usuario navega para modulo (ex: Campanhas)
-  -> useUserPermissions() carrega permissoes do cache
-  -> hasPermission('campanhas', 'view') retorna true/false
-  -> UI mostra/esconde botoes baseado nas permissoes
-```
+## Feature 1: Templates de Mensagens
+
+**Problema**: Nao ha painel para gerenciar templates de mensagens por canal (WhatsApp, Email, SMS).
+
+**Solucao**: Nao sera necessario criar nova tabela pois ja existe `email_templates` com campos `name`, `subject`, `body`, `variables`. Vou:
+- Adicionar uma nova secao "Templates" no menu de Configuracoes (`SettingsLayout.tsx`)
+- Criar componente `MessageTemplatesPanel.tsx` que lista/cria/edita/deleta templates da tabela `email_templates`
+- Adicionar filtro por canal e preview de variaveis
+
+**Arquivos**: `src/pages/settings/SettingsLayout.tsx`, `src/pages/settings/MessageTemplatesSettings.tsx`, `src/pages/Settings.tsx`
+
+---
+
+## Feature 2: Editar Titulo de Colunas do Kanban
+
+**Problema**: As colunas do Kanban (pipeline stages) nao podem ter seus titulos editados inline.
+
+**Solucao**:
+- Adicionar funcionalidade de duplo-clique no titulo da coluna para editar inline
+- Salvar alteracao na tabela `pipeline_stages`
+
+**Arquivo**: `src/components/kanban/KanbanColumn.tsx`
+
+---
+
+## Detalhes Tecnicos
+
+**Arquivos modificados**:
+- `src/pages/Products.tsx` - Adicionar description no edit
+- `src/pages/Contacts.tsx` - Adicionar edicao e conversao em cliente
+- `src/components/kanban/KanbanColumn.tsx` - Editar titulo inline
+- `src/pages/settings/SettingsLayout.tsx` - Nova secao Templates
+- `src/pages/Settings.tsx` - Renderizar nova secao
+
+**Arquivos novos**:
+- `src/pages/settings/MessageTemplatesSettings.tsx` - Painel de templates
+
+**Sem alteracoes de banco de dados** - Todas as tabelas e RLS ja existem corretamente.
+
