@@ -1541,6 +1541,333 @@ export type Database = {
           },
         ]
       }
+      funis: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          descricao: string | null
+          gatilho_config: Json | null
+          gatilho_tipo: string | null
+          id: string
+          nome: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          gatilho_config?: Json | null
+          gatilho_tipo?: string | null
+          id?: string
+          nome: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          gatilho_config?: Json | null
+          gatilho_tipo?: string | null
+          id?: string
+          nome?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funis_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funis_blocos: {
+        Row: {
+          config: Json | null
+          created_at: string
+          funil_id: string
+          id: string
+          label: string
+          posicao_x: number
+          posicao_y: number
+          tenant_id: string
+          tipo: string
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string
+          funil_id: string
+          id?: string
+          label?: string
+          posicao_x?: number
+          posicao_y?: number
+          tenant_id: string
+          tipo: string
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string
+          funil_id?: string
+          id?: string
+          label?: string
+          posicao_x?: number
+          posicao_y?: number
+          tenant_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funis_blocos_funil_id_fkey"
+            columns: ["funil_id"]
+            isOneToOne: false
+            referencedRelation: "funis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funis_blocos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funis_conexoes: {
+        Row: {
+          created_at: string
+          funil_id: string
+          id: string
+          label: string | null
+          source_bloco_id: string
+          source_handle: string | null
+          target_bloco_id: string
+          target_handle: string | null
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          funil_id: string
+          id?: string
+          label?: string | null
+          source_bloco_id: string
+          source_handle?: string | null
+          target_bloco_id: string
+          target_handle?: string | null
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          funil_id?: string
+          id?: string
+          label?: string | null
+          source_bloco_id?: string
+          source_handle?: string | null
+          target_bloco_id?: string
+          target_handle?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funis_conexoes_funil_id_fkey"
+            columns: ["funil_id"]
+            isOneToOne: false
+            referencedRelation: "funis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funis_conexoes_source_bloco_id_fkey"
+            columns: ["source_bloco_id"]
+            isOneToOne: false
+            referencedRelation: "funis_blocos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funis_conexoes_target_bloco_id_fkey"
+            columns: ["target_bloco_id"]
+            isOneToOne: false
+            referencedRelation: "funis_blocos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funis_conexoes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funis_execucoes: {
+        Row: {
+          bloco_atual_id: string | null
+          contato_nome: string | null
+          contato_telefone: string
+          created_at: string
+          error_message: string | null
+          finished_at: string | null
+          funil_id: string
+          id: string
+          started_at: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          bloco_atual_id?: string | null
+          contato_nome?: string | null
+          contato_telefone: string
+          created_at?: string
+          error_message?: string | null
+          finished_at?: string | null
+          funil_id: string
+          id?: string
+          started_at?: string
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          bloco_atual_id?: string | null
+          contato_nome?: string | null
+          contato_telefone?: string
+          created_at?: string
+          error_message?: string | null
+          finished_at?: string | null
+          funil_id?: string
+          id?: string
+          started_at?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funis_execucoes_bloco_atual_id_fkey"
+            columns: ["bloco_atual_id"]
+            isOneToOne: false
+            referencedRelation: "funis_blocos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funis_execucoes_funil_id_fkey"
+            columns: ["funil_id"]
+            isOneToOne: false
+            referencedRelation: "funis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funis_execucoes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funis_logs: {
+        Row: {
+          bloco_id: string | null
+          bloco_tipo: string
+          created_at: string
+          detalhes: Json | null
+          execucao_id: string
+          id: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          bloco_id?: string | null
+          bloco_tipo: string
+          created_at?: string
+          detalhes?: Json | null
+          execucao_id: string
+          id?: string
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          bloco_id?: string | null
+          bloco_tipo?: string
+          created_at?: string
+          detalhes?: Json | null
+          execucao_id?: string
+          id?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funis_logs_bloco_id_fkey"
+            columns: ["bloco_id"]
+            isOneToOne: false
+            referencedRelation: "funis_blocos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funis_logs_execucao_id_fkey"
+            columns: ["execucao_id"]
+            isOneToOne: false
+            referencedRelation: "funis_execucoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funis_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funis_variaveis: {
+        Row: {
+          chave: string
+          created_at: string
+          execucao_id: string
+          id: string
+          tenant_id: string
+          updated_at: string
+          valor: string | null
+        }
+        Insert: {
+          chave: string
+          created_at?: string
+          execucao_id: string
+          id?: string
+          tenant_id: string
+          updated_at?: string
+          valor?: string | null
+        }
+        Update: {
+          chave?: string
+          created_at?: string
+          execucao_id?: string
+          id?: string
+          tenant_id?: string
+          updated_at?: string
+          valor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funis_variaveis_execucao_id_fkey"
+            columns: ["execucao_id"]
+            isOneToOne: false
+            referencedRelation: "funis_execucoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funis_variaveis_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integration_logs: {
         Row: {
           action: string
