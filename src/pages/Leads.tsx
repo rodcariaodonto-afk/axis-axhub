@@ -38,6 +38,8 @@ export default function Leads() {
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [csvMapping, setCsvMapping] = useState<Record<string, string>>({ name: "", email: "", phone: "", source: "" });
   const [csvStep, setCsvStep] = useState<"upload" | "map" | "preview">("upload");
+  const [csvTags, setCsvTags] = useState<string[]>([]);
+  const [csvTagInput, setCsvTagInput] = useState("");
 
   // Dedup state
   const [dedupDialog, setDedupDialog] = useState(false);
@@ -154,6 +156,7 @@ export default function Leads() {
         email: email || null,
         phone: phoneIdx >= 0 ? row[phoneIdx]?.trim() || null : null,
         source: sourceIdx >= 0 ? row[sourceIdx]?.trim() || "manual" : "manual",
+        tags: csvTags.length > 0 ? csvTags : [],
       });
     }
 
@@ -167,7 +170,7 @@ export default function Leads() {
     }
 
     toast({ title: `Importação concluída!`, description: `${imported} importados, ${ignored} ignorados` });
-    setCsvDialog(false); setCsvStep("upload"); setCsvData([]); fetchData();
+    setCsvDialog(false); setCsvStep("upload"); setCsvData([]); setCsvTags([]); setCsvTagInput(""); fetchData();
   };
 
   // === CSV Export ===
@@ -375,12 +378,46 @@ export default function Leads() {
                   </Select>
                 </div>
               ))}
+              <div className="space-y-2">
+                <Label>Tags para esta importação</Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Digite uma tag e pressione Enter"
+                    value={csvTagInput}
+                    onChange={(e) => setCsvTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const tag = csvTagInput.trim();
+                        if (tag && !csvTags.includes(tag)) setCsvTags([...csvTags, tag]);
+                        setCsvTagInput("");
+                      }
+                    }}
+                  />
+                </div>
+                {csvTags.length > 0 && (
+                  <div className="flex gap-1 flex-wrap">
+                    {csvTags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="cursor-pointer" onClick={() => setCsvTags(csvTags.filter((t) => t !== tag))}>
+                        {tag} ×
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">As tags serão aplicadas a todos os leads importados. Útil para segmentar campanhas.</p>
+              </div>
               <Button onClick={() => setCsvStep("preview")} className="w-full" disabled={!csvMapping.name}>Preview</Button>
             </div>
           )}
           {csvStep === "preview" && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">Preview das primeiras 5 linhas ({csvData.length} total):</p>
+              {csvTags.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm text-muted-foreground">Tags:</span>
+                  {csvTags.map((tag) => <Badge key={tag} variant="secondary">{tag}</Badge>)}
+                </div>
+              )}
               <div className="overflow-auto max-h-48 border border-border rounded">
                 <Table>
                   <TableHeader><TableRow>{csvHeaders.map((h) => <TableHead key={h} className="text-xs">{h}</TableHead>)}</TableRow></TableHeader>
@@ -460,15 +497,22 @@ export default function Leads() {
       <Card className="border-border bg-card">
         <CardContent className="p-0">
           <Table>
-            <TableHeader><TableRow className="border-border"><TableHead>Nome</TableHead><TableHead>E-mail</TableHead><TableHead>Fonte</TableHead><TableHead>Score</TableHead><TableHead>Status</TableHead><TableHead className="w-10" /></TableRow></TableHeader>
+            <TableHeader><TableRow className="border-border"><TableHead>Nome</TableHead><TableHead>E-mail</TableHead><TableHead>Fonte</TableHead><TableHead>Tags</TableHead><TableHead>Score</TableHead><TableHead>Status</TableHead><TableHead className="w-10" /></TableRow></TableHeader>
             <TableBody>
-              {loading ? <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow> :
-              filtered.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum lead encontrado</TableCell></TableRow> :
+               {loading ? <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow> :
+              filtered.length === 0 ? <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum lead encontrado</TableCell></TableRow> :
               filtered.map((l) => (
                 <TableRow key={l.id} className="border-border">
                   <TableCell className="font-medium">{l.name}</TableCell>
                   <TableCell className="text-muted-foreground">{l.email || "—"}</TableCell>
                   <TableCell><Badge variant="secondary">{sourceLabels[l.source] || l.source}</Badge></TableCell>
+                  <TableCell>
+                    <div className="flex gap-1 flex-wrap">
+                      {(l.tags || []).length > 0 ? l.tags.map((tag: string) => (
+                        <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
+                      )) : <span className="text-muted-foreground">—</span>}
+                    </div>
+                  </TableCell>
                   <TableCell><Badge variant={l.score >= 70 ? "default" : l.score >= 40 ? "secondary" : "outline"}>{l.score}</Badge></TableCell>
                   <TableCell><Badge variant={l.status === "converted" ? "default" : l.status === "qualified" ? "default" : "secondary"}>{statusLabels[l.status] || l.status}</Badge></TableCell>
                   <TableCell>
