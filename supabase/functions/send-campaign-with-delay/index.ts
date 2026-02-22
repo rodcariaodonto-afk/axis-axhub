@@ -83,6 +83,9 @@ Deno.serve(async (req) => {
       contacts = contacts.sort(() => Math.random() - 0.5);
     }
 
+    // Check if campaign has a linked funnel
+    const hasFunnel = !!campaign.funil_id;
+
     let sent = 0;
     let errors = 0;
 
@@ -104,7 +107,45 @@ Deno.serve(async (req) => {
       const delay = randomDelay(delayMin, delayMax);
       await sleep(delay * 1000);
 
-      // Prepare message
+      // If campaign has a linked funnel, start funnel execution for each contact
+      if (hasFunnel) {
+        try {
+          const startFunnelUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/start-funnel-execution`;
+          const funnelRes = await fetch(startFunnelUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+            body: JSON.stringify({
+              funil_id: campaign.funil_id,
+              contato_telefone: contact.telefone,
+              contato_nome: contact.nome || null,
+              tenant_id: tenantId,
+            }),
+          });
+
+          if (funnelRes.ok) {
+            await serviceClient.from("campanhas_contatos").update({ status: "enviado", enviado_em: new Date().toISOString(), tempo_espera_segundos: delay }).eq("id", contact.id);
+            await serviceClient.from("campanhas_historico_envios").insert({
+              tenant_id: tenantId, campanha_id, contato_telefone: contact.telefone, status: "enviado",
+              mensagem_texto: `[Funil: ${campaign.funil_id}]`, tempo_espera_segundos: delay, enviado_em: new Date().toISOString(),
+            });
+            sent++;
+          } else {
+            const errText = await funnelRes.text();
+            await serviceClient.from("campanhas_contatos").update({ status: "erro", erro_mensagem: errText.substring(0, 500) }).eq("id", contact.id);
+            await serviceClient.from("campanhas_historico_envios").insert({
+              tenant_id: tenantId, campanha_id, contato_telefone: contact.telefone, status: "erro",
+              mensagem_texto: `[Funil: ${campaign.funil_id}]`, erro_mensagem: errText.substring(0, 500), tempo_espera_segundos: delay, enviado_em: new Date().toISOString(),
+            });
+            errors++;
+          }
+        } catch (err) {
+          await serviceClient.from("campanhas_contatos").update({ status: "erro", erro_mensagem: err.message }).eq("id", contact.id);
+          errors++;
+        }
+        continue;
+      }
+
+      // Default behavior: send template message directly
       const messageText = campaign.mensagem_template.replace(/{nome}/g, contact.nome || contact.telefone);
       const formattedPhone = contact.telefone.replace(/\D/g, "");
 
