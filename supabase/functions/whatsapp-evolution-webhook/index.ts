@@ -281,6 +281,30 @@ Deno.serve(async (req) => {
           sender_name: msg?.pushName || null,
           sender_phone: isGroup ? (isFromMe ? session.phone_number : participant) : (isFromMe ? session.phone_number : phone),
         });
+        // Check if this inbound message is a campaign response
+        if (!isFromMe) {
+          const { data: campaignContact } = await supabase
+            .from("campanhas_contatos")
+            .select("id, campanha_id")
+            .eq("telefone", phone)
+            .eq("status", "enviado")
+            .limit(1)
+            .maybeSingle();
+
+          if (campaignContact) {
+            // Mark contact as responded
+            await supabase.from("campanhas_contatos").update({ status: "respondeu" }).eq("id", campaignContact.id);
+            // Log response
+            await supabase.from("fluxo_recebimento_logs").insert({
+              tenant_id: tenantId,
+              campanha_id: campaignContact.campanha_id,
+              telefone: phone,
+              mensagem_recebida: messageContent,
+              status_fluxo: "recebido",
+            });
+          }
+        }
+
         console.log("Message saved:", isFromMe ? "outbound" : "inbound", "phone:", phone, "type:", messageType, "hasMedia:", !!mediaUrl);
       }
     } else {
