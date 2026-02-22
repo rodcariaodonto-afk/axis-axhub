@@ -60,11 +60,13 @@ export function WhatsAppContactList({ contacts, selectedId, onSelect }: Props) {
 
   const isGroup = (c: Contact) => c.contact_status?.status === "group" || (c as any).is_group === true;
 
+  const getStatus = (c: Contact) => c.contact_status?.status || "open";
+
   const counts: Record<SegmentTab, number> = {
     all: contacts.length,
-    open: contacts.filter((c) => c.contact_status?.status === "open").length,
-    attending: contacts.filter((c) => c.contact_status?.status === "attending").length,
-    waiting: contacts.filter((c) => c.contact_status?.status === "waiting").length,
+    open: contacts.filter((c) => getStatus(c) === "open").length,
+    attending: contacts.filter((c) => getStatus(c) === "attending").length,
+    waiting: contacts.filter((c) => getStatus(c) === "waiting").length,
     group: contacts.filter((c) => isGroup(c)).length,
   };
 
@@ -77,7 +79,7 @@ export function WhatsAppContactList({ contacts, selectedId, onSelect }: Props) {
         ? true
         : activeTab === "group"
           ? isGroup(c)
-          : c.contact_status?.status === activeTab;
+          : getStatus(c) === activeTab;
     return matchSearch && matchTab;
   });
 
