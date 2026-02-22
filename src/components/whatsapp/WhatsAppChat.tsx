@@ -82,6 +82,27 @@ const MEDIA_ICONS: Record<string, React.ReactNode> = {
   sticker: <Image className="h-5 w-5" />,
 };
 
+function ImageWithFallback({ url }: { url: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <div className="flex items-center gap-2 py-2 text-muted-foreground">
+        <Image className="h-5 w-5" />
+        <span className="text-xs">Imagem indisponível</span>
+      </div>
+    );
+  }
+  return (
+    <img
+      src={url}
+      alt="Imagem"
+      className="rounded max-w-full max-h-64 mb-1 cursor-pointer"
+      onClick={() => window.open(url, "_blank")}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 export function WhatsAppChat({
   messages, contactName, contactPhone, contactStatus, contactTags,
   onSend, onStatusChange, onOpenTags, onDeleteChat, sending
@@ -200,19 +221,7 @@ export function WhatsAppChat({
               >
                 {/* Render media */}
                 {url && msg.message_type === "image" && (
-                  <img
-                    src={url}
-                    alt="Imagem"
-                    className="rounded max-w-full max-h-64 mb-1 cursor-pointer"
-                    onClick={() => window.open(url, "_blank")}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none";
-                      const fallback = document.createElement("div");
-                      fallback.className = "flex items-center gap-2 py-2";
-                      fallback.innerHTML = "📷 Imagem indisponível";
-                      (e.target as HTMLImageElement).parentNode?.appendChild(fallback);
-                    }}
-                  />
+                  <ImageWithFallback url={url} />
                 )}
                 {url && msg.message_type !== "image" && (
                   <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 py-1 underline">
