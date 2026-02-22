@@ -93,8 +93,9 @@ Deno.serve(async (req) => {
 
       for (const msg of messages) {
         const key = msg?.key;
-        if (!key || key.fromMe) continue;
+        if (!key) continue;
 
+        const isFromMe = key.fromMe === true;
         const phone = key.remoteJid?.split("@")[0];
         if (!phone || phone === "status") continue;
 
@@ -119,13 +120,18 @@ Deno.serve(async (req) => {
         let contactId: string;
         if (existingContact) {
           contactId = existingContact.id;
+          const updateData: Record<string, unknown> = {
+            last_message_at: new Date().toISOString(),
+          };
+          if (!isFromMe) {
+            updateData.unread_count = (existingContact.unread_count || 0) + 1;
+          }
+          if (msg?.pushName) {
+            updateData.display_name = msg.pushName;
+          }
           await supabase
             .from("whatsapp_contacts")
-            .update({
-              last_message_at: new Date().toISOString(),
-              unread_count: (existingContact.unread_count || 0) + 1,
-              display_name: msg?.pushName || undefined,
-            })
+            .update(updateData)
             .eq("id", contactId);
         } else {
           const { data: newContact } = await supabase
@@ -136,7 +142,7 @@ Deno.serve(async (req) => {
               phone_number: phone,
               display_name: msg?.pushName || phone,
               last_message_at: new Date().toISOString(),
-              unread_count: 1,
+              unread_count: isFromMe ? 0 : 1,
             })
             .select("id")
             .single();
@@ -151,13 +157,13 @@ Deno.serve(async (req) => {
           contact_phone: phone,
           message_type: messageType,
           content: messageContent,
-          direction: "inbound",
-          status: "received",
+          direction: isFromMe ? "outbound" : "inbound",
+          status: isFromMe ? "sent" : "received",
           whatsapp_message_id: key.id,
           sender_name: msg?.pushName || null,
-          sender_phone: phone,
+          sender_phone: isFromMe ? session.phone_number : phone,
         });
-        console.log("Message saved from:", phone);
+        console.log("Message saved:", isFromMe ? "outbound" : "inbound", "phone:", phone);
       }
     } else {
       console.log("Unhandled event:", event);
