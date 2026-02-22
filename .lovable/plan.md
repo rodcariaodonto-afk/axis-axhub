@@ -1,105 +1,86 @@
 
 
-# Integracao Total da Plataforma AXIS - Itens Pendentes
+# Sistema de Gerenciamento de Usuarios (Funcionarios) - AXIS
 
-## Analise do que ja existe vs o que falta
+## Resumo
 
-### FASE 1: WhatsApp x Funis de Venda
-| Item | Status |
-|------|--------|
-| Tabelas do banco (funis, funis_blocos, etc.) | Pronto |
-| Canvas visual (FunnelEditor, paleta, nodes) | Pronto |
-| Vinculo funil x campanha (funil_id) | Pronto |
-| Edge Functions do motor do funil (start-funnel-execution, process-funnel-queue) | **PENDENTE** |
-| Edge Function save-funnel / get-funnel-details | **PENDENTE** |
+Implementar um sistema completo de gerenciamento de usuarios/funcionarios com 3 abas: Geral (dados pessoais/profissionais), Horarios de Trabalho (dias e horarios por semana), e Permissoes (controle granular por modulo). Adaptado para a arquitetura existente do AXIS que ja usa `profiles`, `user_roles` e `tenants`.
 
-### FASE 2: WhatsApp x Workflows e Campanhas
-| Item | Status |
-|------|--------|
-| Campanha com delay (send-campaign-with-delay) | Pronto |
-| Configuracoes de delay (campanhas_configuracoes) | Pronto |
-| Colunas WhatsApp no workflows (whatsapp_trigger_config, whatsapp_action_config) | **PENDENTE** |
-| Gatilho "Mensagem recebida no WhatsApp" no Workflow Builder | **PENDENTE** |
-| Acao "Enviar mensagem via WhatsApp" no Workflow Builder | **PENDENTE** |
-| Edge Functions (handle-workflow-whatsapp-trigger, execute-workflow-whatsapp-action) | **PENDENTE** |
+## O que ja existe
 
-### FASE 3: WhatsApp x CRM x Kanban
-| Item | Status |
-|------|--------|
-| Coluna whatsapp_jid na tabela contacts | **PENDENTE** |
-| Tabela mensagens_historico | **PENDENTE** |
-| Edge Function sync-whatsapp-contact-to-crm | **PENDENTE** |
-| Aba "Historico WhatsApp" no CRM (contatos/leads) | **PENDENTE** |
-| Aba "WhatsApp" no modal do Kanban | **PENDENTE** |
-| Coluna observacoes no deals | Pronto |
+- Tabela `profiles` (id, tenant_id, full_name, email, phone, avatar_url, status)
+- Tabela `user_roles` com enum `app_role` (admin, sales, finance, operations, accounting, readonly)
+- Tabela `audit_logs` para auditoria
+- Pagina `UsersManagement.tsx` basica (lista usuarios + troca de role via select)
+- Sistema de auth com Supabase Auth
 
----
-
-## Plano de Implementacao
-
-Devido ao volume de mudancas, a implementacao sera dividida em 3 etapas sequenciais.
+## O que sera implementado
 
 ### Etapa A - Banco de Dados (Migracao SQL)
 
-Uma unica migracao com todas as alteracoes estruturais:
+1. **Adicionar colunas na tabela `profiles`**: `birth_date` (DATE), `default_theme` (TEXT, default 'dark'), `default_menu` (TEXT, default 'open'), `farewell_message` (TEXT)
 
-1. Adicionar `whatsapp_jid` (VARCHAR, nullable) na tabela `contacts`
-2. Criar tabela `mensagens_historico` com colunas: id, tenant_id, contato_id, deal_id, remetente, destinatario, mensagem, message_type, whatsapp_message_id, timestamp, created_at
-3. Adicionar RLS na tabela `mensagens_historico` (tenant isolation)
-4. As colunas de workflow (whatsapp_trigger_config, whatsapp_action_config) nao serao colunas separadas - o campo `definition` (JSONB) ja existente no workflows ja suporta qualquer tipo de no/acao, incluindo WhatsApp
+2. **Criar tabela `user_work_hours`**:
+   - id (UUID PK), tenant_id (UUID), user_id (UUID), day_of_week (INTEGER 0-6), start_time (TIME), end_time (TIME), is_working_day (BOOLEAN default true), created_at, updated_at
+   - RLS com tenant isolation
+   - Indices em user_id e day_of_week
 
-### Etapa B - Edge Functions (Backend)
+3. **Criar tabela `user_permissions`**:
+   - id (UUID PK), tenant_id (UUID), user_id (UUID), module_name (VARCHAR), can_view (BOOLEAN), can_create (BOOLEAN), can_edit (BOOLEAN), can_delete (BOOLEAN), can_export (BOOLEAN), can_manage_users (BOOLEAN), created_at, updated_at
+   - Constraint UNIQUE(user_id, module_name)
+   - RLS com tenant isolation
+   - Indices em user_id e module_name
 
-Criar 3 novas Edge Functions:
+4. **Modulos de permissoes**: whatsapp, crm, kanban, campanhas, workflows, automacao, dashboard, contatos, relatorios, configuracoes, financeiro, produtos, funis
 
-1. **start-funnel-execution** - Inicia a execucao de um funil para um contato, criando registro em `funis_execucoes` e processando o primeiro bloco
-2. **process-funnel-block** - Processa um bloco especifico do funil (envia mensagem WhatsApp, aplica delay, avalia condicao) e avanca para o proximo bloco
-3. **sync-whatsapp-contact-to-crm** - Chamada pelo webhook de WhatsApp quando uma mensagem chega, verifica/cria contato no CRM e salva em `mensagens_historico`
+### Etapa B - Edge Function
 
-Modificar 1 Edge Function existente:
-4. **whatsapp-evolution-webhook** - Adicionar chamada ao `sync-whatsapp-contact-to-crm` quando uma mensagem e recebida
+1. **create-user-with-permissions**: Cria usuario no Auth (com admin API), insere profile, horarios de trabalho e permissoes de uma so vez. Registra auditoria.
 
 ### Etapa C - Frontend
 
-1. **Workflow Builder** - Adicionar no catalogo:
-   - Novo gatilho: "Mensagem recebida no WhatsApp" com config de sessao e palavra-chave
-   - Nova acao: "Enviar mensagem via WhatsApp" com config de sessao, telefone e mensagem
+1. **Reescrever `UsersManagement.tsx`** com:
+   - Lista de usuarios com busca, filtros por status/perfil
+   - Botao "Adicionar Usuario"
+   - Acoes de editar/excluir por usuario
+   - Indicador visual de status (ativo/inativo)
 
-2. **CardDetailModal (Kanban)** - Adicionar nova aba "WhatsApp" que:
-   - Busca mensagens de `whatsapp_messages` filtradas pelo telefone/whatsapp_jid do contato associado ao deal
-   - Exibe historico de mensagens em formato de timeline
+2. **Criar `UserFormModal.tsx`** com 3 abas:
+   - **Aba Geral**: Nome, email, senha (so criacao), telefone, data nascimento, perfil (role), avatar, tema padrao, menu padrao, mensagem de despedida
+   - **Aba Horarios de Trabalho**: Grid com dias da semana (Seg-Dom), toggle ativo/inativo, horario inicio/fim para cada dia
+   - **Aba Permissoes**: Grid com modulos x acoes (visualizar, criar, editar, deletar, exportar, gerenciar usuarios). Checkboxes por modulo. Toggle "Acesso Total" para marcar tudo
 
-3. **Pagina de Contatos/Leads** - Nao ha tela de detalhe individual de contato atualmente, entao a integracao do historico WhatsApp sera feita via o modal do Kanban (onde o contato e acessado pelo deal)
+3. **Criar hook `useUserPermissions.ts`**: Hook que carrega permissoes do usuario logado e expoe funcao `hasPermission(module, action)` para uso em toda a aplicacao
 
 ### Detalhes Tecnicos
 
-**Migracao SQL:**
-```text
-- ALTER TABLE contacts ADD COLUMN whatsapp_jid VARCHAR;
-- CREATE TABLE mensagens_historico (id, tenant_id, contato_id, deal_id, ...)
-- RLS policies para mensagens_historico
-```
+**Arquivos novos:**
+- `src/components/users/UserFormModal.tsx` - Modal com 3 abas (Geral, Horarios, Permissoes)
+- `src/components/users/WorkHoursTab.tsx` - Aba de horarios de trabalho
+- `src/components/users/PermissionsTab.tsx` - Aba de permissoes granulares
+- `src/hooks/useUserPermissions.ts` - Hook de verificacao de permissoes
+- `supabase/functions/create-user-with-permissions/index.ts` - Edge function
 
 **Arquivos modificados:**
-- `src/components/workflows/workflowCatalog.ts` - 2 novos itens (trigger + action WhatsApp)
-- `src/components/kanban/CardDetailModal.tsx` - Nova aba "WhatsApp" com historico
-- `supabase/functions/whatsapp-evolution-webhook/index.ts` - Chamar sync ao CRM
-- 3 novas Edge Functions em `supabase/functions/`
+- `src/pages/settings/UsersManagement.tsx` - Reescrita completa com lista rica + modal
+- Migracao SQL para novas tabelas e colunas
 
-**Fluxo integrado resultante:**
+**Fluxo de criacao de usuario:**
 ```text
-Mensagem WhatsApp recebida
-  -> webhook salva mensagem
-  -> sync-whatsapp-contact-to-crm cria/atualiza contato no CRM
-  -> salva em mensagens_historico
-  -> historico visivel no Kanban (aba WhatsApp do deal)
-
-Workflow com gatilho WhatsApp
-  -> mensagem recebida dispara workflow
-  -> acao "Enviar WhatsApp" envia resposta automatica
-
-Funil vinculado a campanha
-  -> campanha inicia -> start-funnel-execution
-  -> blocos processados sequencialmente (mensagens, delays, condicoes)
+Admin clica "Adicionar Usuario"
+  -> Modal abre na aba Geral
+  -> Preenche dados pessoais + perfil
+  -> Aba Horarios: configura dias/horas de trabalho
+  -> Aba Permissoes: marca checkboxes por modulo
+  -> Clica Salvar
+  -> Edge Function cria usuario no Auth + profile + work_hours + permissions
+  -> Lista atualiza
 ```
 
+**Fluxo de verificacao de permissoes:**
+```text
+Usuario navega para modulo (ex: Campanhas)
+  -> useUserPermissions() carrega permissoes do cache
+  -> hasPermission('campanhas', 'view') retorna true/false
+  -> UI mostra/esconde botoes baseado nas permissoes
+```
