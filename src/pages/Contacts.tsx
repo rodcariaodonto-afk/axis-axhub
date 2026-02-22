@@ -8,8 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, User } from "lucide-react";
+import { Plus, Search, User, Pencil, Trash2, UserCheck } from "lucide-react";
 
 export default function Contacts() {
   const [contacts, setContacts] = useState<any[]>([]);
@@ -20,6 +21,19 @@ export default function Contacts() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ first_name: "", last_name: "", email: "", phone: "", position: "", account_id: "", is_primary: false });
   const { toast } = useToast();
+
+  // Edit state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingContact, setEditingContact] = useState<any>(null);
+  const [editForm, setEditForm] = useState({ first_name: "", last_name: "", email: "", phone: "", position: "", account_id: "", is_primary: false });
+
+  // Delete state
+  const [deleteContact, setDeleteContact] = useState<any>(null);
+
+  // Convert to customer state
+  const [convertDialogOpen, setConvertDialogOpen] = useState(false);
+  const [convertingContact, setConvertingContact] = useState<any>(null);
+  const [convertForm, setConvertForm] = useState({ name: "", document: "", email: "", phone: "" });
 
   const fetchData = useCallback(async () => {
     const [{ data: c }, { data: a }] = await Promise.all([
@@ -54,11 +68,108 @@ export default function Contacts() {
     fetchData();
   };
 
+  const handleEditOpen = (c: any) => {
+    setEditingContact(c);
+    setEditForm({
+      first_name: c.first_name,
+      last_name: c.last_name || "",
+      email: c.email || "",
+      phone: c.phone || "",
+      position: c.position || "",
+      account_id: c.account_id || "",
+      is_primary: c.is_primary || false,
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleEditSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingContact) return;
+    const { error } = await supabase.from("contacts").update({
+      first_name: editForm.first_name,
+      last_name: editForm.last_name || null,
+      email: editForm.email || null,
+      phone: editForm.phone || null,
+      position: editForm.position || null,
+      account_id: editForm.account_id || null,
+      is_primary: editForm.is_primary,
+    }).eq("id", editingContact.id);
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Contato atualizado!" });
+    setEditDialogOpen(false);
+    setEditingContact(null);
+    fetchData();
+  };
+
+  const handleDelete = async () => {
+    if (!deleteContact) return;
+    const { error } = await supabase.from("contacts").delete().eq("id", deleteContact.id);
+    if (error) { toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Contato excluído!" });
+    setDeleteContact(null);
+    fetchData();
+  };
+
+  const handleConvertOpen = (c: any) => {
+    setConvertingContact(c);
+    setConvertForm({
+      name: `${c.first_name} ${c.last_name || ""}`.trim(),
+      document: "",
+      email: c.email || "",
+      phone: c.phone || "",
+    });
+    setConvertDialogOpen(true);
+  };
+
+  const handleConvert = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!convertingContact) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    if (!profile) return;
+    const { error } = await supabase.from("customers").insert({
+      tenant_id: profile.tenant_id,
+      name: convertForm.name,
+      document: convertForm.document || null,
+      email: convertForm.email || null,
+      phone: convertForm.phone || null,
+    });
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Contato convertido em cliente!" });
+    setConvertDialogOpen(false);
+    setConvertingContact(null);
+  };
+
   const filtered = contacts.filter((c) => {
     const matchSearch = `${c.first_name} ${c.last_name || ""} ${c.email || ""}`.toLowerCase().includes(search.toLowerCase());
     const matchAccount = filterAccount === "all" || c.account_id === filterAccount;
     return matchSearch && matchAccount;
   });
+
+  const contactFormFields = (formState: typeof form, setFormState: (f: typeof form) => void) => (
+    <>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2"><Label>Nome</Label><Input value={formState.first_name} onChange={(e) => setFormState({ ...formState, first_name: e.target.value })} required /></div>
+        <div className="space-y-2"><Label>Sobrenome</Label><Input value={formState.last_name} onChange={(e) => setFormState({ ...formState, last_name: e.target.value })} /></div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2"><Label>E-mail</Label><Input type="email" value={formState.email} onChange={(e) => setFormState({ ...formState, email: e.target.value })} /></div>
+        <div className="space-y-2"><Label>Telefone</Label><Input value={formState.phone} onChange={(e) => setFormState({ ...formState, phone: e.target.value })} /></div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2"><Label>Cargo</Label><Input value={formState.position} onChange={(e) => setFormState({ ...formState, position: e.target.value })} /></div>
+        <div className="space-y-2">
+          <Label>Empresa</Label>
+          <Select value={formState.account_id || "__none__"} onValueChange={(v) => setFormState({ ...formState, account_id: v === "__none__" ? "" : v })}>
+            <SelectTrigger><SelectValue placeholder="Nenhuma" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">Nenhuma</SelectItem>
+              {accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </>
+  );
 
   return (
     <div className="space-y-6">
@@ -74,27 +185,7 @@ export default function Contacts() {
           <DialogContent className="bg-card border-border">
             <DialogHeader><DialogTitle>Novo Contato</DialogTitle></DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Nome</Label><Input value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} required /></div>
-                <div className="space-y-2"><Label>Sobrenome</Label><Input value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} /></div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>E-mail</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-                <div className="space-y-2"><Label>Telefone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Cargo</Label><Input value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} /></div>
-                <div className="space-y-2">
-                  <Label>Empresa</Label>
-                  <Select value={form.account_id || "__none__"} onValueChange={(v) => setForm({ ...form, account_id: v === "__none__" ? "" : v })}>
-                    <SelectTrigger><SelectValue placeholder="Nenhuma" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">Nenhuma</SelectItem>
-                      {accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+              {contactFormFields(form, setForm)}
               <Button type="submit" className="w-full">Criar Contato</Button>
             </form>
           </DialogContent>
@@ -126,13 +217,14 @@ export default function Contacts() {
                 <TableHead>Cargo</TableHead>
                 <TableHead>Empresa</TableHead>
                 <TableHead>Tipo</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum contato encontrado</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum contato encontrado</TableCell></TableRow>
               ) : filtered.map((c) => (
                 <TableRow key={c.id} className="border-border">
                   <TableCell className="font-medium">
@@ -146,12 +238,84 @@ export default function Contacts() {
                   <TableCell className="text-muted-foreground">{c.position || "—"}</TableCell>
                   <TableCell>{c.crm_accounts?.name || "—"}</TableCell>
                   <TableCell>{c.is_primary ? <Badge variant="default">Principal</Badge> : <Badge variant="secondary">Contato</Badge>}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Editar" onClick={() => handleEditOpen(c)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Converter em Cliente" onClick={() => handleConvertOpen(c)}>
+                        <UserCheck className="h-4 w-4 text-primary" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Excluir" onClick={() => setDeleteContact(c)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      {/* Edit Contact Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="bg-card border-border">
+          <DialogHeader><DialogTitle>Editar Contato</DialogTitle></DialogHeader>
+          <form onSubmit={handleEditSave} className="space-y-4">
+            {contactFormFields(editForm, setEditForm)}
+            <Button type="submit" className="w-full">Salvar Alterações</Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Convert to Customer Dialog */}
+      <Dialog open={convertDialogOpen} onOpenChange={setConvertDialogOpen}>
+        <DialogContent className="bg-card border-border">
+          <DialogHeader><DialogTitle>Converter em Cliente</DialogTitle></DialogHeader>
+          <form onSubmit={handleConvert} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nome</Label>
+              <Input value={convertForm.name} onChange={(e) => setConvertForm({ ...convertForm, name: e.target.value })} required />
+            </div>
+            <div className="space-y-2">
+              <Label>CPF/CNPJ</Label>
+              <Input value={convertForm.document} onChange={(e) => setConvertForm({ ...convertForm, document: e.target.value })} placeholder="Opcional" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>E-mail</Label>
+                <Input type="email" value={convertForm.email} onChange={(e) => setConvertForm({ ...convertForm, email: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Telefone</Label>
+                <Input value={convertForm.phone} onChange={(e) => setConvertForm({ ...convertForm, phone: e.target.value })} />
+              </div>
+            </div>
+            <Button type="submit" className="w-full">
+              <UserCheck className="mr-2 h-4 w-4" />Converter em Cliente
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteContact} onOpenChange={(open) => !open && setDeleteContact(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir contato</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir <strong>{deleteContact?.first_name} {deleteContact?.last_name || ""}</strong>? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

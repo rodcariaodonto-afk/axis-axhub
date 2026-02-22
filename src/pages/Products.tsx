@@ -18,6 +18,7 @@ interface Product {
   id: string;
   sku: string;
   name: string;
+  description: string | null;
   type: string;
   category: string | null;
   price: number;
@@ -53,7 +54,7 @@ export default function Products() {
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteProduct, setDeleteProduct] = useState<Product | null>(null);
-  const [editForm, setEditForm] = useState({ sku: "", name: "", type: "product", category: "", price: "", cost: "" });
+  const [editForm, setEditForm] = useState({ sku: "", name: "", description: "", type: "product", category: "", price: "", cost: "" });
   const [editUploading, setEditUploading] = useState(false);
   // Field management
   const [newFieldName, setNewFieldName] = useState("");
@@ -216,6 +217,7 @@ export default function Products() {
     setEditForm({
       sku: p.sku,
       name: p.name,
+      description: p.description || "",
       type: p.type,
       category: p.category || "",
       price: String(p.price),
@@ -230,6 +232,7 @@ export default function Products() {
     const { error } = await supabase.from("products").update({
       sku: editForm.sku,
       name: editForm.name,
+      description: editForm.description || null,
       type: editForm.type,
       category: editForm.category || null,
       price: parseFloat(editForm.price) || 0,
@@ -446,6 +449,15 @@ export default function Products() {
             <div className="space-y-2">
               <Label>Nome</Label>
               <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Descrição</Label>
+              <textarea
+                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                value={editForm.description}
+                onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                placeholder="Descrição do produto..."
+              />
             </div>
             <div className="space-y-2">
               <Label>Tipo</Label>

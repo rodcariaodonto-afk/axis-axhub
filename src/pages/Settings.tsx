@@ -13,6 +13,7 @@ import AuditLogsView from "./settings/AuditLogsView";
 import ProductCategories from "./settings/ProductCategories";
 import WarehousesSettings from "./settings/WarehousesSettings";
 import IntegrationsSettings from "./settings/IntegrationsSettings";
+import MessageTemplatesSettings from "./settings/MessageTemplatesSettings";
 import NotificationPreferences from "./NotificationPreferences";
 
 const SECTION_MAP: Record<SettingsSection, React.ComponentType> = {
@@ -26,6 +27,7 @@ const SECTION_MAP: Record<SettingsSection, React.ComponentType> = {
   categories: ProductCategories,
   warehouses: WarehousesSettings,
   integrations: IntegrationsSettings,
+  templates: MessageTemplatesSettings,
 };
 
 export default function Settings() {
