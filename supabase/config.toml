@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.sync-whatsapp-contact-to-crm]
 verify_jwt = false
+
+[functions.create-user-with-permissions]
+verify_jwt = false
