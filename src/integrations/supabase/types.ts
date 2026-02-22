@@ -3136,8 +3136,12 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          birth_date: string | null
           created_at: string
+          default_menu: string
+          default_theme: string
           email: string
+          farewell_message: string | null
           full_name: string
           id: string
           phone: string | null
@@ -3146,8 +3150,12 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          birth_date?: string | null
           created_at?: string
+          default_menu?: string
+          default_theme?: string
           email: string
+          farewell_message?: string | null
           full_name: string
           id: string
           phone?: string | null
@@ -3156,8 +3164,12 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          birth_date?: string | null
           created_at?: string
+          default_menu?: string
+          default_theme?: string
           email?: string
+          farewell_message?: string | null
           full_name?: string
           id?: string
           phone?: string | null
@@ -3715,6 +3727,59 @@ export type Database = {
         }
         Relationships: []
       }
+      user_permissions: {
+        Row: {
+          can_create: boolean
+          can_delete: boolean
+          can_edit: boolean
+          can_export: boolean
+          can_manage_users: boolean
+          can_view: boolean
+          created_at: string
+          id: string
+          module_name: string
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          can_create?: boolean
+          can_delete?: boolean
+          can_edit?: boolean
+          can_export?: boolean
+          can_manage_users?: boolean
+          can_view?: boolean
+          created_at?: string
+          id?: string
+          module_name: string
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          can_create?: boolean
+          can_delete?: boolean
+          can_edit?: boolean
+          can_export?: boolean
+          can_manage_users?: boolean
+          can_view?: boolean
+          created_at?: string
+          id?: string
+          module_name?: string
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_permissions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -3732,6 +3797,50 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_work_hours: {
+        Row: {
+          created_at: string
+          day_of_week: number
+          end_time: string
+          id: string
+          is_working_day: boolean
+          start_time: string
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: number
+          end_time?: string
+          id?: string
+          is_working_day?: boolean
+          start_time?: string
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          is_working_day?: boolean
+          start_time?: string
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_work_hours_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       warehouses: {
         Row: {
