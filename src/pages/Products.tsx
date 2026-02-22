@@ -10,8 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Settings2, Trash2, ImageIcon } from "lucide-react";
+import { Plus, Search, Settings2, Trash2, ImageIcon, Pencil } from "lucide-react";
 import ProductFormDynamic from "@/components/products/ProductFormDynamic";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface Product {
   id: string;
@@ -49,6 +50,11 @@ export default function Products() {
   const [uploading, setUploading] = useState(false);
   const [categories, setCategories] = useState<{id: string, name: string}[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [editProduct, setEditProduct] = useState<Product | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteProduct, setDeleteProduct] = useState<Product | null>(null);
+  const [editForm, setEditForm] = useState({ sku: "", name: "", type: "product", category: "", price: "", cost: "" });
+  const [editUploading, setEditUploading] = useState(false);
   // Field management
   const [newFieldName, setNewFieldName] = useState("");
   const [newFieldType, setNewFieldType] = useState("text");
@@ -205,6 +211,54 @@ export default function Products() {
     fetchAllCustomValues();
   };
 
+  const handleEdit = (p: Product) => {
+    setEditProduct(p);
+    setEditForm({
+      sku: p.sku,
+      name: p.name,
+      type: p.type,
+      category: p.category || "",
+      price: String(p.price),
+      cost: String(p.cost || ""),
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleEditSave = async () => {
+    if (!editProduct) return;
+    setEditUploading(true);
+    const { error } = await supabase.from("products").update({
+      sku: editForm.sku,
+      name: editForm.name,
+      type: editForm.type,
+      category: editForm.category || null,
+      price: parseFloat(editForm.price) || 0,
+      cost: parseFloat(editForm.cost) || 0,
+    }).eq("id", editProduct.id);
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Produto atualizado!" });
+      setEditDialogOpen(false);
+      setEditProduct(null);
+      fetchProducts();
+    }
+    setEditUploading(false);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteProduct) return;
+    const { error } = await supabase.from("products").delete().eq("id", deleteProduct.id);
+    if (error) {
+      toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Produto excluído!" });
+      fetchProducts();
+      fetchAllCustomValues();
+    }
+    setDeleteProduct(null);
+  };
+
   const filtered = products.filter(
     (p) => p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase())
   );
@@ -322,13 +376,14 @@ export default function Products() {
                 <TableHead className="text-right">Custo</TableHead>
                 {customFields.map((f) => <TableHead key={f.id}>{f.field_name}</TableHead>)}
                 <TableHead>Status</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={8 + customFields.length} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9 + customFields.length} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={8 + customFields.length} className="text-center py-8 text-muted-foreground">Nenhum produto encontrado</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9 + customFields.length} className="text-center py-8 text-muted-foreground">Nenhum produto encontrado</TableCell></TableRow>
               ) : (
                 filtered.map((p) => (
                   <TableRow key={p.id} className="border-border">
@@ -359,6 +414,16 @@ export default function Products() {
                         {p.is_active ? "Ativo" : "Inativo"}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(p)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteProduct(p)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -366,6 +431,76 @@ export default function Products() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Edit Product Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="bg-card border-border max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Produto</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>SKU</Label>
+              <Input value={editForm.sku} onChange={(e) => setEditForm({ ...editForm, sku: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Nome</Label>
+              <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo</Label>
+              <Select value={editForm.type} onValueChange={(v) => setEditForm({ ...editForm, type: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="product">Produto</SelectItem>
+                  <SelectItem value="service">Serviço</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Categoria</Label>
+              <Select value={editForm.category || "__none__"} onValueChange={(v) => setEditForm({ ...editForm, category: v === "__none__" ? "" : v })}>
+                <SelectTrigger><SelectValue placeholder="Nenhuma" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Nenhuma</SelectItem>
+                  {categories.map((cat) => <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Preço</Label>
+                <Input type="number" step="0.01" value={editForm.price} onChange={(e) => setEditForm({ ...editForm, price: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Custo</Label>
+                <Input type="number" step="0.01" value={editForm.cost} onChange={(e) => setEditForm({ ...editForm, cost: e.target.value })} />
+              </div>
+            </div>
+            <Button className="w-full" onClick={handleEditSave} disabled={editUploading}>
+              {editUploading ? "Salvando..." : "Salvar Alterações"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteProduct} onOpenChange={(open) => !open && setDeleteProduct(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir produto</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir <strong>{deleteProduct?.name}</strong>? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
