@@ -80,6 +80,7 @@ async function processContacts(
             contato_telefone: contact.telefone,
             contato_nome: contact.nome || null,
             tenant_id: tenantId,
+            session_id: campaign.session_id,
           }),
         });
 

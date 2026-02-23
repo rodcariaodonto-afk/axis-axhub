@@ -1,0 +1,1 @@
+ALTER TABLE public.funis_execucoes ADD COLUMN IF NOT EXISTS session_id uuid;

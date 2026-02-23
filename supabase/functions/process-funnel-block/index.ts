@@ -30,10 +30,15 @@ Deno.serve(async (req) => {
 
     // Process block based on type
     switch (bloco.tipo) {
+      case "enviar_texto":
       case "enviar_mensagem": {
         // Send WhatsApp message
         const message = config.mensagem || config.message || "";
-        const sessionId = config.session_id;
+        // session_id: try block config first, then fall back to execution-level session_id
+        const sessionId = config.session_id || execucao.session_id;
+        
+        console.log(`[enviar_texto] sessionId=${sessionId}, message_len=${message.length}, phone=${execucao.contato_telefone}`);
+        
         if (sessionId && message) {
           const { data: session } = await supabase.from("whatsapp_sessions").select("evolution_instance_id, tenant_id, phone_number").eq("id", sessionId).single();
           if (session) {
@@ -43,13 +48,23 @@ Deno.serve(async (req) => {
             const phone = execucao.contato_telefone.replace(/\D/g, "");
             const parsedMessage = message.replace("{{nome}}", execucao.contato_nome || "").replace("{{telefone}}", execucao.contato_telefone);
 
+            console.log(`[enviar_texto] Sending to ${phone} via instance ${session.evolution_instance_id}`);
+            
             const res = await fetch(`${evolutionUrl}/message/sendText/${session.evolution_instance_id}`, {
               method: "POST",
               headers: { "Content-Type": "application/json", apikey: evolutionKey! },
               body: JSON.stringify({ number: phone, text: parsedMessage }),
             });
-            detalhes = { sent: res.ok, phone, message_preview: parsedMessage.substring(0, 100) };
+            const resBody = await res.text();
+            console.log(`[enviar_texto] Response: ok=${res.ok} status=${res.status} body=${resBody.substring(0, 200)}`);
+            detalhes = { sent: res.ok, phone, message_preview: parsedMessage.substring(0, 100), status: res.status };
+          } else {
+            console.error(`[enviar_texto] Session ${sessionId} not found`);
+            detalhes = { error: "Session not found", session_id: sessionId };
           }
+        } else {
+          console.warn(`[enviar_texto] Missing sessionId=${sessionId} or message_len=${message.length}`);
+          detalhes = { error: "Missing session_id or message", session_id: sessionId, has_message: !!message };
         }
         break;
       }
@@ -59,24 +74,19 @@ Deno.serve(async (req) => {
       }
       case "delay": {
         const seconds = parseInt(config.segundos || config.seconds || "5");
-        // For delays, we schedule the next block processing
         detalhes = { delay_seconds: seconds };
         await supabase.from("funis_logs").insert({ tenant_id, execucao_id, bloco_id, bloco_tipo: bloco.tipo, status: "executado", detalhes });
 
-        // Wait then continue
         await new Promise(resolve => setTimeout(resolve, Math.min(seconds * 1000, 30000)));
 
-        // Find and process next block
         await advanceToNext(supabase, execucao_id, bloco_id, tenant_id, execucao.funil_id);
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
       case "condicao": {
-        // Evaluate condition - simple field check
         const field = config.campo || config.field || "";
         const operator = config.operador || config.operator || "equals";
         const value = config.valor || config.value || "";
 
-        // Get variables for this execution
         const { data: vars } = await supabase.from("funis_variaveis").select("*").eq("execucao_id", execucao_id).eq("chave", field).single();
         const actualValue = vars?.valor || "";
         let conditionMet = false;
@@ -87,7 +97,6 @@ Deno.serve(async (req) => {
 
         detalhes = { field, operator, expected: value, actual: actualValue, result: conditionMet };
 
-        // Route based on condition: use source_handle "sim"/"nao"
         await supabase.from("funis_logs").insert({ tenant_id, execucao_id, bloco_id, bloco_tipo: bloco.tipo, status: "executado", detalhes });
 
         const handle = conditionMet ? "sim" : "nao";
@@ -109,7 +118,6 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
       case "aguardar_resposta": {
-        // Pause execution, waiting for external trigger
         blockStatus = "aguardando";
         detalhes = { message: "Waiting for response" };
         await supabase.from("funis_logs").insert({ tenant_id, execucao_id, bloco_id, bloco_tipo: bloco.tipo, status: blockStatus, detalhes });
@@ -123,13 +131,15 @@ Deno.serve(async (req) => {
         detalhes = { tag: config.tag || config.nome_tag, message: "Tag added" };
         break;
       }
+      case "fim":
       case "fim_fluxo": {
         await supabase.from("funis_logs").insert({ tenant_id, execucao_id, bloco_id, bloco_tipo: bloco.tipo, status: "executado", detalhes: { message: "Flow ended" } });
         await supabase.from("funis_execucoes").update({ status: "concluido", finished_at: new Date().toISOString(), bloco_atual_id: bloco_id }).eq("id", execucao_id);
         return new Response(JSON.stringify({ ok: true, finished: true }), { headers: corsHeaders });
       }
       default: {
-        detalhes = { message: `Block type ${bloco.tipo} processed` };
+        console.warn(`[process-funnel-block] Unknown block type: ${bloco.tipo}`);
+        detalhes = { message: `Block type ${bloco.tipo} not recognized` };
       }
     }
 
