@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS execute_bi_widget_query(text, text, text, timestamptz, timestamptz);

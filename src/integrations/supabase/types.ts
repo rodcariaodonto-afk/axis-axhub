@@ -5010,31 +5010,17 @@ export type Database = {
         Args: { p_tenant_id: string; p_user_id: string }
         Returns: undefined
       }
-      execute_bi_widget_query:
-        | {
-            Args: {
-              p_aggregation?: string
-              p_date_from?: string
-              p_date_to?: string
-              p_dimension: string
-              p_metric: string
-            }
-            Returns: {
-              label: string
-              value: number
-            }[]
-          }
-        | {
-            Args: {
-              p_aggregation: string
-              p_date_from?: string
-              p_date_to?: string
-              p_dimension: string
-              p_filters?: Json
-              p_metric: string
-            }
-            Returns: Json
-          }
+      execute_bi_widget_query: {
+        Args: {
+          p_aggregation: string
+          p_date_from?: string
+          p_date_to?: string
+          p_dimension: string
+          p_filters?: Json
+          p_metric: string
+        }
+        Returns: Json
+      }
       get_user_tenant_id: { Args: never; Returns: string }
       has_role: {
         Args: {
