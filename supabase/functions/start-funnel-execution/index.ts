@@ -9,7 +9,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { funil_id, contato_telefone, contato_nome, tenant_id } = await req.json();
+    const { funil_id, contato_telefone, contato_nome, tenant_id, session_id } = await req.json();
     if (!funil_id || !contato_telefone || !tenant_id) {
       return new Response(JSON.stringify({ error: "funil_id, contato_telefone, tenant_id required" }), { status: 400, headers: corsHeaders });
     }
@@ -37,6 +37,7 @@ Deno.serve(async (req) => {
       contato_nome: contato_nome || null,
       bloco_atual_id: startBlock.id,
       status: "em_andamento",
+      session_id: session_id || null,
     }).select().single();
 
     if (execError) return new Response(JSON.stringify({ error: execError.message }), { status: 500, headers: corsHeaders });

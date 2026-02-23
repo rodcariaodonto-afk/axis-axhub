@@ -2180,6 +2180,7 @@ export type Database = {
           finished_at: string | null
           funil_id: string
           id: string
+          session_id: string | null
           started_at: string
           status: string
           tenant_id: string
@@ -2193,6 +2194,7 @@ export type Database = {
           finished_at?: string | null
           funil_id: string
           id?: string
+          session_id?: string | null
           started_at?: string
           status?: string
           tenant_id: string
@@ -2206,6 +2208,7 @@ export type Database = {
           finished_at?: string | null
           funil_id?: string
           id?: string
+          session_id?: string | null
           started_at?: string
           status?: string
           tenant_id?: string
