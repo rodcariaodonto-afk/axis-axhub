@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -54,8 +54,26 @@ export function BIDashboard() {
     enabled: !!tenantId,
   });
 
-  // Auto-select first dashboard
-  const activeDashId = selectedDashboardId || dashboards[0]?.id || null;
+  // Auto-select is_default dashboard or first one
+  useEffect(() => {
+    if (dashboards.length > 0 && !selectedDashboardId) {
+      const defaultDash = dashboards.find((d) => d.is_default);
+      setSelectedDashboardId(defaultDash?.id || dashboards[0]?.id || null);
+    }
+  }, [dashboards, selectedDashboardId]);
+
+  // Initialize default dashboards if none exist
+  useEffect(() => {
+    if (!loadingDash && dashboards.length === 0 && tenantId && user) {
+      supabase.functions.invoke("initialize-bi-dashboards", {
+        body: { tenant_id: tenantId, user_id: user.id },
+      }).then(() => {
+        queryClient.invalidateQueries({ queryKey: ["bi-dashboards"] });
+      });
+    }
+  }, [loadingDash, dashboards.length, tenantId, user]);
+
+  const activeDashId = selectedDashboardId || null;
 
   // Fetch widgets for active dashboard
   const { data: widgets = [] } = useQuery({
@@ -163,12 +181,13 @@ export function BIDashboard() {
 
       {activeDashId && <DashboardFilters dateFrom={dateFrom} dateTo={dateTo} onDateFromChange={setDateFrom} onDateToChange={setDateTo} />}
 
-      {loadingDash ? (
-        <div className="text-muted-foreground">Carregando...</div>
+      {loadingDash || (!activeDashId && tenantId) ? (
+        <div className="flex flex-col items-center justify-center h-64 gap-2">
+          <div className="animate-pulse text-muted-foreground">Carregando dashboards...</div>
+        </div>
       ) : !activeDashId ? (
         <div className="flex flex-col items-center justify-center h-64 gap-4">
-          <p className="text-muted-foreground">Crie seu primeiro dashboard para começar.</p>
-          <Button onClick={() => setNewDashOpen(true)}><Plus className="h-4 w-4 mr-1" /> Novo Dashboard</Button>
+          <p className="text-muted-foreground">Nenhum dashboard encontrado. Criando dashboards padrão...</p>
         </div>
       ) : (
         <DashboardGrid
