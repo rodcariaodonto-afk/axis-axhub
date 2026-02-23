@@ -20,7 +20,7 @@ import { FunnelSettingsPanel } from "./FunnelSettingsPanel";
 import { FunnelExecutionDashboard } from "./FunnelExecutionDashboard";
 import { getBlockType } from "./funnelBlockTypes";
 import { Button } from "@/components/ui/button";
-import { Save, ArrowLeft } from "lucide-react";
+import { Save, ArrowLeft, Power } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -33,12 +33,13 @@ const edgeTypes = { funnelEdge: FunnelCustomEdge };
 interface Props {
   funilId: string;
   funilNome: string;
+  funilStatus: string;
   initialNodes: Node[];
   initialEdges: Edge[];
   tenantId: string;
 }
 
-export function FunnelCanvas({ funilId, funilNome, initialNodes, initialEdges, tenantId }: Props) {
+export function FunnelCanvas({ funilId, funilNome, funilStatus, initialNodes, initialEdges, tenantId }: Props) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -47,6 +48,8 @@ export function FunnelCanvas({ funilId, funilNome, initialNodes, initialEdges, t
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState(funilStatus);
+  const [togglingStatus, setTogglingStatus] = useState(false);
 
   const onConnect = useCallback(
     (params: Connection) => {
@@ -165,6 +168,22 @@ export function FunnelCanvas({ funilId, funilNome, initialNodes, initialEdges, t
     }
   };
 
+  const handleToggleStatus = async () => {
+    setTogglingStatus(true);
+    try {
+      const newStatus = status === "ativo" ? "rascunho" : "ativo";
+      const { error } = await supabase.from("funis").update({ status: newStatus }).eq("id", funilId);
+      if (error) throw error;
+      setStatus(newStatus);
+      queryClient.invalidateQueries({ queryKey: ["funis"] });
+      toast.success(newStatus === "ativo" ? "Funil ativado!" : "Funil desativado");
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setTogglingStatus(false);
+    }
+  };
+
   return (
     <div className="flex h-[calc(100vh-4rem)] bg-background">
       <FunnelSidebarPalette />
@@ -179,10 +198,21 @@ export function FunnelCanvas({ funilId, funilNome, initialNodes, initialEdges, t
             <h2 className="font-semibold text-foreground">{funilNome}</h2>
             <FunnelExecutionDashboard funilId={funilId} />
           </div>
-          <Button size="sm" onClick={handleSave} disabled={saving}>
-            <Save className="h-4 w-4 mr-1.5" />
-            {saving ? "Salvando..." : "Salvar"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant={status === "ativo" ? "default" : "outline"}
+              onClick={handleToggleStatus}
+              disabled={togglingStatus}
+            >
+              <Power className="h-4 w-4 mr-1.5" />
+              {togglingStatus ? "..." : status === "ativo" ? "Ativo" : "Ativar"}
+            </Button>
+            <Button size="sm" onClick={handleSave} disabled={saving}>
+              <Save className="h-4 w-4 mr-1.5" />
+              {saving ? "Salvando..." : "Salvar"}
+            </Button>
+          </div>
         </div>
 
         {/* Canvas */}
