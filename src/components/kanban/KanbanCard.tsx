@@ -12,6 +12,7 @@ interface Deal {
   prioridade: string;
   tags: string[];
   probabilidade_percentual: number;
+  payment_status?: string | null;
   leads?: { name: string } | null;
   contacts?: { first_name: string; last_name: string | null } | null;
 }
@@ -75,6 +76,15 @@ export function KanbanCard({ deal, onDragStart, onClick }: KanbanCardProps) {
                 <span className="text-[10px] text-muted-foreground">+{deal.tags.length - 3}</span>
               )}
             </div>
+          )}
+
+          {deal.payment_status && deal.payment_status !== "Pendente" && (
+            <Badge
+              variant={deal.payment_status === "Pago" ? "default" : "outline"}
+              className={`text-[10px] px-1.5 py-0 ${deal.payment_status === "Pago" ? "bg-green-600/20 text-green-400 border-green-600/30" : "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"}`}
+            >
+              {deal.payment_status}
+            </Badge>
           )}
 
           <div className="flex items-center justify-between mt-1">

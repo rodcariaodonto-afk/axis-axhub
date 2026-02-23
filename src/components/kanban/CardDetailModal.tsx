@@ -102,9 +102,26 @@ export function CardDetailModal({ deal, stages, open, onOpenChange, onRefresh }:
           usuario_id: (await supabase.auth.getUser()).data.user?.id,
         });
 
-        // Auto-create order
+        // Auto-create order with deal_id linkage
         let customerId: string | null = null;
-        if (deal.leads) {
+
+        // Try to link via crm_contact_id first
+        if ((deal as any).contact_id) {
+          const { data: existingByContact } = await supabase.from("customers").select("id").eq("crm_contact_id", (deal as any).contact_id).maybeSingle();
+          if (existingByContact) {
+            customerId = existingByContact.id;
+          } else {
+            // Create customer linked to CRM contact
+            const contactName = deal.contacts ? `${deal.contacts.first_name} ${deal.contacts.last_name || ""}`.trim() : null;
+            if (contactName) {
+              const { data: newC } = await supabase.from("customers").insert({ tenant_id: profile.tenant_id, name: contactName, crm_contact_id: (deal as any).contact_id }).select("id").single();
+              if (newC) customerId = newC.id;
+            }
+          }
+        }
+
+        // Fallback: use lead name
+        if (!customerId && deal.leads) {
           const { data: existing } = await supabase.from("customers").select("id").eq("name", deal.leads.name).maybeSingle();
           if (existing) customerId = existing.id;
           else {
@@ -112,8 +129,9 @@ export function CardDetailModal({ deal, stages, open, onOpenChange, onRefresh }:
             if (newC) customerId = newC.id;
           }
         }
+
         const orderNumber = `PED-${Date.now().toString(36).toUpperCase()}`;
-        await supabase.from("orders").insert({ tenant_id: profile.tenant_id, number: orderNumber, customer_id: customerId, source: "crm", status: "draft", total: Number(deal.estimated_value) || 0, subtotal: Number(deal.estimated_value) || 0, notes: `Gerado do deal: ${deal.name}` });
+        await supabase.from("orders").insert({ tenant_id: profile.tenant_id, number: orderNumber, customer_id: customerId, deal_id: deal.id, source: "crm", status: "draft", total: Number(deal.estimated_value) || 0, subtotal: Number(deal.estimated_value) || 0, notes: `Gerado do deal: ${deal.name}` } as any);
         toast({ title: "Deal ganho! 🎉", description: `Pedido ${orderNumber} criado.` });
       }
     } catch {
