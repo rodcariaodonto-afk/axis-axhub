@@ -706,6 +706,7 @@ export type Database = {
       campanhas_contatos: {
         Row: {
           campanha_id: string
+          created_at: string
           enviado_em: string | null
           erro_mensagem: string | null
           id: string
@@ -717,6 +718,7 @@ export type Database = {
         }
         Insert: {
           campanha_id: string
+          created_at?: string
           enviado_em?: string | null
           erro_mensagem?: string | null
           id?: string
@@ -728,6 +730,7 @@ export type Database = {
         }
         Update: {
           campanha_id?: string
+          created_at?: string
           enviado_em?: string | null
           erro_mensagem?: string | null
           id?: string
