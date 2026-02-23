@@ -2726,6 +2726,7 @@ export type Database = {
       payables: {
         Row: {
           amount: number
+          bank_account_id: string | null
           created_at: string
           description: string
           due_date: string
@@ -2739,6 +2740,7 @@ export type Database = {
         }
         Insert: {
           amount: number
+          bank_account_id?: string | null
           created_at?: string
           description: string
           due_date: string
@@ -2752,6 +2754,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          bank_account_id?: string | null
           created_at?: string
           description?: string
           due_date?: string
@@ -2764,6 +2767,13 @@ export type Database = {
           tenant_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "payables_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "payables_po_id_fkey"
             columns: ["po_id"]
@@ -3416,6 +3426,7 @@ export type Database = {
       receivables: {
         Row: {
           amount: number
+          bank_account_id: string | null
           created_at: string
           customer_id: string | null
           description: string
@@ -3429,6 +3440,7 @@ export type Database = {
         }
         Insert: {
           amount: number
+          bank_account_id?: string | null
           created_at?: string
           customer_id?: string | null
           description: string
@@ -3442,6 +3454,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          bank_account_id?: string | null
           created_at?: string
           customer_id?: string | null
           description?: string
@@ -3454,6 +3467,13 @@ export type Database = {
           tenant_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "receivables_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "receivables_customer_id_fkey"
             columns: ["customer_id"]
