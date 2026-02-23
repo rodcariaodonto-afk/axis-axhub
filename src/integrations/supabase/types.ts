@@ -276,6 +276,206 @@ export type Database = {
           },
         ]
       }
+      bi_alert_logs: {
+        Row: {
+          alert_id: string
+          condition: string
+          id: string
+          tenant_id: string
+          threshold: number
+          triggered_at: string
+          triggered_value: number
+        }
+        Insert: {
+          alert_id: string
+          condition: string
+          id?: string
+          tenant_id: string
+          threshold: number
+          triggered_at?: string
+          triggered_value: number
+        }
+        Update: {
+          alert_id?: string
+          condition?: string
+          id?: string
+          tenant_id?: string
+          threshold?: number
+          triggered_at?: string
+          triggered_value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bi_alert_logs_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "bi_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bi_alert_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bi_alerts: {
+        Row: {
+          condition: string
+          created_at: string
+          created_by: string
+          id: string
+          is_active: boolean | null
+          name: string
+          tenant_id: string
+          threshold: number
+          updated_at: string
+          widget_id: string
+        }
+        Insert: {
+          condition?: string
+          created_at?: string
+          created_by: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          tenant_id: string
+          threshold?: number
+          updated_at?: string
+          widget_id: string
+        }
+        Update: {
+          condition?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          tenant_id?: string
+          threshold?: number
+          updated_at?: string
+          widget_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bi_alerts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bi_alerts_widget_id_fkey"
+            columns: ["widget_id"]
+            isOneToOne: false
+            referencedRelation: "bi_widgets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bi_dashboards: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_default: boolean | null
+          name: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          name: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bi_dashboards_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bi_widgets: {
+        Row: {
+          aggregation: string | null
+          chart_type: string
+          created_at: string
+          dashboard_id: string
+          dimension: string | null
+          filters: Json | null
+          id: string
+          layout_config: Json | null
+          metric: string
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          aggregation?: string | null
+          chart_type?: string
+          created_at?: string
+          dashboard_id: string
+          dimension?: string | null
+          filters?: Json | null
+          id?: string
+          layout_config?: Json | null
+          metric?: string
+          tenant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          aggregation?: string | null
+          chart_type?: string
+          created_at?: string
+          dashboard_id?: string
+          dimension?: string | null
+          filters?: Json | null
+          id?: string
+          layout_config?: Json | null
+          metric?: string
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bi_widgets_dashboard_id_fkey"
+            columns: ["dashboard_id"]
+            isOneToOne: false
+            referencedRelation: "bi_dashboards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bi_widgets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cadence_steps: {
         Row: {
           cadence_id: string
@@ -1066,6 +1266,118 @@ export type Database = {
           },
         ]
       }
+      dim_customers: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          id: string
+          name: string
+          segment: string | null
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          name: string
+          segment?: string | null
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          name?: string
+          segment?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dim_customers_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dim_customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dim_event_types: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          tenant_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          tenant_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dim_event_types_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dim_products: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          name: string
+          product_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          product_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          product_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dim_products_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documentation: {
         Row: {
           category: string
@@ -1505,6 +1817,77 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "event_outbox_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fact_events: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          event_timestamp: string
+          event_type_id: string | null
+          id: string
+          metadata: Json | null
+          product_id: string | null
+          quantity: number | null
+          tenant_id: string
+          user_id: string | null
+          value: number | null
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          event_timestamp?: string
+          event_type_id?: string | null
+          id?: string
+          metadata?: Json | null
+          product_id?: string | null
+          quantity?: number | null
+          tenant_id: string
+          user_id?: string | null
+          value?: number | null
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          event_timestamp?: string
+          event_type_id?: string | null
+          id?: string
+          metadata?: Json | null
+          product_id?: string | null
+          quantity?: number | null
+          tenant_id?: string
+          user_id?: string | null
+          value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fact_events_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "dim_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fact_events_event_type_id_fkey"
+            columns: ["event_type_id"]
+            isOneToOne: false
+            referencedRelation: "dim_event_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fact_events_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "dim_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fact_events_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -4539,6 +4922,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      execute_bi_widget_query: {
+        Args: {
+          p_aggregation: string
+          p_date_from?: string
+          p_date_to?: string
+          p_dimension: string
+          p_filters?: Json
+          p_metric: string
+        }
+        Returns: Json
+      }
       get_user_tenant_id: { Args: never; Returns: string }
       has_role: {
         Args: {
