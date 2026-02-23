@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -40,6 +40,7 @@ export default function WhatsApp() {
   const [showTagManager, setShowTagManager] = useState(false);
 
   const [tenantId, setTenantId] = useState<string>();
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load tenant
   useEffect(() => {
@@ -63,7 +64,7 @@ export default function WhatsApp() {
   useEffect(() => { loadSessions(); }, [loadSessions]);
 
   // Load contacts with tags and status
-  const loadContacts = useCallback(async () => {
+  const loadContactsImmediate = useCallback(async () => {
     if (!selectedSessionId) { setContacts([]); return; }
     const { data: contactsData } = await supabase
       .from("whatsapp_contacts")
@@ -88,6 +89,13 @@ export default function WhatsApp() {
 
     setContacts(enriched);
   }, [selectedSessionId]);
+
+  const loadContacts = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      loadContactsImmediate();
+    }, 300);
+  }, [loadContactsImmediate]);
 
   useEffect(() => { loadContacts(); }, [loadContacts]);
 
@@ -121,6 +129,7 @@ export default function WhatsApp() {
       .eq("session_id", selectedSessionId)
       .eq("contact_phone", selectedContact.phone_number)
       .order("created_at", { ascending: true })
+      .limit(200)
       .then(({ data }) => { if (data) setMessages(data); });
 
     // Zero unread and refresh contacts list
