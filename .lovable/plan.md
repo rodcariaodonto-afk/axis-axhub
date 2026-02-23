@@ -1,40 +1,57 @@
 
-# Correcao: Contatos de Campanha Nao Aparecem
 
-## Problema Identificado
+# Correcao: Mensagens do Funil Nao Sao Enviadas
 
-A tabela `campanhas_contatos` **nao possui a coluna `created_at`**, mas o componente `CampaignContactList` tenta ordenar por essa coluna:
+## Problemas Identificados
 
+Investigando o banco de dados, encontrei **3 problemas criticos** no motor de execucao do funil:
+
+### 1. Tipo de bloco "enviar_texto" nao reconhecido
+O frontend cria blocos com tipo `enviar_texto`, mas a funcao `process-funnel-block` so reconhece `enviar_mensagem`. O bloco cai no `default` do switch e registra apenas "Block type enviar_texto processed" -- **sem enviar nenhuma mensagem**.
+
+Evidencia no banco:
 ```
-.order("created_at", { ascending: false })
+bloco_tipo: enviar_texto
+detalhes: { message: "Block type enviar_texto processed" }
 ```
 
-Isso faz a query de SELECT falhar silenciosamente -- o contato e inserido com sucesso (por isso aparece o toast "Contato adicionado!"), mas a listagem retorna vazia porque a query de busca quebra.
+### 2. Tipo de bloco "fim" nao reconhecido
+O frontend usa o tipo `fim` para o bloco de encerramento, mas o codigo so reconhece `fim_fluxo`. Por isso as execucoes nunca sao marcadas como "concluido".
 
-## Sobre os Funis
-
-Analisando os dados de rede, os blocos do funil (incluindo as mensagens configuradas nos gatilhos) **estao sendo salvos corretamente** no banco (status 201). Se houver algum problema especifico ao reabrir o funil e as mensagens nao aparecerem, pode ser um problema separado -- mas os dados estao persistindo.
+### 3. Sem session_id para envio
+O bloco `enviar_texto` tem a mensagem configurada, mas **nao tem `session_id`** no config. A campanha tem o `session_id`, mas esse dado nao e passado para o funil. Sem sessao, o motor nao sabe por qual WhatsApp enviar.
 
 ## Solucao
 
-### 1. Adicionar coluna `created_at` na tabela `campanhas_contatos`
-
-Criar uma migracao SQL para adicionar a coluna que esta faltando:
+### 1. Migrar tabela `funis_execucoes` -- adicionar `session_id`
+Adicionar coluna `session_id` para que o funil saiba qual sessao WhatsApp usar quando iniciado por uma campanha.
 
 ```sql
-ALTER TABLE public.campanhas_contatos
-  ADD COLUMN created_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE public.funis_execucoes
+  ADD COLUMN IF NOT EXISTS session_id uuid;
 ```
 
-### 2. Melhorar tratamento de erros no `CampaignContactList`
+### 2. Atualizar `start-funnel-execution`
+Aceitar `session_id` como parametro e salvar na execucao.
 
-No arquivo `src/components/campanhas/CampaignContactList.tsx`, adicionar verificacao de erro nas operacoes de insert para que, se algo falhar, o usuario receba feedback claro em vez de um toast falso de sucesso.
+### 3. Atualizar `send-campaign-with-delay`
+Passar o `session_id` da campanha ao iniciar a execucao do funil.
 
----
+### 4. Atualizar `process-funnel-block`
+- Adicionar case `enviar_texto` com a mesma logica de `enviar_mensagem`, buscando o `session_id` do registro de execucao caso nao esteja no config do bloco.
+- Adicionar case `fim` mapeando para a mesma logica de `fim_fluxo`.
+- Adicionar logging mais detalhado para depuracao.
+
+### 5. Corrigir execucoes existentes (manual)
+Atualizar as 3 execucoes travadas em "em_andamento" para "erro" para limpar o dashboard.
 
 ## Resumo Tecnico
 
-| Mudanca | Arquivo | Tipo |
+| Mudanca | Arquivo/Recurso | Tipo |
 |---|---|---|
-| Adicionar coluna `created_at` | Migracao SQL | Banco de dados |
-| Verificar erros no insert/bulkAdd | `src/components/campanhas/CampaignContactList.tsx` | Codigo |
+| Adicionar coluna `session_id` | Migracao SQL | Banco de dados |
+| Aceitar `session_id` | `start-funnel-execution/index.ts` | Edge Function |
+| Passar `session_id` da campanha | `send-campaign-with-delay/index.ts` | Edge Function |
+| Reconhecer `enviar_texto` e `fim` | `process-funnel-block/index.ts` | Edge Function |
+| Limpar execucoes travadas | Query SQL | Banco de dados |
+
