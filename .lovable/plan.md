@@ -1,86 +1,43 @@
 
 
-# Integracao Total da Plataforma AXIS
+# Correcao do BI Financeiro -- Backfill de Dados Historicos
 
-## Resumo
+## Problema Identificado
 
-O documento solicita a criacao de um ecossistema totalmente integrado entre CRM, ERP, Financeiro, WhatsApp e BI, com fluxos automaticos de dados entre os modulos. Parte da logica ja existe no codigo (ex: deal ganho cria pedido), mas falta a infraestrutura de banco de dados (foreign keys, triggers SQL) e algumas automacoes.
+Os triggers de captura automatica para `receivables`, `payables`, `orders` e `deals` foram criados **apos** os dados ja terem sido inseridos. Resultado:
 
----
+- **fact_events** contem apenas 6 registros (WhatsApp e contatos), todos com valor R$ 0
+- **receivables** tem 11 registros com valores reais (R$ 1.800 cada) que nunca foram capturados
+- Widgets como "Receita Total" e "Fluxo de Caixa" mostram "Sem dados" porque consultam fact_events (vazia para financeiro)
 
-## O que ja existe vs. o que falta
+## Solucao
 
-### Ja implementado (no frontend):
-- Deal ganho cria pedido automaticamente (CardDetailModal.tsx, linha 106-117)
-- Pedido concluido cria conta a receber (Orders.tsx, linha 94-113)
-- Pagamento de recebivel registra transacao bancaria (Receivables.tsx, linha 109-132)
+Executar uma **migracao SQL de backfill** que insere na `fact_events` todos os registros historicos das tabelas financeiras e de vendas. A partir daqui, novos dados serao capturados automaticamente pelos triggers ja existentes.
 
-### Falta implementar:
-- **Foreign keys** entre tabelas (deal_id em orders/receivables, crm_contact_id em customers, payment_status em deals)
-- **Triggers SQL** para automacao server-side (sincronizacao contato-cliente, criacao de recebivel a partir de pedido, atualizacao de status ao pagar)
-- **Edge Functions** de API (create-lead, payment-webhook, get-order-status)
-- **Atualizacao dos componentes** para exibir dados integrados (payment_status no deal, info do deal no pedido, relacionamentos no recebivel)
+### O que sera retroalimentado:
 
----
+1. **receivables** -- Eventos `receivable_created` com valor real de cada titulo
+2. **payables** -- Eventos `payable_created` com valor real de cada titulo  
+3. **orders** -- Eventos `order_created` com valor total de cada pedido
+4. **deals** -- Eventos `deal_created` e `deal_won` (para deals com status won) com estimated_value
 
-## Parte 1: Migracao SQL -- Relacionamentos e Triggers
+### Detalhes Tecnicos
 
-Uma unica migracao que:
+Uma unica migracao SQL que:
+1. Garante que os `dim_event_types` existam para cada tipo de evento (receivable_created, payable_created, order_created, deal_created, deal_won)
+2. Insere em `fact_events` um registro para cada linha existente nas tabelas fonte, usando o `created_at` original como `event_timestamp` para manter a cronologia correta
+3. Usa `INSERT ... SELECT` para performance
+4. Evita duplicatas verificando se o evento ja existe (caso o trigger ja tenha capturado algum dado futuro)
 
-1. **Adiciona colunas de relacionamento:**
-   - `orders.deal_id` (UUID, FK para deals)
-   - `receivables.deal_id` (UUID, FK para deals)
-   - `customers.crm_contact_id` (UUID, UNIQUE)
-   - `deals.payment_status` (VARCHAR, default 'Pendente')
+### Resultado Esperado
 
-2. **Cria 4 triggers de sincronizacao:**
-   - `on_contact_change` -- Contato CRM inserido/atualizado sincroniza com Customer ERP
-   - `on_deal_won` -- Deal marcado como "won" cria pedido e customer automaticamente (server-side, complementando o frontend)
-   - `on_order_created` -- Pedido criado gera conta a receber automaticamente
-   - `on_receivable_paid` -- Recebivel pago atualiza status do pedido e do deal
+Apos o backfill:
+- Widget "Receita Total" mostrara a soma dos recebiveis
+- Widget "Fluxo de Caixa" mostrara recebiveis e pagaveis por mes
+- Widget "Contas a Receber vs Pagar" mostrara comparativo
+- Todos os dados financeiros existentes aparecerao nos graficos do BI
 
----
-
-## Parte 2: Edge Functions
-
-3 novas edge functions:
-
-1. **`create-lead`** -- API para criar leads via integracao externa (POST com name, email, phone, source, tenant_id)
-2. **`payment-webhook`** -- Webhook para gateways de pagamento marcarem recebiveis como pagos (POST com receivable_id, payment_status)
-3. **`get-order-status`** -- Consulta status de pedido com dados relacionados (GET com ?id=)
-
----
-
-## Parte 3: Atualizacao dos Componentes React
-
-1. **CardDetailModal.tsx** -- Atualizar `markWon` para salvar `deal_id` no pedido criado e usar `crm_contact_id` para vincular o customer
-2. **Orders.tsx** -- Exibir nome do deal relacionado na tabela (join com deals); salvar `deal_id` ao criar recebivel
-3. **Receivables.tsx** -- Exibir deal e pedido relacionados na tabela (joins expandidos)
-4. **Pipeline.tsx / KanbanCard.tsx** -- Exibir badge de `payment_status` nos cards de deal
-
----
-
-## Detalhes Tecnicos
-
-### Arquivos criados:
-- `supabase/functions/create-lead/index.ts`
-- `supabase/functions/payment-webhook/index.ts`
-- `supabase/functions/get-order-status/index.ts`
-
-### Arquivos modificados:
-- `src/components/kanban/CardDetailModal.tsx` -- vincular deal_id ao pedido, usar crm_contact_id
-- `src/pages/Orders.tsx` -- join com deals, exibir deal na tabela, salvar deal_id no recebivel
-- `src/pages/Receivables.tsx` -- joins expandidos, exibir deal e pedido
-- `src/components/kanban/KanbanCard.tsx` -- exibir payment_status badge
-
-### Migracao SQL:
-- ALTER TABLE para colunas faltantes (deal_id, crm_contact_id, payment_status)
-- CREATE OR REPLACE FUNCTION para 4 funcoes de sincronizacao
-- CREATE TRIGGER para 4 gatilhos automaticos
-- Adaptacao para usar `tenant_id` (padrao do projeto) em vez de `workspace_id`
-- Usar `estimated_value` (nome real da coluna) em vez de `value` do documento
-- Status "won" (padrao do codigo) em vez de "Ganho" do documento
-
-### Nota sobre conflito frontend/backend:
-Os triggers SQL vao complementar a logica ja existente no frontend. O frontend continuara funcionando, e os triggers servem como safety net server-side + suporte a integracoes externas (webhooks, APIs).
+### Arquivos Modificados
+- Nenhum arquivo React sera alterado (a logica de consulta ja funciona corretamente)
+- Apenas uma migracao SQL de backfill sera criada
 
