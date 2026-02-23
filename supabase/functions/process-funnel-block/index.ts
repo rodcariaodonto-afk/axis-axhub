@@ -45,7 +45,10 @@ Deno.serve(async (req) => {
             const { data: settings } = await supabase.from("whatsapp_settings").select("evolution_api_url, evolution_api_key").eq("tenant_id", tenant_id).single();
             const evolutionUrl = settings?.evolution_api_url || Deno.env.get("EVOLUTION_API_URL");
             const evolutionKey = settings?.evolution_api_key || Deno.env.get("EVOLUTION_API_KEY");
-            const phone = execucao.contato_telefone.replace(/\D/g, "");
+            let phone = execucao.contato_telefone.replace(/\D/g, "");
+            if (!phone.startsWith("55") && phone.length >= 10 && phone.length <= 11) {
+              phone = "55" + phone;
+            }
             const parsedMessage = message.replace("{{nome}}", execucao.contato_nome || "").replace("{{telefone}}", execucao.contato_telefone);
 
             console.log(`[enviar_texto] Sending to ${phone} via instance ${session.evolution_instance_id}`);
@@ -57,7 +60,17 @@ Deno.serve(async (req) => {
             });
             const resBody = await res.text();
             console.log(`[enviar_texto] Response: ok=${res.ok} status=${res.status} body=${resBody.substring(0, 200)}`);
-            detalhes = { sent: res.ok, phone, message_preview: parsedMessage.substring(0, 100), status: res.status };
+            
+            if (!res.ok) {
+              blockStatus = "erro";
+              detalhes = { error: "Message send failed", phone, status: res.status, response: resBody.substring(0, 300), message_preview: parsedMessage.substring(0, 100) };
+              // Mark execution as error
+              await supabase.from("funis_execucoes").update({ status: "erro", finished_at: new Date().toISOString() }).eq("id", execucao_id);
+              await supabase.from("funis_logs").insert({ tenant_id, execucao_id, bloco_id, bloco_tipo: bloco.tipo, status: blockStatus, detalhes });
+              return new Response(JSON.stringify({ ok: false, error: "Message send failed" }), { headers: corsHeaders });
+            }
+            
+            detalhes = { sent: true, phone, message_preview: parsedMessage.substring(0, 100), status: res.status };
           } else {
             console.error(`[enviar_texto] Session ${sessionId} not found`);
             detalhes = { error: "Session not found", session_id: sessionId };
@@ -129,6 +142,12 @@ Deno.serve(async (req) => {
       }
       case "adicionar_tag": {
         detalhes = { tag: config.tag || config.nome_tag, message: "Tag added" };
+        break;
+      }
+      case "inicio":
+      case "inicio_campanha":
+      case "trigger": {
+        detalhes = { message: `Trigger block ${bloco.tipo} processed` };
         break;
       }
       case "fim":
