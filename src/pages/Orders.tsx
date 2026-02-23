@@ -45,7 +45,7 @@ export default function Orders() {
   const { toast } = useToast();
 
   const fetchOrders = useCallback(async () => {
-    const { data } = await supabase.from("orders").select("*, customers(name)").order("created_at", { ascending: false });
+    const { data } = await supabase.from("orders").select("*, customers(name), deals(name)").order("created_at", { ascending: false });
     setOrders(data || []);
     setLoading(false);
   }, []);
@@ -105,7 +105,8 @@ export default function Orders() {
             due_date: dueDate.toISOString().split("T")[0],
             order_id: orderId,
             customer_id: order.customer_id,
-          });
+            deal_id: order.deal_id,
+          } as any);
           toast({ title: `Pedido concluído!`, description: "Conta a receber gerada automaticamente (venc. 30 dias)." });
         }
       } catch {
@@ -166,14 +167,15 @@ export default function Orders() {
       <Card className="border-border bg-card">
         <CardContent className="p-0">
           <Table>
-            <TableHeader><TableRow className="border-border"><TableHead>Nº Pedido</TableHead><TableHead>Cliente</TableHead><TableHead>Status</TableHead><TableHead>Pagamento</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="w-10" /></TableRow></TableHeader>
+            <TableHeader><TableRow className="border-border"><TableHead>Nº Pedido</TableHead><TableHead>Cliente</TableHead><TableHead>Deal</TableHead><TableHead>Status</TableHead><TableHead>Pagamento</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="w-10" /></TableRow></TableHeader>
             <TableBody>
-              {loading ? <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow> :
-              filtered.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum pedido encontrado</TableCell></TableRow> :
+              {loading ? <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow> :
+              filtered.length === 0 ? <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum pedido encontrado</TableCell></TableRow> :
               filtered.map((o) => (
                 <TableRow key={o.id} className="border-border">
                   <TableCell className="font-mono text-xs">{o.number}</TableCell>
                   <TableCell className="font-medium">{o.customers?.name || "—"}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{(o as any).deals?.name || "—"}</TableCell>
                   <TableCell><Badge variant={statusColors[o.status] as any || "secondary"}>{statusLabels[o.status] || o.status}</Badge></TableCell>
                   <TableCell><Badge variant={o.paid_status === "paid" ? "default" : "secondary"}>{o.paid_status === "paid" ? "Pago" : o.paid_status === "partial" ? "Parcial" : "Pendente"}</Badge></TableCell>
                   <TableCell className="text-right font-medium">R$ {Number(o.total).toFixed(2)}</TableCell>

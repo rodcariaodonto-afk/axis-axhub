@@ -1053,6 +1053,7 @@ export type Database = {
         Row: {
           address_json: Json | null
           created_at: string
+          crm_contact_id: string | null
           document: string | null
           email: string | null
           id: string
@@ -1063,6 +1064,7 @@ export type Database = {
         Insert: {
           address_json?: Json | null
           created_at?: string
+          crm_contact_id?: string | null
           document?: string | null
           email?: string | null
           id?: string
@@ -1073,6 +1075,7 @@ export type Database = {
         Update: {
           address_json?: Json | null
           created_at?: string
+          crm_contact_id?: string | null
           document?: string | null
           email?: string | null
           id?: string
@@ -1081,6 +1084,13 @@ export type Database = {
           tenant_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "customers_crm_contact_id_fkey"
+            columns: ["crm_contact_id"]
+            isOneToOne: true
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "customers_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -1215,6 +1225,7 @@ export type Database = {
           lost_reason: string | null
           name: string
           observacoes: string | null
+          payment_status: string | null
           pipeline_id: string
           posicao_na_coluna: number | null
           prioridade: string | null
@@ -1238,6 +1249,7 @@ export type Database = {
           lost_reason?: string | null
           name: string
           observacoes?: string | null
+          payment_status?: string | null
           pipeline_id: string
           posicao_na_coluna?: number | null
           prioridade?: string | null
@@ -1261,6 +1273,7 @@ export type Database = {
           lost_reason?: string | null
           name?: string
           observacoes?: string | null
+          payment_status?: string | null
           pipeline_id?: string
           posicao_na_coluna?: number | null
           prioridade?: string | null
@@ -3092,6 +3105,7 @@ export type Database = {
         Row: {
           created_at: string
           customer_id: string | null
+          deal_id: string | null
           discount: number
           id: string
           notes: string | null
@@ -3109,6 +3123,7 @@ export type Database = {
         Insert: {
           created_at?: string
           customer_id?: string | null
+          deal_id?: string | null
           discount?: number
           id?: string
           notes?: string | null
@@ -3126,6 +3141,7 @@ export type Database = {
         Update: {
           created_at?: string
           customer_id?: string | null
+          deal_id?: string | null
           discount?: number
           id?: string
           notes?: string | null
@@ -3146,6 +3162,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
             referencedColumns: ["id"]
           },
           {
@@ -3863,6 +3886,7 @@ export type Database = {
           bank_account_id: string | null
           created_at: string
           customer_id: string | null
+          deal_id: string | null
           description: string
           due_date: string
           id: string
@@ -3877,6 +3901,7 @@ export type Database = {
           bank_account_id?: string | null
           created_at?: string
           customer_id?: string | null
+          deal_id?: string | null
           description: string
           due_date: string
           id?: string
@@ -3891,6 +3916,7 @@ export type Database = {
           bank_account_id?: string | null
           created_at?: string
           customer_id?: string | null
+          deal_id?: string | null
           description?: string
           due_date?: string
           id?: string
@@ -3913,6 +3939,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receivables_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
             referencedColumns: ["id"]
           },
           {

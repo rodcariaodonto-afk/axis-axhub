@@ -29,7 +29,7 @@ export default function Receivables() {
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
-    const { data } = await supabase.from("receivables").select("*, customers(name)").order("due_date", { ascending: true });
+    const { data } = await supabase.from("receivables").select("*, customers(name), deals(name), orders(number)").order("due_date", { ascending: true });
     setItems(data || []);
     setLoading(false);
   }, []);
@@ -183,16 +183,18 @@ export default function Receivables() {
           <Table>
             <TableHeader>
               <TableRow className="border-border">
-                <TableHead>Descrição</TableHead><TableHead>Cliente</TableHead><TableHead>Vencimento</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Valor</TableHead><TableHead className="w-28" />
+                <TableHead>Descrição</TableHead><TableHead>Cliente</TableHead><TableHead>Deal</TableHead><TableHead>Pedido</TableHead><TableHead>Vencimento</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Valor</TableHead><TableHead className="w-28" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loading ? <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow> :
-              filtered.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum recebível encontrado</TableCell></TableRow> :
+              {loading ? <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow> :
+              filtered.length === 0 ? <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum recebível encontrado</TableCell></TableRow> :
               filtered.map((r) => (
                 <TableRow key={r.id} className={`border-border ${isOverdue(r) ? "bg-destructive/5" : ""}`}>
                   <TableCell className="font-medium">{r.description}</TableCell>
                   <TableCell className="text-muted-foreground">{r.customers?.name || "—"}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{(r as any).deals?.name || "—"}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground font-mono">{(r as any).orders?.number || "—"}</TableCell>
                   <TableCell className={isOverdue(r) ? "text-destructive font-medium" : ""}>{new Date(r.due_date).toLocaleDateString("pt-BR")}</TableCell>
                   <TableCell><Badge variant={r.status === "paid" ? "default" : isOverdue(r) ? "destructive" : "secondary"}>{isOverdue(r) ? "Vencido" : statusLabels[r.status] || r.status}</Badge></TableCell>
                   <TableCell className="text-right font-medium">R$ {Number(r.amount).toFixed(2)}</TableCell>
