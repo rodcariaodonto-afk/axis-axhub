@@ -99,12 +99,18 @@ export function FunnelCanvas({ funilId, funilNome, funilStatus, initialNodes, in
     [rfInstance, setNodes]
   );
 
+  const nodeClickedRef = useRef(false);
+
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
+    nodeClickedRef.current = true;
     setSelectedNode(node);
+    setTimeout(() => { nodeClickedRef.current = false; }, 100);
   }, []);
 
   const onPaneClick = useCallback(() => {
-    setSelectedNode(null);
+    if (!nodeClickedRef.current) {
+      setSelectedNode(null);
+    }
   }, []);
 
   const updateNodeData = useCallback(
