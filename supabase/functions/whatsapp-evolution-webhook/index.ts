@@ -396,6 +396,19 @@ Deno.serve(async (req) => {
                 .single();
 
               if (currentBlock?.tipo === "aguardar_resposta") {
+                // Atomic lock: only advance if bloco_atual_id still matches (prevents double-send)
+                const { data: updated, error: updateErr } = await supabase
+                  .from("funis_execucoes")
+                  .update({ bloco_atual_id: exec.bloco_atual_id }) // no-op update to "lock"
+                  .eq("id", exec.id)
+                  .eq("bloco_atual_id", exec.bloco_atual_id)
+                  .select("id");
+
+                if (!updated || updated.length === 0) {
+                  console.log(`Execution ${exec.id} already advanced by another webhook, skipping`);
+                  continue;
+                }
+
                 console.log(`Resuming funnel execution ${exec.id} for phone ${phone}`);
 
                 // Save the response as a variable
