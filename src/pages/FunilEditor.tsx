@@ -88,6 +88,7 @@ export default function FunilEditor() {
     <FunnelCanvas
       funilId={funil.id}
       funilNome={funil.nome}
+      funilStatus={funil.status}
       initialNodes={initialNodes}
       initialEdges={initialEdges}
       tenantId={tenantId}

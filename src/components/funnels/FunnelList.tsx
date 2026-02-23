@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Plus, GitBranch, Trash2, Edit, Play } from "lucide-react";
+import { Plus, GitBranch, Trash2, Edit, Play, Power } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -78,6 +78,20 @@ export function FunnelList() {
     onError: (err: any) => toast.error(err.message),
   });
 
+  const toggleStatusMutation = useMutation({
+    mutationFn: async ({ id, currentStatus }: { id: string; currentStatus: string }) => {
+      const newStatus = currentStatus === "ativo" ? "rascunho" : "ativo";
+      const { error } = await supabase.from("funis").update({ status: newStatus }).eq("id", id);
+      if (error) throw error;
+      return newStatus;
+    },
+    onSuccess: (newStatus) => {
+      queryClient.invalidateQueries({ queryKey: ["funis"] });
+      toast.success(newStatus === "ativo" ? "Funil ativado!" : "Funil desativado");
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
   const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
     rascunho: { label: "Rascunho", variant: "secondary" },
     ativo: { label: "Ativo", variant: "default" },
@@ -135,6 +149,18 @@ export function FunnelList() {
                       {new Date(f.created_at).toLocaleDateString("pt-BR")}
                     </span>
                     <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        title={f.status === "ativo" ? "Desativar" : "Ativar"}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleStatusMutation.mutate({ id: f.id, currentStatus: f.status });
+                        }}
+                      >
+                        <Power className={`h-3.5 w-3.5 ${f.status === "ativo" ? "text-green-400" : "text-muted-foreground"}`} />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
