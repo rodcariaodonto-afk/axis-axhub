@@ -37,6 +37,8 @@ export default function FunilEditor() {
       return data;
     },
     enabled: !!id && !!user,
+    staleTime: 0,
+    gcTime: 0,
   });
 
   const { data: conexoesData, isLoading: loadingConexoes } = useQuery({
@@ -47,6 +49,8 @@ export default function FunilEditor() {
       return data;
     },
     enabled: !!id && !!user,
+    staleTime: 0,
+    gcTime: 0,
   });
 
   if (loadingFunil || loadingBlocos || loadingConexoes || !tenantId) {

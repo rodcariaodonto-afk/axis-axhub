@@ -25,6 +25,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 const nodeTypes = { funnelBlock: FunnelCustomNode };
 const edgeTypes = { funnelEdge: FunnelCustomEdge };
@@ -39,6 +40,7 @@ interface Props {
 
 export function FunnelCanvas({ funilId, funilNome, initialNodes, initialEdges, tenantId }: Props) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [rfInstance, setRfInstance] = useState<ReactFlowInstance | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
@@ -152,6 +154,8 @@ export function FunnelCanvas({ funilId, funilNome, initialNodes, initialEdges, t
         if (conexoesError) throw conexoesError;
       }
 
+      await queryClient.invalidateQueries({ queryKey: ["funil-blocos", funilId] });
+      await queryClient.invalidateQueries({ queryKey: ["funil-conexoes", funilId] });
       toast.success("Funil salvo com sucesso!");
     } catch (err: any) {
       console.error(err);
