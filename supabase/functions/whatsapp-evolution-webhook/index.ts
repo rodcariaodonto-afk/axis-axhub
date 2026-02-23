@@ -368,12 +368,97 @@ Deno.serve(async (req) => {
           sender_phone: isGroup ? (isFromMe ? session.phone_number : participant) : (isFromMe ? session.phone_number : phone),
         });
 
-        // Check campaign response
+        // Check campaign response and resume funnel executions
         if (!isFromMe) {
+          // Check for funnel executions waiting for a response (aguardar_resposta)
+          // Match by phone (with or without country code prefix)
+          const phoneVariants = [phone];
+          if (phone.startsWith("55") && phone.length >= 12) {
+            phoneVariants.push(phone.substring(2)); // without country code
+          } else if (phone.length >= 10 && phone.length <= 11) {
+            phoneVariants.push("55" + phone); // with country code
+          }
+
+          const { data: waitingExecutions } = await supabase
+            .from("funis_execucoes")
+            .select("id, bloco_atual_id, tenant_id, funil_id, contato_telefone")
+            .in("contato_telefone", phoneVariants)
+            .eq("status", "em_andamento")
+            .eq("tenant_id", tenantId);
+
+          if (waitingExecutions && waitingExecutions.length > 0) {
+            for (const exec of waitingExecutions) {
+              // Check if current block is aguardar_resposta
+              const { data: currentBlock } = await supabase
+                .from("funis_blocos")
+                .select("tipo")
+                .eq("id", exec.bloco_atual_id)
+                .single();
+
+              if (currentBlock?.tipo === "aguardar_resposta") {
+                console.log(`Resuming funnel execution ${exec.id} for phone ${phone}`);
+
+                // Save the response as a variable
+                await supabase.from("funis_variaveis").upsert({
+                  execucao_id: exec.id,
+                  chave: "resposta",
+                  valor: messageContent,
+                  tenant_id: tenantId,
+                }, { onConflict: "execucao_id,chave" }).select();
+
+                // Log the response received
+                await supabase.from("funis_logs").insert({
+                  tenant_id: tenantId,
+                  execucao_id: exec.id,
+                  bloco_id: exec.bloco_atual_id,
+                  bloco_tipo: "aguardar_resposta",
+                  status: "executado",
+                  detalhes: { message: "Response received", response_preview: messageContent.substring(0, 200) },
+                });
+
+                // Advance to next block
+                const { data: nextConn } = await supabase
+                  .from("funis_conexoes")
+                  .select("target_bloco_id")
+                  .eq("funil_id", exec.funil_id)
+                  .eq("source_bloco_id", exec.bloco_atual_id)
+                  .limit(1)
+                  .maybeSingle();
+
+                if (nextConn) {
+                  await supabase.from("funis_execucoes")
+                    .update({ bloco_atual_id: nextConn.target_bloco_id })
+                    .eq("id", exec.id);
+
+                  // Call process-funnel-block to continue the flow
+                  const processUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/process-funnel-block`;
+                  fetch(processUrl, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                    },
+                    body: JSON.stringify({
+                      execucao_id: exec.id,
+                      bloco_id: nextConn.target_bloco_id,
+                      tenant_id: tenantId,
+                    }),
+                  }).catch(err => console.error("Error calling process-funnel-block:", err));
+                } else {
+                  // No next block, mark as completed
+                  await supabase.from("funis_execucoes")
+                    .update({ status: "concluido", finished_at: new Date().toISOString() })
+                    .eq("id", exec.id);
+                }
+              }
+            }
+          }
+
+          // Check campaign contact status
           const { data: campaignContact } = await supabase
             .from("campanhas_contatos")
             .select("id, campanha_id")
-            .eq("telefone", phone)
+            .in("telefone", phoneVariants)
             .eq("status", "enviado")
             .limit(1)
             .maybeSingle();
