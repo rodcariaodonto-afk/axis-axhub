@@ -11,13 +11,14 @@ interface Widget {
 
 interface DashboardGridProps {
   widgets: Widget[];
+  tenantId: string;
   dateFrom?: string;
   dateTo?: string;
   isEditing: boolean;
   onDeleteWidget: (id: string) => void;
 }
 
-export function DashboardGrid({ widgets, dateFrom, dateTo, isEditing, onDeleteWidget }: DashboardGridProps) {
+export function DashboardGrid({ widgets, tenantId, dateFrom, dateTo, isEditing, onDeleteWidget }: DashboardGridProps) {
   if (widgets.length === 0) {
     return (
       <div className="flex items-center justify-center h-64 border-2 border-dashed border-muted rounded-lg">
@@ -32,6 +33,7 @@ export function DashboardGrid({ widgets, dateFrom, dateTo, isEditing, onDeleteWi
         <div key={widget.id} className={widget.chart_type === "kpi" ? "" : "min-h-[300px]"}>
           <WidgetWrapper
             widget={widget}
+            tenantId={tenantId}
             dateFrom={dateFrom}
             dateTo={dateTo}
             isEditing={isEditing}
