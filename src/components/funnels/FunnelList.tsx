@@ -68,6 +68,16 @@ export function FunnelList() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      // Delete dependent records first (cascade)
+      const { data: execucoes } = await supabase.from("funis_execucoes").select("id").eq("funil_id", id);
+      if (execucoes && execucoes.length > 0) {
+        const execIds = execucoes.map(e => e.id);
+        await supabase.from("funis_logs").delete().in("execucao_id", execIds);
+        await supabase.from("funis_variaveis").delete().in("execucao_id", execIds);
+        await supabase.from("funis_execucoes").delete().eq("funil_id", id);
+      }
+      await supabase.from("funis_conexoes").delete().eq("funil_id", id);
+      await supabase.from("funis_blocos").delete().eq("funil_id", id);
       const { error } = await supabase.from("funis").delete().eq("id", id);
       if (error) throw error;
     },
