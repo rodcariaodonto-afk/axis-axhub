@@ -1,0 +1,1 @@
+ALTER TABLE public.funis_variaveis ADD CONSTRAINT funis_variaveis_execucao_chave_unique UNIQUE (execucao_id, chave);
