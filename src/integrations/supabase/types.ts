@@ -416,6 +416,57 @@ export type Database = {
           },
         ]
       }
+      bi_manual_adjustments: {
+        Row: {
+          adjustment_date: string
+          created_at: string
+          description: string | null
+          event_type: string
+          id: string
+          tenant_id: string
+          user_id: string
+          value: number
+          widget_id: string | null
+        }
+        Insert: {
+          adjustment_date: string
+          created_at?: string
+          description?: string | null
+          event_type: string
+          id?: string
+          tenant_id: string
+          user_id: string
+          value?: number
+          widget_id?: string | null
+        }
+        Update: {
+          adjustment_date?: string
+          created_at?: string
+          description?: string | null
+          event_type?: string
+          id?: string
+          tenant_id?: string
+          user_id?: string
+          value?: number
+          widget_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bi_manual_adjustments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bi_manual_adjustments_widget_id_fkey"
+            columns: ["widget_id"]
+            isOneToOne: false
+            referencedRelation: "bi_widgets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bi_widgets: {
         Row: {
           aggregation: string | null
@@ -4922,17 +4973,35 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      execute_bi_widget_query: {
-        Args: {
-          p_aggregation: string
-          p_date_from?: string
-          p_date_to?: string
-          p_dimension: string
-          p_filters?: Json
-          p_metric: string
-        }
-        Returns: Json
+      create_default_bi_dashboards: {
+        Args: { p_tenant_id: string; p_user_id: string }
+        Returns: undefined
       }
+      execute_bi_widget_query:
+        | {
+            Args: {
+              p_aggregation?: string
+              p_date_from?: string
+              p_date_to?: string
+              p_dimension: string
+              p_metric: string
+            }
+            Returns: {
+              label: string
+              value: number
+            }[]
+          }
+        | {
+            Args: {
+              p_aggregation: string
+              p_date_from?: string
+              p_date_to?: string
+              p_dimension: string
+              p_filters?: Json
+              p_metric: string
+            }
+            Returns: Json
+          }
       get_user_tenant_id: { Args: never; Returns: string }
       has_role: {
         Args: {
