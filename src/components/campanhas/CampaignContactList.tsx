@@ -35,7 +35,8 @@ export function CampaignContactList({ campaignId }: CampaignContactListProps) {
     e.preventDefault();
     const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
     if (!profile) return;
-    await supabase.from("campanhas_contatos").insert({ tenant_id: profile.tenant_id, campanha_id: campaignId, telefone: form.telefone, nome: form.nome || null });
+    const { error } = await supabase.from("campanhas_contatos").insert({ tenant_id: profile.tenant_id, campanha_id: campaignId, telefone: form.telefone, nome: form.nome || null });
+    if (error) { toast({ title: "Erro ao adicionar contato", description: error.message, variant: "destructive" }); return; }
     toast({ title: "Contato adicionado!" }); setAddOpen(false); setForm({ telefone: "", nome: "" }); fetch();
   };
 
@@ -48,7 +49,8 @@ export function CampaignContactList({ campaignId }: CampaignContactListProps) {
       return { tenant_id: profile.tenant_id, campanha_id: campaignId, telefone: parts[0], nome: parts[1] || null };
     }).filter((r) => r.telefone);
     if (rows.length === 0) return;
-    await supabase.from("campanhas_contatos").insert(rows);
+    const { error } = await supabase.from("campanhas_contatos").insert(rows);
+    if (error) { toast({ title: "Erro ao importar contatos", description: error.message, variant: "destructive" }); return; }
     toast({ title: `${rows.length} contatos importados!` }); setBulkOpen(false); setBulkText(""); fetch();
   };
 
