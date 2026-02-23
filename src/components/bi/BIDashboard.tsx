@@ -173,6 +173,7 @@ export function BIDashboard() {
       ) : (
         <DashboardGrid
           widgets={widgets}
+          tenantId={tenantId!}
           dateFrom={dateFrom || undefined}
           dateTo={dateTo || undefined}
           isEditing={isEditing}
