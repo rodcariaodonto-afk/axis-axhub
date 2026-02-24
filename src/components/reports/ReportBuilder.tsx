@@ -13,28 +13,40 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
+export interface SavedReport {
+  id: string;
+  name: string;
+  template_id: string;
+  config: ReportConfig;
+  data: ReportData;
+  chart_type: ChartType;
+}
+
 interface Props {
   template: ReportTemplate;
   onBack: () => void;
+  existingReport?: SavedReport | null;
 }
 
-export function ReportBuilder({ template, onBack }: Props) {
+export function ReportBuilder({ template, onBack, existingReport }: Props) {
   const { user } = useAuth();
   const now = new Date();
   const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
 
-  const [config, setConfig] = useState<ReportConfig>({
-    dateRange: {
-      start: sixMonthsAgo.toISOString().split("T")[0],
-      end: now.toISOString().split("T")[0],
-    },
-    group_by: template.defaultConfig.group_by || template.availableGroupBy[0]?.value || "month",
-    filters: template.defaultConfig.filters,
-  });
-  const [chartType, setChartType] = useState<ChartType>(template.defaultChartType);
-  const [reportData, setReportData] = useState<ReportData | null>(null);
+  const [config, setConfig] = useState<ReportConfig>(
+    existingReport?.config || {
+      dateRange: {
+        start: sixMonthsAgo.toISOString().split("T")[0],
+        end: now.toISOString().split("T")[0],
+      },
+      group_by: template.defaultConfig.group_by || template.availableGroupBy[0]?.value || "month",
+      filters: template.defaultConfig.filters,
+    }
+  );
+  const [chartType, setChartType] = useState<ChartType>(existingReport?.chart_type || template.defaultChartType);
+  const [reportData, setReportData] = useState<ReportData | null>(existingReport?.data || null);
   const [loading, setLoading] = useState(false);
-  const [reportName, setReportName] = useState(template.name);
+  const [reportName, setReportName] = useState(existingReport?.name || template.name);
   const [saving, setSaving] = useState(false);
 
   const handleGenerate = async () => {
@@ -56,17 +68,28 @@ export function ReportBuilder({ template, onBack }: Props) {
       const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
       if (!profile) throw new Error("Perfil não encontrado");
 
-      const { error } = await supabase.from("reports").insert({
-        tenant_id: profile.tenant_id,
-        name: reportName,
-        template_id: template.id,
-        config: config as any,
-        data: reportData as any,
-        chart_type: chartType,
-        created_by: user.id,
-      });
-      if (error) throw error;
-      toast.success("Relatório salvo com sucesso");
+      if (existingReport) {
+        const { error } = await supabase.from("reports").update({
+          name: reportName,
+          config: config as any,
+          data: reportData as any,
+          chart_type: chartType,
+        }).eq("id", existingReport.id);
+        if (error) throw error;
+        toast.success("Relatório atualizado com sucesso");
+      } else {
+        const { error } = await supabase.from("reports").insert({
+          tenant_id: profile.tenant_id,
+          name: reportName,
+          template_id: template.id,
+          config: config as any,
+          data: reportData as any,
+          chart_type: chartType,
+          created_by: user.id,
+        });
+        if (error) throw error;
+        toast.success("Relatório salvo com sucesso");
+      }
     } catch {
       toast.error("Erro ao salvar relatório");
     } finally {

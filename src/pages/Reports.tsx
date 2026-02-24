@@ -3,7 +3,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Eye, BarChart3, CalendarClock } from "lucide-react";
+import { Trash2, Eye, BarChart3, CalendarClock, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -13,10 +13,12 @@ import { ReportViewer } from "@/components/reports/ReportViewer";
 import { ReportExportBar } from "@/components/reports/ReportExportBar";
 import { ReportScheduleDialog } from "@/components/reports/ReportScheduleDialog";
 import { REPORT_TEMPLATES, type ReportTemplate, type ChartType } from "@/components/reports/reportTemplates";
+import type { SavedReport } from "@/components/reports/ReportBuilder";
 
 export default function Reports() {
   const { user } = useAuth();
   const [selectedTemplate, setSelectedTemplate] = useState<ReportTemplate | null>(null);
+  const [editingReport, setEditingReport] = useState<SavedReport | null>(null);
   const [savedReports, setSavedReports] = useState<any[]>([]);
   const [viewingReport, setViewingReport] = useState<any | null>(null);
   const [loadingSaved, setLoadingSaved] = useState(false);
@@ -47,7 +49,7 @@ export default function Reports() {
   };
 
   if (selectedTemplate) {
-    return <ReportBuilder template={selectedTemplate} onBack={() => setSelectedTemplate(null)} />;
+    return <ReportBuilder template={selectedTemplate} existingReport={editingReport} onBack={() => { setSelectedTemplate(null); setEditingReport(null); fetchSaved(); }} />;
   }
 
   if (viewingReport) {
@@ -123,6 +125,24 @@ export default function Reports() {
                       <div className="flex items-center gap-2">
                         <Button variant="outline" size="sm" onClick={() => setViewingReport(report)}>
                           <Eye className="h-3 w-3 mr-1" /> Ver
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => {
+                          const tplObj = REPORT_TEMPLATES.find((t) => t.id === report.template_id);
+                          if (tplObj) {
+                            setEditingReport({
+                              id: report.id,
+                              name: report.name,
+                              template_id: report.template_id,
+                              config: report.config,
+                              data: report.data,
+                              chart_type: report.chart_type,
+                            });
+                            setSelectedTemplate(tplObj);
+                          } else {
+                            toast.error("Template não encontrado");
+                          }
+                        }}>
+                          <Pencil className="h-3 w-3 mr-1" /> Editar
                         </Button>
                         <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete(report.id)}>
                           <Trash2 className="h-3 w-3" />
