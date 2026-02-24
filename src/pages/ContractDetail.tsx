@@ -39,6 +39,35 @@ function ExpiryBadge({ days }: { days: number | null }) {
   return <Badge className="bg-green-500/20 text-green-400">{days} dias</Badge>;
 }
 
+function ActivitiesTab({ contractId, navigate }: { contractId: string; navigate: (path: string) => void }) {
+  const [activities, setActivities] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    supabase.from("activities").select("*").eq("contract_id", contractId).eq("is_active", true)
+      .order("created_at", { ascending: false }).limit(10)
+      .then(({ data }) => { setActivities(data || []); setLoading(false); });
+  }, [contractId]);
+  if (loading) return <Card className="border-border"><CardContent className="py-8 text-center text-muted-foreground">Carregando...</CardContent></Card>;
+  if (activities.length === 0) return <Card className="border-border"><CardContent className="py-12 text-center text-muted-foreground">Nenhuma atividade vinculada ao contrato.</CardContent></Card>;
+  return (
+    <Card className="border-border"><CardContent className="p-0">
+      <Table>
+        <TableHeader><TableRow><TableHead>Assunto</TableHead><TableHead>Tipo</TableHead><TableHead>Status</TableHead><TableHead>Prazo</TableHead></TableRow></TableHeader>
+        <TableBody>
+          {activities.map((a) => (
+            <TableRow key={a.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/activities/${a.id}`)}>
+              <TableCell className="font-medium">{a.title}</TableCell>
+              <TableCell><Badge variant="outline">{a.type}</Badge></TableCell>
+              <TableCell><Badge variant={a.status === "Completed" ? "default" : "secondary"}>{a.status === "Open" ? "Aberta" : a.status === "Completed" ? "Concluída" : "Cancelada"}</Badge></TableCell>
+              <TableCell className="text-muted-foreground">{a.due_at ? new Date(a.due_at).toLocaleDateString("pt-BR") : "—"}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </CardContent></Card>
+  );
+}
+
 export default function ContractDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -337,7 +366,7 @@ export default function ContractDetail() {
         </TabsContent>
 
         <TabsContent value="activities" className="mt-4">
-          <Card className="border-border"><CardContent className="py-12 text-center text-muted-foreground">Atividades vinculadas ao contrato serão exibidas aqui em breve.</CardContent></Card>
+          <ActivitiesTab contractId={id!} navigate={navigate} />
         </TabsContent>
       </Tabs>
 

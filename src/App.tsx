@@ -24,6 +24,7 @@ const Leads = lazy(() => import("./pages/Leads"));
 const Pipeline = lazy(() => import("./pages/Pipeline"));
 const DealDetail = lazy(() => import("./pages/DealDetail"));
 const Activities = lazy(() => import("./pages/Activities"));
+const ActivityDetail = lazy(() => import("./pages/ActivityDetail"));
 const FunnelReport = lazy(() => import("./pages/FunnelReport"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Notifications = lazy(() => import("./pages/Notifications"));
@@ -93,6 +94,7 @@ const App = () => (
               <Route path="/pipeline" element={<ProtectedRoute><Pipeline /></ProtectedRoute>} />
               <Route path="/deals/:id" element={<ProtectedRoute><DealDetail /></ProtectedRoute>} />
               <Route path="/activities" element={<ProtectedRoute><Activities /></ProtectedRoute>} />
+              <Route path="/activities/:id" element={<ProtectedRoute><ActivityDetail /></ProtectedRoute>} />
               <Route path="/funnel-report" element={<ProtectedRoute><FunnelReport /></ProtectedRoute>} />
               <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
               <Route path="/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
