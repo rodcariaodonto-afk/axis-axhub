@@ -101,12 +101,12 @@ export default function UsersManagement() {
 
   const handleDelete = async (profileId: string) => {
     if (profileId === user?.id) {
-      toast({ title: "Você não pode excluir sua própria conta", variant: "destructive" });
+      toast({ title: "Você não pode desativar sua própria conta", variant: "destructive" });
       return;
     }
     if (!confirm("Tem certeza que deseja desativar este usuário?")) return;
 
-    await supabase.from("profiles").update({ status: "inactive" }).eq("id", profileId);
+    await supabase.from("profiles").update({ status: "inactive", is_active: false } as any).eq("id", profileId);
     toast({ title: "Usuário desativado" });
     invalidate();
   };

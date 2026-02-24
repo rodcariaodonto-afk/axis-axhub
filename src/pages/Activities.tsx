@@ -13,7 +13,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, CheckCircle } from "lucide-react";
 import { emitEvent } from "@/lib/emitEvent";
 
-const typeLabels: Record<string, string> = { task: "Tarefa", call: "Ligação", meeting: "Reunião", email: "E-mail" };
+const typeLabels: Record<string, string> = {
+  task: "Tarefa", call: "Ligação", meeting: "Reunião", email: "E-mail",
+  whatsapp: "WhatsApp", note: "Nota",
+};
 
 export default function Activities() {
   const [items, setItems] = useState<any[]>([]);
@@ -21,20 +24,32 @@ export default function Activities() {
   const [filter, setFilter] = useState("pending");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deals, setDeals] = useState<any[]>([]);
-  const [form, setForm] = useState({ title: "", type: "task", description: "", due_at: "", deal_id: "" });
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [form, setForm] = useState({ title: "", type: "task", description: "", due_at: "", deal_id: "", contact_id: "" });
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
-    const { data } = await supabase.from("activities").select("*, deals(name)").order("created_at", { ascending: false });
-    setItems(data || []); setLoading(false);
+    const { data } = await supabase
+      .from("activities")
+      .select("*, deals(name), contacts(first_name, last_name)")
+      .order("created_at", { ascending: false });
+    setItems(data || []);
+    setLoading(false);
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const openDialog = async () => {
-    const { data } = await supabase.from("deals").select("id, name").eq("status", "open").order("name");
-    setDeals(data || []);
-    setForm({ title: "", type: "task", description: "", due_at: "", deal_id: "" });
+    const [{ data: d }, { data: a }, { data: c }] = await Promise.all([
+      supabase.from("deals").select("id, name").eq("status", "open").order("name"),
+      supabase.from("crm_accounts").select("id, name").order("name"),
+      supabase.from("contacts").select("id, first_name, last_name").order("first_name"),
+    ]);
+    setDeals(d || []);
+    setAccounts(a || []);
+    setContacts(c || []);
+    setForm({ title: "", type: "task", description: "", due_at: "", deal_id: "", contact_id: "" });
     setDialogOpen(true);
   };
 
@@ -46,6 +61,7 @@ export default function Activities() {
       tenant_id: profile.tenant_id, title: form.title, type: form.type,
       description: form.description || null, due_at: form.due_at || null,
       deal_id: form.deal_id || null,
+      contact_id: form.contact_id || null,
     }).select().single();
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
     else {
@@ -79,12 +95,36 @@ export default function Activities() {
           <form onSubmit={handleCreate} className="space-y-4">
             <div className="space-y-2"><Label>Título</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required /></div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>Tipo</Label><Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.entries(typeLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent></Select></div>
+              <div className="space-y-2">
+                <Label>Tipo</Label>
+                <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{Object.entries(typeLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
               <div className="space-y-2"><Label>Prazo</Label><Input type="date" value={form.due_at} onChange={(e) => setForm({ ...form, due_at: e.target.value })} /></div>
             </div>
-            <div className="space-y-2">
-              <Label>Deal (opcional)</Label>
-              <Select value={form.deal_id} onValueChange={(v) => setForm({ ...form, deal_id: v })}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent>{deals.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent></Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Deal (opcional)</Label>
+                <Select value={form.deal_id || "__none__"} onValueChange={(v) => setForm({ ...form, deal_id: v === "__none__" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Nenhum</SelectItem>
+                    {deals.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Contato (opcional)</Label>
+                <Select value={form.contact_id || "__none__"} onValueChange={(v) => setForm({ ...form, contact_id: v === "__none__" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Nenhum</SelectItem>
+                    {contacts.map((c) => <SelectItem key={c.id} value={c.id}>{c.first_name} {c.last_name || ""}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="space-y-2"><Label>Descrição</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
             <Button type="submit" className="w-full">Criar</Button>
@@ -101,15 +141,28 @@ export default function Activities() {
       <Card className="border-border bg-card">
         <CardContent className="p-0">
           <Table>
-            <TableHeader><TableRow className="border-border"><TableHead>Título</TableHead><TableHead>Tipo</TableHead><TableHead>Deal</TableHead><TableHead>Prazo</TableHead><TableHead>Status</TableHead><TableHead className="w-10" /></TableRow></TableHeader>
+            <TableHeader>
+              <TableRow className="border-border">
+                <TableHead>Título</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Deal</TableHead>
+                <TableHead>Contato</TableHead>
+                <TableHead>Prazo</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="w-10" />
+              </TableRow>
+            </TableHeader>
             <TableBody>
-              {loading ? <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow> :
-              filtered.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhuma atividade</TableCell></TableRow> :
+              {loading ? <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow> :
+              filtered.length === 0 ? <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhuma atividade</TableCell></TableRow> :
               filtered.map((a) => (
                 <TableRow key={a.id} className="border-border">
                   <TableCell className="font-medium">{a.title}</TableCell>
                   <TableCell><Badge variant="outline">{typeLabels[a.type] || a.type}</Badge></TableCell>
                   <TableCell className="text-muted-foreground">{a.deals?.name || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {a.contacts ? `${a.contacts.first_name} ${a.contacts.last_name || ""}`.trim() : "—"}
+                  </TableCell>
                   <TableCell>{a.due_at ? new Date(a.due_at).toLocaleDateString("pt-BR") : "—"}</TableCell>
                   <TableCell><Badge variant={a.done_at ? "default" : "secondary"}>{a.done_at ? "Concluída" : "Pendente"}</Badge></TableCell>
                   <TableCell>

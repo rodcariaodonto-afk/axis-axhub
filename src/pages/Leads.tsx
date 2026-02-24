@@ -126,8 +126,11 @@ export default function Leads() {
     });
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
 
-    // 4. Marcar lead como convertido
-    await supabase.from("leads").update({ status: "converted", is_converted: true, converted_at: new Date().toISOString() } as any).eq("id", convertLead.id);
+    // 4. Marcar lead como convertido com IDs de rastreamento
+    await supabase.from("leads").update({
+      status: "converted", is_converted: true, converted_at: new Date().toISOString(),
+      converted_to_account_id: accountId, converted_to_contact_id: contactId,
+    } as any).eq("id", convertLead.id);
     emitEvent("lead.status_changed", { lead_id: convertLead.id, old_status: convertLead.status, new_status: "converted" });
     toast({ title: "Lead convertido!", description: "Account, Contact e Deal criados automaticamente." }); setConvertDialog(false); fetchData();
   };

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Building2, Users, Key, Settings2, ScrollText, Tag, Warehouse, Plug, UserCircle, Bell, FileText } from "lucide-react";
+import { Building2, Users, Key, Settings2, ScrollText, Tag, Warehouse, Plug, UserCircle, Bell, FileText, ListChecks } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type SettingsSection =
@@ -9,6 +9,7 @@ type SettingsSection =
   | "users"
   | "api-keys"
   | "custom-fields"
+  | "generic-custom-fields"
   | "audit-logs"
   | "categories"
   | "warehouses"
@@ -43,7 +44,8 @@ const menuGroups: MenuGroup[] = [
     items: [
       { id: "users", label: "Usuários", icon: Users },
       { id: "api-keys", label: "Chaves de API", icon: Key },
-      { id: "custom-fields", label: "Campos Customizados", icon: Settings2 },
+      { id: "custom-fields", label: "Campos (Produtos)", icon: Settings2 },
+      { id: "generic-custom-fields", label: "Campos (CRM)", icon: ListChecks },
       { id: "audit-logs", label: "Logs de Auditoria", icon: ScrollText },
     ],
   },
