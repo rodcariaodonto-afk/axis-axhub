@@ -83,10 +83,10 @@ export default function Proposals() {
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="space-y-2">
                 <Label>Deal (opcional)</Label>
-                <Select value={form.deal_id} onValueChange={(v) => setForm({ ...form, deal_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="Vincular a um deal" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">Nenhum</SelectItem>
+                <Select value={form.deal_id || "__none__"} onValueChange={(v) => setForm({ ...form, deal_id: v === "__none__" ? "" : v })}>
+                   <SelectTrigger><SelectValue placeholder="Vincular a um deal" /></SelectTrigger>
+                   <SelectContent>
+                    <SelectItem value="__none__">Nenhum</SelectItem>
                     {deals.map((d) => <SelectItem key={d.id} value={d.id}>{d.name} — R$ {Number(d.estimated_value).toFixed(2)}</SelectItem>)}
                   </SelectContent>
                 </Select>
