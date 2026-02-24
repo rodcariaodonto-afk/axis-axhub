@@ -3405,6 +3405,129 @@ export type Database = {
           },
         ]
       }
+      opportunities: {
+        Row: {
+          account_id: string | null
+          amount: number
+          close_date: string | null
+          close_reason: string | null
+          contact_id: string | null
+          created_at: string
+          currency: string
+          description: string | null
+          expected_close_date: string | null
+          id: string
+          is_active: boolean
+          name: string
+          owner_id: string | null
+          probability: number
+          stage: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          amount?: number
+          close_date?: string | null
+          close_reason?: string | null
+          contact_id?: string | null
+          created_at?: string
+          currency?: string
+          description?: string | null
+          expected_close_date?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          owner_id?: string | null
+          probability?: number
+          stage?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number
+          close_date?: string | null
+          close_reason?: string | null
+          contact_id?: string | null
+          created_at?: string
+          currency?: string
+          description?: string | null
+          expected_close_date?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          owner_id?: string | null
+          probability?: number
+          stage?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunities_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "crm_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunities_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunities_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opportunity_stages: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          is_lost: boolean
+          is_won: boolean
+          name: string
+          order_index: number
+          tenant_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_lost?: boolean
+          is_won?: boolean
+          name: string
+          order_index?: number
+          tenant_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_lost?: boolean
+          is_won?: boolean
+          name?: string
+          order_index?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_stages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_items: {
         Row: {
           id: string

@@ -48,6 +48,8 @@ const Funis = lazy(() => import("./pages/Funis"));
 const FunilEditor = lazy(() => import("./pages/FunilEditor"));
 const InternalChat = lazy(() => import("./pages/InternalChat"));
 const BusinessIntelligence = lazy(() => import("./pages/BusinessIntelligence"));
+const Opportunities = lazy(() => import("./pages/Opportunities"));
+const OpportunityDetail = lazy(() => import("./pages/OpportunityDetail"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -114,6 +116,8 @@ const App = () => (
               <Route path="/funis/:id" element={<ProtectedRoute><FunilEditor /></ProtectedRoute>} />
               <Route path="/internal-chat" element={<ProtectedRoute><InternalChat /></ProtectedRoute>} />
               <Route path="/business-intelligence" element={<ProtectedRoute><BusinessIntelligence /></ProtectedRoute>} />
+              <Route path="/opportunities" element={<ProtectedRoute><Opportunities /></ProtectedRoute>} />
+              <Route path="/opportunities/:id" element={<ProtectedRoute><OpportunityDetail /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
