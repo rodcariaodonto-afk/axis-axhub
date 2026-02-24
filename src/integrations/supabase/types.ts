@@ -1076,12 +1076,14 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
+          is_active: boolean | null
           name: string
           owner_user_id: string | null
           phone: string | null
           segment: string | null
           tenant_id: string
           updated_at: string | null
+          website: string | null
         }
         Insert: {
           address_json?: Json | null
@@ -1089,12 +1091,14 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          is_active?: boolean | null
           name: string
           owner_user_id?: string | null
           phone?: string | null
           segment?: string | null
           tenant_id: string
           updated_at?: string | null
+          website?: string | null
         }
         Update: {
           address_json?: Json | null
@@ -1102,12 +1106,14 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          is_active?: boolean | null
           name?: string
           owner_user_id?: string | null
           phone?: string | null
           segment?: string | null
           tenant_id?: string
           updated_at?: string | null
+          website?: string | null
         }
         Relationships: [
           {
