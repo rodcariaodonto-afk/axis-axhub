@@ -1,52 +1,53 @@
 
 
-# Implementar Activities Completo (Nivel Salesforce)
+# Implementar Report Builder Visual (Nivel Salesforce)
 
-## Analise: O Que Ja Existe vs. O Que Falta
+## O Que Existe Hoje vs. O Que o Documento Pede
 
-### Tabela `activities` - Situacao Atual
+### Tabela `reports` - Colunas Faltando
 
-A tabela existe mas esta muito simplificada. Precisa de uma reestruturacao significativa.
-
-| Coluna PDF | Coluna Atual | Status |
-|---|---|---|
-| subject (VARCHAR 255) | title | Renomear/adaptar |
-| activity_type (VARCHAR 50) | type | Renomear/adaptar |
-| description | description | Existe |
-| status (Open/Completed/Cancelled) | done_at (timestamp) | **Falta** - hoje usa done_at como booleano |
-| priority (Low/Normal/High/Urgent) | -- | **Falta** |
-| due_date | due_at | Existe (renomear) |
-| completed_date | done_at | Existe (manter) |
-| account_id (FK crm_accounts) | -- | **Falta** |
-| contact_id | contact_id | Existe |
-| opportunity_id (FK opportunities) | -- | **Falta** |
-| contract_id (FK contracts) | -- | **Falta** |
-| assigned_to_id | owner_user_id | Existe (renomear conceitual) |
-| created_by_id | -- | **Falta** |
-| is_active | -- | **Falta** |
-| updated_at | -- | **Falta** |
-| deal_id | deal_id | Existe (extra, manter) |
-| lead_id | lead_id | Existe (extra, manter) |
-
-### Tabelas e Funcionalidades Faltando
-
-| Item | Status |
+| Coluna PDF | Existe? |
 |---|---|
-| Tabela `activity_types` (tipos customizaveis) | **Falta** |
-| Colunas novas na `activities` | **Falta** (status, priority, account_id, opportunity_id, contract_id, created_by_id, is_active, updated_at) |
-| Indexes de performance | **Falta** |
-| Pagina de Detalhes da Atividade | **Falta** |
-| Visualizacao em Agenda/Calendario | **Falta** |
-| Filtros avancados (tipo, status, prioridade, atribuido, data range) | **Falta** - hoje so tem pendente/concluida/todas |
-| Resumo de Atividades (sidebar cards) | **Falta** |
-| Paginacao (15/pagina) | **Falta** |
-| Status de vencimento com cores | **Falta** |
-| Modal Editar Atividade | **Falta** |
-| Validacao "pelo menos 1 parent" | **Falta** |
-| Soft delete (is_active) | **Falta** |
-| Aba Atividades em AccountDetail | Parcialmente existe (busca por deal_id, nao por account_id) |
-| Aba Atividades em ContractDetail | **Falta** |
-| Aba Atividades em OpportunityDetail | **Falta** |
+| name | Existe |
+| description | Existe |
+| config (JSONB) | Existe |
+| tenant_id | Existe |
+| created_by | Existe |
+| report_type (table/chart/summary) | **Falta** |
+| object_name (accounts/contacts/...) | **Falta** |
+| is_active | **Falta** |
+| is_favorite | **Falta** |
+| last_run_at | **Falta** |
+
+### Sistema Atual vs. Documento
+
+| Item | Atual | Documento |
+|---|---|---|
+| Abordagem | Templates fixos com queries hardcoded | Builder visual dinamico com campos/filtros/groupBy configuravel |
+| Pagina de listagem | Tabs: Templates + Meus Relatorios | Cards com filtros por objeto/tipo + favoritos + busca |
+| Builder | Seleciona template, configura date range/group_by, gera | Painel esquerdo (campos, filtros, agrupamento, ordenacao, visualizacao) + preview ao vivo |
+| Execucao | Query hardcoded por template | Query dinamica baseada em object_name + config |
+| Favoritos | Nao existe | Toggle favorito por relatorio |
+| Duplicar | Nao existe | Duplicar relatorio com "(Copia)" |
+
+### Funcionalidades UI Faltando
+
+| Funcionalidade | Status |
+|---|---|
+| Modal "Novo Relatorio" (nome, descricao, objeto, tipo) | **Falta** |
+| Builder visual com painel esquerdo configuravel | **Falta** |
+| Secao Campos (checkboxes + drag-and-drop) | **Falta** |
+| Secao Filtros (campo + operador + valor) | **Falta** |
+| Secao Agrupamento | **Falta** |
+| Secao Ordenacao | **Falta** |
+| Secao Visualizacao (table/chart/summary) | **Falta** |
+| Preview em tempo real na area principal | **Falta** |
+| Pagina de Visualizacao do relatorio salvo | **Falta** |
+| Filtros em tempo de execucao (runtime filters) | **Falta** |
+| Favoritos (toggle) | **Falta** |
+| Duplicar relatorio | **Falta** |
+| Busca e filtros na listagem | **Falta** |
+| Resumo lateral (total por objeto/tipo) | **Falta** |
 
 ---
 
@@ -54,108 +55,104 @@ A tabela existe mas esta muito simplificada. Precisa de uma reestruturacao signi
 
 ### Fase 1: Migracao de Banco
 
-**1.1 Adicionar colunas a `activities`:**
-- `status` (VARCHAR 50, default 'Open') -- Open, Completed, Cancelled
-- `priority` (VARCHAR 20, default 'Normal') -- Low, Normal, High, Urgent
-- `account_id` (UUID, FK crm_accounts, nullable)
-- `opportunity_id` (UUID, FK opportunities, nullable)
-- `contract_id` (UUID, FK contracts, nullable)
-- `created_by_id` (UUID, nullable)
+**1.1 Adicionar colunas a `reports`:**
+- `report_type` (VARCHAR 50, default 'table') -- table, chart, summary
+- `object_name` (VARCHAR 100, nullable) -- accounts, contacts, opportunities, contracts, activities, leads
 - `is_active` (BOOLEAN, default true)
-- `updated_at` (TIMESTAMPTZ, default now())
+- `is_favorite` (BOOLEAN, default false)
+- `last_run_at` (TIMESTAMPTZ, nullable)
 
-**1.2 Criar tabela `activity_types`:**
-- id, tenant_id, name, icon, color, is_active, created_at
-- UNIQUE(tenant_id, name)
-- RLS com tenant isolation via `get_user_tenant_id()`
-- Tipos padrao serao criados sob demanda na UI
+**1.2 Indexes de performance:**
+- idx_reports_object_name, idx_reports_report_type, idx_reports_is_active, idx_reports_is_favorite
 
-**1.3 Criar indexes de performance:**
-- idx_activities_status, idx_activities_priority, idx_activities_account_id, idx_activities_opportunity_id, idx_activities_contract_id, idx_activities_is_active
+**1.3 Trigger para updated_at** (se nao existir)
 
-**1.4 Trigger para updated_at automatico**
+### Fase 2: Definicao de Campos por Objeto
 
-**1.5 Atualizar `handle_new_user()`** para criar tipos padrao de atividade para novos tenants (Call, Email, Meeting, Task, Note, WhatsApp)
+Criar um arquivo `src/components/reports/reportObjectFields.ts` com a definicao de campos disponiveis para cada objeto:
 
-### Fase 2: Sidebar
+- **accounts**: id, name, cnpj, website, phone, segment, industry, status, city, state, created_at, updated_at
+- **contacts**: id, first_name, last_name, email, phone, company, title, created_at
+- **opportunities**: id, name, account_id, amount, probability, stage, expected_close_date, close_date, currency, created_at
+- **contracts**: id, name, account_id, contract_type, status, value, currency, start_date, end_date, created_at
+- **activities**: id, title, type, status, priority, due_at, done_at, account_id, contact_id, opportunity_id, created_at
+- **leads**: id, name, email, phone, company, source, channel, status, estimated_value, created_at
 
-Mover "Atividades" para logo apos "Oportunidades" e antes de "Contatos":
+Cada campo tera: name, label, type (text/number/date/select), filterable, sortable, groupable, summarizable
 
-```text
-Dashboard CRM
-Contas
-Contratos
-Oportunidades
-Atividades  <-- MOVER AQUI
-Contatos
-Leads
-...
-```
+### Fase 3: Motor de Execucao Dinamica
 
-### Fase 3: Reescrever Listagem (`Activities.tsx`)
+Criar `src/components/reports/reportEngine.ts`:
+- Funcao `executeReport(objectName, config)` que constroi queries Supabase dinamicamente
+- Aplica filtros com operadores (equals, contains, between, greater_than, etc.)
+- Aplica group_by e order_by
+- Retorna dados formatados para tabela/grafico/resumo
+- Calcula funcoes de resumo (sum, count, avg, min, max)
 
-**3.1 Visualizacao em Lista (padrao):**
-- Tabela com colunas: Tipo (icone+nome), Assunto (clicavel), Relacionado a, Status (badge), Prioridade (badge com cores), Data Vencimento (com cores de alerta), Atribuido a, Acoes
-- Paginacao: 15 por pagina
-- Soft delete (Desativar) em vez de excluir
+### Fase 4: Reescrever Pagina de Listagem (`Reports.tsx`)
 
-**3.2 Visualizacao em Agenda (Calendario):**
-- Toggle entre Lista e Calendario
-- Calendario mensal com atividades nos dias correspondentes
-- Cores por tipo de atividade
-- Atividades vencidas em vermelho
-- Clicar em dia mostra atividades desse dia
+**4.1 Cabecalho:**
+- Titulo: "Relatorios"
+- Descricao: "Crie e gerencie relatorios customizados"
+- Botao "Novo Relatorio" (abre modal)
 
-**3.3 Barra de Ferramentas:**
-- Botao "Nova Atividade"
-- Toggle Lista/Agenda
-- Filtro por Tipo
-- Filtro por Status (Open, Completed, Cancelled)
-- Filtro por Prioridade (Low, Normal, High, Urgent)
-- Filtro por Atribuido a
-- Filtro por Data (range)
-- Busca por assunto/descricao
+**4.2 Barra de Ferramentas:**
+- Filtro por Tipo de Objeto (accounts, contacts, opportunities, contracts, activities, leads)
+- Filtro por Tipo de Relatorio (table, chart, summary)
+- Busca por nome/descricao
+- Toggle "Meus Favoritos"
 
-**3.4 Resumo de Atividades (cards no topo):**
-- Total Abertas
-- Vencidas
-- Hoje
-- Esta Semana
-- Concluidas (Este Mes)
+**4.3 Listagem em Grid (cards):**
+- Nome, descricao, objeto (badge), tipo (badge), favorito (estrela clicavel), ultima execucao, data criacao
+- Botoes: Ver, Editar (builder), Duplicar, Desativar
 
-**3.5 Modal "Nova Atividade":**
-- Campos na ordem: Tipo (obrigatorio), Assunto (obrigatorio), Descricao, Relacionado a (pelo menos 1: Conta, Contato, Oportunidade ou Contrato), Status (default Open), Prioridade (default Normal), Data de Vencimento, Atribuido a (obrigatorio)
-- Validacoes: assunto obrigatorio, pelo menos 1 parent, atribuido obrigatorio
+**4.4 Resumo lateral:**
+- Total de relatorios
+- Por tipo de objeto
+- Por tipo de visualizacao
 
-**3.6 Modal "Editar Atividade":**
-- Mesmos campos, pre-preenchidos
-- Se mudar status para Completed: auto-preencher done_at
-- Se mudar de Completed para Open: limpar done_at
+**4.5 Modal "Novo Relatorio":**
+- Campos: Nome (obrigatorio), Descricao, Tipo de Objeto (obrigatorio), Tipo de Relatorio (obrigatorio)
+- Ao criar: salva no banco e navega para o builder
 
-### Fase 4: Pagina de Detalhes (`ActivityDetail.tsx`)
+**4.6 Manter compatibilidade:** Os relatorios antigos (baseados em templates) continuam visiveis e funcionais via a aba "Templates"
 
-**4.1 Cabecalho:** Tipo (icone + nome) + Assunto + Status (badge) + Prioridade (badge)
+### Fase 5: Criar Pagina do Report Builder (`ReportBuilderPage.tsx`)
 
-**4.2 Botoes:** Editar, Marcar como Concluida, Desativar, Voltar
+**5.1 Layout:** Split horizontal - Painel Esquerdo (30%) + Area de Preview (70%)
 
-**4.3 Secoes:**
-- Info Principal: Relacionado a (links clicaveis para Conta/Contato/Oportunidade/Contrato)
-- Datas: Vencimento, Conclusao, Status de Vencimento (verde/amarelo/vermelho)
-- Descricao: Texto completo
-- Atribuido a / Criado por
+**5.2 Painel Esquerdo - 6 Secoes collapsiveis:**
 
-### Fase 5: Integracoes com Detalhes
+1. **Campos**: Checkboxes para cada campo do objeto selecionado, botoes "Todos/Nenhum/Padrao"
+2. **Filtros**: Botao "Adicionar Filtro", para cada filtro: select campo + select operador + input valor + botao remover
+3. **Agrupamento**: Botao "Adicionar Agrupamento", select de campo, ordem numerada
+4. **Ordenacao**: Botao "Adicionar Ordenacao", select campo + direcao (ASC/DESC)
+5. **Visualizacao**: Radio (Tabela/Grafico/Resumo). Se grafico: tipo (bar/line/pie/area), campo X, campo Y, funcao Y
+6. **Resumo**: Toggle habilitar, adicionar campos com funcao (sum/count/avg/min/max) e label
 
-**5.1 AccountDetail.tsx:** Atualizar aba Atividades para buscar por `account_id` (hoje busca por deal_id)
+**5.3 Area Principal - Preview ao Vivo:**
+- Se tabela: tabela com colunas selecionadas, paginacao 15/pagina, linha de resumo
+- Se grafico: Recharts interativo
+- Se resumo: Cards com valores calculados
 
-**5.2 OpportunityDetail.tsx:** Adicionar aba Atividades com lista das 10 ultimas + botao "Nova Atividade" vinculada
+**5.4 Barra Superior:**
+- Nome do relatorio (editavel)
+- Botao "Salvar"
+- Botao "Executar" (atualiza preview + last_run_at)
+- Botao "Voltar"
 
-**5.3 ContractDetail.tsx:** Adicionar aba Atividades com lista das 10 ultimas + botao "Nova Atividade" vinculada
+### Fase 6: Criar Pagina de Visualizacao (`ReportViewPage.tsx`)
 
-### Fase 6: Rotas
+- Cabecalho: nome, descricao, botoes (Editar, Executar Novamente, Exportar, Agendar)
+- Filtros rapidos (runtime): alterar filtros sem entrar no builder
+- Visualizacao conforme configurado
+- Info: ultima execucao, numero de registros
 
-- `/activities` - Listagem (ja existe)
-- `/activities/:id` - Detalhes (novo)
+### Fase 7: Rotas
+
+- `/reports` - Listagem (ja existe, sera reescrita)
+- `/reports/:id/builder` - Builder visual (novo)
+- `/reports/:id/view` - Visualizacao (novo)
 
 ---
 
@@ -163,24 +160,20 @@ Leads
 
 | Arquivo | Acao |
 |---|---|
-| Migration SQL | Criar - colunas + tabela activity_types + indexes + trigger |
-| `src/components/AppSidebar.tsx` | Modificar - reordenar "Atividades" no menu |
-| `src/pages/Activities.tsx` | Reescrever - lista completa, calendario, filtros, resumo, modais |
-| `src/pages/ActivityDetail.tsx` | Criar - detalhes + editar + acoes |
-| `src/pages/AccountDetail.tsx` | Modificar - atualizar aba Atividades para usar account_id |
-| `src/pages/OpportunityDetail.tsx` | Modificar - adicionar aba Atividades |
-| `src/pages/ContractDetail.tsx` | Modificar - adicionar aba Atividades |
-| `src/App.tsx` | Modificar - adicionar rota /activities/:id |
+| Migration SQL | Criar - colunas novas na reports + indexes |
+| `src/components/reports/reportObjectFields.ts` | Criar - definicao de campos por objeto |
+| `src/components/reports/reportEngine.ts` | Criar - motor de execucao dinamica |
+| `src/components/reports/ReportBuilderVisual.tsx` | Criar - builder visual com painel esquerdo + preview |
+| `src/pages/Reports.tsx` | Reescrever - listagem com modal novo relatorio + filtros + favoritos |
+| `src/pages/ReportBuilderPage.tsx` | Criar - pagina wrapper do builder |
+| `src/pages/ReportViewPage.tsx` | Criar - pagina de visualizacao |
+| `src/App.tsx` | Modificar - adicionar rotas /reports/:id/builder e /reports/:id/view |
 
 ## Decisoes Tecnicas
 
-- **Edge Functions:** NAO sera usado. O projeto inteiro usa Supabase client direto. Seguiremos o padrao.
-- **Tipos padrao:** Criados sob demanda na UI (se nenhum tipo existir para o tenant, cria os 6 padrao automaticamente).
-- **Constraint "pelo menos 1 parent":** Sera feito via validacao de trigger (nao CHECK) para compatibilidade com dados existentes que nao tem account_id/opportunity_id/contract_id.
-- **Calendario:** Implementado com grid CSS simples, sem dependencia externa.
-- **Dados existentes:** As colunas novas serao nullable ou com defaults para nao quebrar registros antigos. Atividades antigas sem `status` receberao 'Open' por default, e as com `done_at` preenchido receberao 'Completed' via UPDATE na migracao.
-
-## Nota sobre WhatsApp e Notificacoes
-
-A integracao automatica com WhatsApp (criar atividade ao receber mensagem) e notificacoes diarias de atividades vencidas mencionadas no PDF serao preparadas na estrutura (campos e tabelas), mas a implementacao completa requer integracao com o modulo WhatsApp existente e um sistema de cron jobs que ficara para proximo passo.
+- **Edge Functions**: NAO. Seguimos o padrao do projeto usando Supabase client direto
+- **Compatibilidade**: Os templates antigos e relatorios salvos continuam funcionando. A nova aba "Builder" coexiste com a aba "Templates"
+- **Execucao dinamica**: A query e construida client-side usando `supabase.from(objectName).select(fields).filter(...)`. Nao ha SQL cru - tudo via SDK
+- **workspace_id -> tenant_id**: Adaptado ao padrao do projeto
+- **Grafico Doughnut/Area**: Doughnut = PieChart com innerRadius. Area = AreaChart do Recharts (ja disponivel como dependencia)
 
