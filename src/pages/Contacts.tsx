@@ -49,6 +49,10 @@ export default function Contacts() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.account_id) {
+      toast({ title: "Empresa obrigatória", description: "Selecione uma empresa antes de criar o contato.", variant: "destructive" });
+      return;
+    }
     const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
     if (!profile) return;
     const { error } = await supabase.from("contacts").insert({
@@ -58,7 +62,7 @@ export default function Contacts() {
       email: form.email || null,
       phone: form.phone || null,
       position: form.position || null,
-      account_id: form.account_id || null,
+      account_id: form.account_id,
       is_primary: form.is_primary,
     });
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
@@ -158,14 +162,15 @@ export default function Contacts() {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2"><Label>Cargo</Label><Input value={formState.position} onChange={(e) => setFormState({ ...formState, position: e.target.value })} /></div>
         <div className="space-y-2">
-          <Label>Empresa</Label>
+          <Label>Empresa *</Label>
           <Select value={formState.account_id || "__none__"} onValueChange={(v) => setFormState({ ...formState, account_id: v === "__none__" ? "" : v })}>
-            <SelectTrigger><SelectValue placeholder="Nenhuma" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Selecione uma empresa" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__none__">Nenhuma</SelectItem>
               {accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
             </SelectContent>
           </Select>
+          {!formState.account_id && <p className="text-xs text-destructive">Empresa é obrigatória para novos contatos</p>}
         </div>
       </div>
     </>

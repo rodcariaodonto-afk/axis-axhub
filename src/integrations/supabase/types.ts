@@ -1119,6 +1119,101 @@ export type Database = {
           },
         ]
       }
+      custom_field_values: {
+        Row: {
+          created_at: string | null
+          custom_field_id: string
+          id: string
+          record_id: string
+          tenant_id: string
+          updated_at: string | null
+          value: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          custom_field_id: string
+          id?: string
+          record_id: string
+          tenant_id: string
+          updated_at?: string | null
+          value?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          custom_field_id?: string
+          id?: string
+          record_id?: string
+          tenant_id?: string
+          updated_at?: string | null
+          value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_field_values_custom_field_id_fkey"
+            columns: ["custom_field_id"]
+            isOneToOne: false
+            referencedRelation: "custom_fields"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_field_values_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custom_fields: {
+        Row: {
+          created_at: string | null
+          field_label: string
+          field_name: string
+          field_type: string
+          id: string
+          is_required: boolean | null
+          object_name: string
+          picklist_values: Json | null
+          sort_order: number | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          field_label: string
+          field_name: string
+          field_type?: string
+          id?: string
+          is_required?: boolean | null
+          object_name: string
+          picklist_values?: Json | null
+          sort_order?: number | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          field_label?: string
+          field_name?: string
+          field_type?: string
+          id?: string
+          is_required?: boolean | null
+          object_name?: string
+          picklist_values?: Json | null
+          sort_order?: number | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_fields_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           address_json: Json | null
@@ -2798,6 +2893,8 @@ export type Database = {
         Row: {
           channel: string | null
           converted_at: string | null
+          converted_to_account_id: string | null
+          converted_to_contact_id: string | null
           created_at: string
           email: string | null
           id: string
@@ -2816,6 +2913,8 @@ export type Database = {
         Insert: {
           channel?: string | null
           converted_at?: string | null
+          converted_to_account_id?: string | null
+          converted_to_contact_id?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -2834,6 +2933,8 @@ export type Database = {
         Update: {
           channel?: string | null
           converted_at?: string | null
+          converted_to_account_id?: string | null
+          converted_to_contact_id?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -2850,6 +2951,20 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "leads_converted_to_account_id_fkey"
+            columns: ["converted_to_account_id"]
+            isOneToOne: false
+            referencedRelation: "crm_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_converted_to_contact_id_fkey"
+            columns: ["converted_to_contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "leads_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -3812,6 +3927,7 @@ export type Database = {
           farewell_message: string | null
           full_name: string
           id: string
+          is_active: boolean | null
           phone: string | null
           status: string
           tenant_id: string
@@ -3826,6 +3942,7 @@ export type Database = {
           farewell_message?: string | null
           full_name: string
           id: string
+          is_active?: boolean | null
           phone?: string | null
           status?: string
           tenant_id: string
@@ -3840,6 +3957,7 @@ export type Database = {
           farewell_message?: string | null
           full_name?: string
           id?: string
+          is_active?: boolean | null
           phone?: string | null
           status?: string
           tenant_id?: string
