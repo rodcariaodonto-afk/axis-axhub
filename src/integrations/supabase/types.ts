@@ -1002,15 +1002,151 @@ export type Database = {
           },
         ]
       }
-      contracts: {
+      contract_signatures: {
         Row: {
-          account_id: string | null
+          contract_id: string
           created_at: string
-          deal_id: string | null
-          document_url: string | null
+          id: string
+          ip_address: string | null
+          is_valid: boolean
+          signature_token: string | null
+          signature_url: string | null
+          signed_at: string
+          signer_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          is_valid?: boolean
+          signature_token?: string | null
+          signature_url?: string | null
+          signed_at?: string
+          signer_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          is_valid?: boolean
+          signature_token?: string | null
+          signature_url?: string | null
+          signed_at?: string
+          signer_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_signatures_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_signatures_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contract_versions: {
+        Row: {
+          change_description: string | null
+          changed_by_id: string | null
+          contract_id: string
+          contract_type: string | null
+          created_at: string
+          currency: string | null
+          description: string | null
           end_date: string | null
           id: string
           name: string
+          renewal_date: string | null
+          start_date: string | null
+          status: string
+          tenant_id: string
+          value: number | null
+          version_number: number
+        }
+        Insert: {
+          change_description?: string | null
+          changed_by_id?: string | null
+          contract_id: string
+          contract_type?: string | null
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          name: string
+          renewal_date?: string | null
+          start_date?: string | null
+          status: string
+          tenant_id: string
+          value?: number | null
+          version_number?: number
+        }
+        Update: {
+          change_description?: string | null
+          changed_by_id?: string | null
+          contract_id?: string
+          contract_type?: string | null
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          name?: string
+          renewal_date?: string | null
+          start_date?: string | null
+          status?: string
+          tenant_id?: string
+          value?: number | null
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_versions_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_versions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contracts: {
+        Row: {
+          account_id: string | null
+          contract_type: string | null
+          created_at: string
+          currency: string
+          deal_id: string | null
+          description: string | null
+          document_url: string | null
+          end_date: string | null
+          id: string
+          is_active: boolean
+          name: string
+          owner_id: string | null
+          renewal_date: string | null
+          signature_status: string
+          signature_token: string | null
+          signed_at: string | null
+          signed_by_id: string | null
           start_date: string | null
           status: string
           tenant_id: string
@@ -1019,12 +1155,22 @@ export type Database = {
         }
         Insert: {
           account_id?: string | null
+          contract_type?: string | null
           created_at?: string
+          currency?: string
           deal_id?: string | null
+          description?: string | null
           document_url?: string | null
           end_date?: string | null
           id?: string
+          is_active?: boolean
           name: string
+          owner_id?: string | null
+          renewal_date?: string | null
+          signature_status?: string
+          signature_token?: string | null
+          signed_at?: string | null
+          signed_by_id?: string | null
           start_date?: string | null
           status?: string
           tenant_id: string
@@ -1033,12 +1179,22 @@ export type Database = {
         }
         Update: {
           account_id?: string | null
+          contract_type?: string | null
           created_at?: string
+          currency?: string
           deal_id?: string | null
+          description?: string | null
           document_url?: string | null
           end_date?: string | null
           id?: string
+          is_active?: boolean
           name?: string
+          owner_id?: string | null
+          renewal_date?: string | null
+          signature_status?: string
+          signature_token?: string | null
+          signed_at?: string | null
+          signed_by_id?: string | null
           start_date?: string | null
           status?: string
           tenant_id?: string
