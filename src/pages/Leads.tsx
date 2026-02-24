@@ -12,16 +12,21 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, MoreHorizontal, ArrowRightCircle, Pencil, Trash2, Upload, Download, Users, Target } from "lucide-react";
+import { Plus, Search, MoreHorizontal, ArrowRightCircle, Pencil, Trash2, Upload, Download, Users, Target, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { emitEvent } from "@/lib/emitEvent";
 
 const statusLabels: Record<string, string> = { new: "Novo", contacted: "Contatado", qualified: "Qualificado", unqualified: "Desqualificado", converted: "Convertido" };
 const sourceLabels: Record<string, string> = { manual: "Manual", website: "Website", referral: "Indicação", social: "Redes Sociais", ads: "Anúncios" };
 
+const PAGE_SIZE = 50;
+
 export default function Leads() {
   const [leads, setLeads] = useState<any[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -50,12 +55,43 @@ export default function Leads() {
   const [scoringRules, setScoringRules] = useState<any[]>([]);
   const [ruleForm, setRuleForm] = useState({ criteria: "", points: "10" });
 
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(0);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Reset page on filter change
+  useEffect(() => { setPage(0); }, [filterStatus]);
+
   const fetchData = useCallback(async () => {
-    const { data } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
-    setLeads(data || []); setLoading(false);
-  }, []);
+    setLoading(true);
+    const from = page * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
+    let query = supabase.from("leads").select("*", { count: "exact" }).order("created_at", { ascending: false });
+
+    if (filterStatus !== "all") {
+      query = query.eq("status", filterStatus);
+    }
+    if (debouncedSearch) {
+      query = query.or(`name.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%`);
+    }
+
+    query = query.range(from, to);
+
+    const { data, count } = await query;
+    setLeads(data || []);
+    setTotalCount(count ?? 0);
+    setLoading(false);
+  }, [page, filterStatus, debouncedSearch]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   const openCreate = () => { setEditingId(null); setForm({ name: "", email: "", phone: "", source: "manual", score: "0", notes: "" }); setDialogOpen(true); };
   const openEdit = (lead: any) => { setEditingId(lead.id); setForm({ name: lead.name, email: lead.email || "", phone: lead.phone || "", source: lead.source || "manual", score: String(lead.score || 0), notes: lead.notes || "" }); setDialogOpen(true); };
@@ -95,7 +131,6 @@ export default function Leads() {
     const { data: firstStage } = await supabase.from("pipeline_stages").select("id").eq("pipeline_id", pipeline.id).order("order", { ascending: true }).limit(1).single();
     if (!firstStage) return;
 
-    // 1. Criar ou buscar crm_account
     let accountId: string | null = null;
     const companyName = convertLead.company || convertLead.name;
     const { data: existingAccount } = await supabase.from("crm_accounts").select("id").eq("name", companyName).limit(1).single();
@@ -109,7 +144,6 @@ export default function Leads() {
       accountId = newAccount?.id || null;
     }
 
-    // 2. Criar contact vinculado ao account
     let contactId: string | null = null;
     const { data: newContact } = await supabase.from("contacts").insert({
       tenant_id: profile.tenant_id, first_name: convertLead.name,
@@ -118,7 +152,6 @@ export default function Leads() {
     }).select("id").single();
     contactId = newContact?.id || null;
 
-    // 3. Criar deal vinculado ao account e contact
     const { error } = await supabase.from("deals").insert({
       tenant_id: profile.tenant_id, pipeline_id: pipeline.id, stage_id: firstStage.id, name: dealName,
       lead_id: convertLead.id, estimated_value: parseFloat(dealValue) || 0,
@@ -126,7 +159,6 @@ export default function Leads() {
     });
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
 
-    // 4. Marcar lead como convertido com IDs de rastreamento
     await supabase.from("leads").update({
       status: "converted", is_converted: true, converted_at: new Date().toISOString(),
       converted_to_account_id: accountId, converted_to_contact_id: contactId,
@@ -148,7 +180,6 @@ export default function Leads() {
       const rows = lines.slice(1).map((l) => l.split(",").map((c) => c.trim().replace(/^"|"$/g, "")));
       setCsvHeaders(headers);
       setCsvData(rows);
-      // Auto-map obvious columns
       const mapping: Record<string, string> = { name: "", email: "", phone: "", source: "" };
       headers.forEach((h) => {
         const lower = h.toLowerCase();
@@ -190,7 +221,6 @@ export default function Leads() {
       });
     }
 
-    // Batch insert (50 at a time)
     let imported = 0;
     for (let i = 0; i < validRows.length; i += 50) {
       const batch = validRows.slice(i, i + 50);
@@ -240,10 +270,8 @@ export default function Leads() {
     const remove = sorted.slice(1);
 
     for (const dup of remove) {
-      // Transfer references
       await supabase.from("deals").update({ lead_id: keep.id }).eq("lead_id", dup.id);
       await supabase.from("activities").update({ lead_id: keep.id }).eq("lead_id", dup.id);
-      // Fill missing data on keeper
       const updates: any = {};
       if (!keep.email && dup.email) updates.email = dup.email;
       if (!keep.phone && dup.phone) updates.phone = dup.phone;
@@ -332,16 +360,10 @@ export default function Leads() {
     toast({ title: "Regras padrão criadas!" });
   };
 
-  const filtered = leads.filter((l) => {
-    const matchSearch = l.name.toLowerCase().includes(search.toLowerCase()) || (l.email || "").toLowerCase().includes(search.toLowerCase());
-    const matchStatus = filterStatus === "all" || l.status === filterStatus;
-    return matchSearch && matchStatus;
-  });
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold tracking-tight">Leads</h1><p className="text-muted-foreground">Gerencie seus leads de vendas</p></div>
+        <div><h1 className="text-2xl font-bold tracking-tight">Leads</h1><p className="text-muted-foreground">Gerencie seus leads de vendas — {totalCount.toLocaleString("pt-BR")} total</p></div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => { setCsvStep("upload"); setCsvDialog(true); }}><Upload className="mr-2 h-4 w-4" />Importar CSV</Button>
           <Button variant="outline" onClick={exportLeadsCsv}><Download className="mr-2 h-4 w-4" />Exportar CSV</Button>
@@ -356,16 +378,16 @@ export default function Leads() {
         <DialogContent className="bg-card border-border">
           <DialogHeader><DialogTitle>{editingId ? "Editar Lead" : "Novo Lead"}</DialogTitle></DialogHeader>
           <form onSubmit={handleSave} className="space-y-4">
-            <div className="space-y-2"><Label>Nome</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
+            <div className="space-y-2"><Label>Nome *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2"><Label>E-mail</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
               <div className="space-y-2"><Label>Telefone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2"><Label>Fonte</Label><Select value={form.source} onValueChange={(v) => setForm({ ...form, source: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.entries(sourceLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent></Select></div>
-              <div className="space-y-2"><Label>Score</Label><Input type="number" min="0" max="100" value={form.score} onChange={(e) => setForm({ ...form, score: e.target.value })} /></div>
+              <div className="space-y-2"><Label>Score</Label><Input type="number" value={form.score} onChange={(e) => setForm({ ...form, score: e.target.value })} /></div>
             </div>
-            <div className="space-y-2"><Label>Notas</Label><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Notas</Label><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3} /></div>
             <Button type="submit" className="w-full">{editingId ? "Salvar" : "Criar Lead"}</Button>
           </form>
         </DialogContent>
@@ -376,7 +398,8 @@ export default function Leads() {
         <DialogContent className="bg-card border-border">
           <DialogHeader><DialogTitle>Converter Lead em Deal</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2"><Label>Nome do Deal</Label><Input value={dealName} onChange={(e) => setDealName(e.target.value)} required /></div>
+            <p className="text-sm text-muted-foreground">Ao converter, serão criados automaticamente: Account, Contact e Deal no pipeline.</p>
+            <div className="space-y-2"><Label>Nome do Deal</Label><Input value={dealName} onChange={(e) => setDealName(e.target.value)} /></div>
             <div className="space-y-2"><Label>Valor Estimado (R$)</Label><Input type="number" step="0.01" value={dealValue} onChange={(e) => setDealValue(e.target.value)} /></div>
             <Button onClick={handleConvert} className="w-full">Converter</Button>
           </div>
@@ -530,8 +553,8 @@ export default function Leads() {
             <TableHeader><TableRow className="border-border"><TableHead>Nome</TableHead><TableHead>E-mail</TableHead><TableHead>Fonte</TableHead><TableHead>Tags</TableHead><TableHead>Score</TableHead><TableHead>Status</TableHead><TableHead className="w-10" /></TableRow></TableHeader>
             <TableBody>
                {loading ? <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow> :
-              filtered.length === 0 ? <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum lead encontrado</TableCell></TableRow> :
-              filtered.map((l) => (
+              leads.length === 0 ? <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum lead encontrado</TableCell></TableRow> :
+              leads.map((l) => (
                 <TableRow key={l.id} className="border-border">
                   <TableCell className="font-medium">{l.name}</TableCell>
                   <TableCell className="text-muted-foreground">{l.email || "—"}</TableCell>
@@ -561,6 +584,30 @@ export default function Leads() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Mostrando {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} de {totalCount.toLocaleString("pt-BR")} leads
+          </p>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled={page === 0} onClick={() => setPage(0)}>
+              <ChevronsLeft className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled={page === 0} onClick={() => setPage(page - 1)}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm px-3">Página {page + 1} de {totalPages}</span>
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled={page >= totalPages - 1} onClick={() => setPage(totalPages - 1)}>
+              <ChevronsRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
