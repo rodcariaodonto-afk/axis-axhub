@@ -1,127 +1,155 @@
 
 
-# Refatoracao Completa - AXIS Nivel Salesforce
+# Completar Refatoracao Salesforce - O Que Falta
 
-## Analise do Documento vs. Realidade Atual
+## Analise: O Que Ja Existe vs. O Que Falta
 
-O PDF foi escrito para um projeto generico e referencia tabelas/conceitos que **nao existem** no AXIS atual:
+| Item do PDF | Status Atual |
+|---|---|
+| Tabela `leads` com `is_converted` | Ja existe |
+| Tabela `crm_accounts` (Accounts) | Tabela existe, **pagina de gestao NAO existe** |
+| Tabela `contacts` com `account_id` | Existe, mas campo e opcional (PDF quer obrigatorio na UI) |
+| Tabela `deals` (Opportunities) | Ja existe |
+| Tabela `contracts` + pagina | Ja existe |
+| Tabela `activities` + pagina | Existe, mas falta vinculacao a Account/Contact na UI |
+| Custom Fields para todos os objetos | So existe para Produtos (`product_custom_fields`) |
+| Report Builder visual | Ja existe (`ReportBuilder.tsx`) |
+| Soft delete de usuarios | **NAO existe** |
+| Campos `converted_to_account_id` e `converted_to_contact_id` em leads | **NAO existem** |
+| Pagina de Accounts (CRUD) | **NAO existe** |
 
-| PDF Referencia | AXIS Atual | Status |
-|---|---|---|
-| `workspaces` + `workspace_id` | `tenant_id` + RLS via `get_user_tenant_id()` | Ja existe (diferente nome) |
-| `accounts` | `crm_accounts` | Ja existe |
-| `contacts` | `contacts` | Ja existe |
-| `leads` | `leads` | Ja existe |
-| `opportunities` | `deals` | Ja existe (diferente nome) |
-| `activities` | `activities` | Ja existe |
-| `contracts` | -- | **NAO EXISTE** (novo) |
-| `clientes_old` / `contatos_old` | -- | Nao existem (migracao nao se aplica) |
-| `invoices` | `receivables` + `payables` | Ja existe (diferente modelo) |
+## Plano de Implementacao
 
-## O Que Realmente Precisa Ser Feito
+### Fase 1: Migracoes de Banco
 
-Em vez de reescrever tudo (que quebraria campanhas, funis, WhatsApp, BI e todas as integracoes), vamos **alinhar** a arquitetura existente ao padrao Salesforce com as seguintes mudancas:
+**1.1 Adicionar colunas faltantes em `leads`:**
+- `converted_to_account_id` (uuid, ref crm_accounts)
+- `converted_to_contact_id` (uuid, ref contacts)
 
-### Fase 1: Novas Tabelas
+**1.2 Criar tabelas `custom_fields` e `custom_field_values`:**
+- `custom_fields`: define campos customizaveis por objeto (accounts, contacts, deals, contracts)
+- `custom_field_values`: armazena valores por registro
+- RLS com tenant isolation
 
-1. **Criar tabela `contracts`** - Contratos vinculados a accounts e deals
-   - Campos: `id`, `tenant_id`, `account_id`, `deal_id`, `name`, `status`, `start_date`, `end_date`, `value`, `document_url`, `created_at`, `updated_at`
-   - RLS com tenant isolation
+**1.3 Adicionar `is_active` na tabela `profiles`:**
+- Permitir soft delete de usuarios (desativar em vez de excluir)
 
-2. **Adicionar campo `is_converted` na tabela `leads`** (se nao existir) para rastrear conversao formal Lead -> Deal + Contact + Account
+### Fase 2: Pagina de Accounts (Contas/Empresas)
 
-### Fase 2: Melhorias na Logica de Conversao de Leads
+**Criar `src/pages/Accounts.tsx`** com:
+- Listagem de contas (crm_accounts) com busca e filtros (segmento, proprietario)
+- CRUD completo: criar, editar, desativar (soft delete)
+- Campos: Nome, CNPJ, Website (via email), Segmento, Telefone, Endereco
+- Validacao: CNPJ unico por tenant
+- Adicionar rota `/accounts` no App.tsx e link "Contas" no sidebar CRM
 
-3. **Aprimorar o fluxo de conversao de Lead** na pagina `Leads.tsx`:
-   - Ao converter, criar automaticamente um `crm_account` (se nao existir)
-   - Criar um `contact` vinculado ao account
-   - Criar o `deal` vinculado ao account e contact
-   - Marcar o lead como `is_converted = true`
+### Fase 3: Melhorias na Pagina de Activities
 
-### Fase 3: Modulo de Contratos
+**Modificar `src/pages/Activities.tsx`:**
+- Adicionar seletores de Account e Contact no formulario
+- Adicionar tipo "WhatsApp Message" e "Note"
+- Mostrar colunas Account e Contact na tabela
+- Filtros por tipo, proprietario, e entidade vinculada
 
-4. **Criar pagina `Contracts.tsx`** com CRUD completo
-   - Listagem com filtros por status e account
-   - Formulario de criacao/edicao
-   - Upload de documento (PDF)
-   - Vinculacao com account e deal
+### Fase 4: Melhorias na Pagina de Contacts
 
-5. **Adicionar rota e link no sidebar**
+**Modificar `src/pages/Contacts.tsx`:**
+- Tornar campo "Empresa" (account_id) obrigatorio na UI
+- Exibir alerta se tentar criar contato sem conta
 
-### Fase 4: Indices de Performance
+### Fase 5: Custom Fields Generico
 
-6. **Criar indices nas tabelas existentes** para melhorar queries:
-   - `idx_contacts_account_id` em `contacts(account_id)`
-   - `idx_leads_status` em `leads(status)` (se nao existir)
-   - `idx_deals_stage_id` em `deals(stage_id)`
-   - `idx_deals_pipeline_id` em `deals(pipeline_id)`
+**Criar `src/pages/settings/GenericCustomFieldsSettings.tsx`:**
+- Interface para selecionar objeto (Accounts, Contacts, Deals, Contracts)
+- Criar/editar/excluir campos customizaveis por objeto
+- Tipos: text, number, date, picklist, checkbox
+- Integrar no hub de Settings
 
-### Fase 5: Melhorias nas Activities
+### Fase 6: Soft Delete de Usuarios
 
-7. **Adicionar campos `related_to_account_id` e `related_to_contact_id`** na tabela `activities` (alem dos ja existentes `deal_id`, `lead_id`, `contact_id`)
-   - Permitir vincular atividades diretamente a accounts
+**Modificar `src/pages/settings/UsersManagement.tsx`:**
+- Substituir DELETE por UPDATE `is_active = false`
+- Filtrar usuarios com `is_active = true` na listagem
+- Botao "Desativar" em vez de "Excluir"
 
-## O Que NAO Sera Alterado (Preservado)
+### Fase 7: Atualizar Conversao de Leads
 
-- Arquitetura `tenant_id` + RLS (equivalente funcional ao `workspace_id`)
-- Tabela `crm_accounts` (nao renomear para `accounts` - quebraria todas as queries)
-- Tabela `deals` (nao renomear para `opportunities`)
-- Todas as integracoes: WhatsApp, Campanhas, Funis, BI, Workflows
-- Sistema de autenticacao e RBAC existente
-- Edge Functions existentes
+**Modificar `src/pages/Leads.tsx`:**
+- Salvar `converted_to_account_id` e `converted_to_contact_id` ao converter
+- Exibir informacao de conversao na listagem (link para Account)
 
 ## Detalhes Tecnicos
 
-### Migracao SQL (Fase 1)
+### SQL da Migracao
 
 ```text
--- Tabela de Contratos
-CREATE TABLE public.contracts (
+-- Colunas de rastreamento de conversao em leads
+ALTER TABLE public.leads 
+  ADD COLUMN IF NOT EXISTS converted_to_account_id uuid REFERENCES public.crm_accounts(id),
+  ADD COLUMN IF NOT EXISTS converted_to_contact_id uuid REFERENCES public.contacts(id);
+
+-- Custom fields generico
+CREATE TABLE public.custom_fields (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id uuid NOT NULL,
-  account_id uuid REFERENCES public.crm_accounts(id) ON DELETE CASCADE,
-  deal_id uuid REFERENCES public.deals(id) ON DELETE SET NULL,
-  name text NOT NULL,
-  status text NOT NULL DEFAULT 'Em elaboracao',
-  start_date date,
-  end_date date,
-  value numeric,
-  document_url text,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  object_name text NOT NULL, -- 'accounts','contacts','deals','contracts'
+  field_name text NOT NULL,
+  field_type text NOT NULL DEFAULT 'text',
+  field_label text NOT NULL,
+  is_required boolean DEFAULT false,
+  picklist_values jsonb,
+  sort_order integer DEFAULT 0,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE(tenant_id, object_name, field_name)
+);
+
+CREATE TABLE public.custom_field_values (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL,
+  custom_field_id uuid NOT NULL REFERENCES public.custom_fields(id) ON DELETE CASCADE,
+  record_id uuid NOT NULL,
+  value text,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE(custom_field_id, record_id)
 );
 
 -- RLS
-ALTER TABLE public.contracts ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Tenant isolation" ON public.contracts FOR ALL
+ALTER TABLE public.custom_fields ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Tenant isolation" ON public.custom_fields FOR ALL
   USING (tenant_id = get_user_tenant_id())
   WITH CHECK (tenant_id = get_user_tenant_id());
 
--- Adicionar is_converted ao leads (se nao existir)
-ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS is_converted boolean DEFAULT false;
-ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS converted_at timestamptz;
+ALTER TABLE public.custom_field_values ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Tenant isolation" ON public.custom_field_values FOR ALL
+  USING (tenant_id = get_user_tenant_id())
+  WITH CHECK (tenant_id = get_user_tenant_id());
 
--- Indices
-CREATE INDEX IF NOT EXISTS idx_contacts_account ON public.contacts(account_id);
-CREATE INDEX IF NOT EXISTS idx_deals_stage ON public.deals(stage_id);
-CREATE INDEX IF NOT EXISTS idx_deals_pipeline ON public.deals(pipeline_id);
-CREATE INDEX IF NOT EXISTS idx_contracts_account ON public.contracts(account_id);
+-- Soft delete para profiles
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
 ```
 
 ### Arquivos a Criar/Modificar
 
 | Arquivo | Acao |
 |---|---|
-| `src/pages/Contracts.tsx` | Criar - CRUD de contratos |
-| `src/pages/Leads.tsx` | Modificar - Melhorar conversao |
-| `src/components/AppSidebar.tsx` | Modificar - Adicionar link Contratos |
-| `src/App.tsx` | Modificar - Adicionar rota |
-| Migration SQL | Criar - Tabela contracts + indices |
+| `src/pages/Accounts.tsx` | Criar - CRUD de contas (crm_accounts) |
+| `src/pages/settings/GenericCustomFieldsSettings.tsx` | Criar - Custom fields para todos os objetos |
+| `src/pages/Activities.tsx` | Modificar - Adicionar Account/Contact |
+| `src/pages/Contacts.tsx` | Modificar - Account obrigatorio |
+| `src/pages/Leads.tsx` | Modificar - Salvar IDs de conversao |
+| `src/pages/settings/UsersManagement.tsx` | Modificar - Soft delete |
+| `src/pages/settings/SettingsLayout.tsx` | Modificar - Adicionar link Custom Fields generico |
+| `src/components/AppSidebar.tsx` | Modificar - Adicionar "Contas" no CRM |
+| `src/App.tsx` | Modificar - Adicionar rota /accounts |
+| Migration SQL | Criar |
 
-### Estimativa
+### O Que NAO Sera Alterado
 
-- 1 migracao de banco
-- 1 pagina nova (Contracts)
-- 2-3 arquivos modificados
-- Zero risco para funcionalidades existentes
-
+- Tabela `crm_accounts` (mantida, sem renomear)
+- Tabela `deals` (mantida como esta)
+- Todas as integracoes: WhatsApp, Campanhas, Funis, BI, Workflows
+- Edge Functions existentes
+- Pagina de Contracts (ja implementada)
+- Fluxo de conversao existente (sera expandido, nao substituido)
