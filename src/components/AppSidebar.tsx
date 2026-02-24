@@ -38,6 +38,7 @@ const crmItems = [
   { title: "Cadências", url: "/cadences", icon: Zap },
   { title: "Funil", url: "/funnel-report", icon: BarChart3 },
   { title: "Forecasting", url: "/forecasting", icon: TrendingUp },
+  { title: "Contratos", url: "/contracts", icon: FileText },
   { title: "Relatórios", url: "/reports", icon: FileBarChart },
   { title: "Workflows", url: "/workflows", icon: GitBranch },
   { title: "Funis de Venda", url: "/funis", icon: Zap },

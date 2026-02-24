@@ -95,14 +95,41 @@ export default function Leads() {
     const { data: firstStage } = await supabase.from("pipeline_stages").select("id").eq("pipeline_id", pipeline.id).order("order", { ascending: true }).limit(1).single();
     if (!firstStage) return;
 
+    // 1. Criar ou buscar crm_account
+    let accountId: string | null = null;
+    const companyName = convertLead.company || convertLead.name;
+    const { data: existingAccount } = await supabase.from("crm_accounts").select("id").eq("name", companyName).limit(1).single();
+    if (existingAccount) {
+      accountId = existingAccount.id;
+    } else {
+      const { data: newAccount } = await supabase.from("crm_accounts").insert({
+        tenant_id: profile.tenant_id, name: companyName,
+        email: convertLead.email || null, phone: convertLead.phone || null,
+      }).select("id").single();
+      accountId = newAccount?.id || null;
+    }
+
+    // 2. Criar contact vinculado ao account
+    let contactId: string | null = null;
+    const { data: newContact } = await supabase.from("contacts").insert({
+      tenant_id: profile.tenant_id, first_name: convertLead.name,
+      email: convertLead.email || null, phone: convertLead.phone || null,
+      account_id: accountId, is_primary: true,
+    }).select("id").single();
+    contactId = newContact?.id || null;
+
+    // 3. Criar deal vinculado ao account e contact
     const { error } = await supabase.from("deals").insert({
       tenant_id: profile.tenant_id, pipeline_id: pipeline.id, stage_id: firstStage.id, name: dealName,
       lead_id: convertLead.id, estimated_value: parseFloat(dealValue) || 0,
+      account_id: accountId, contact_id: contactId,
     });
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
-    await supabase.from("leads").update({ status: "converted" }).eq("id", convertLead.id);
+
+    // 4. Marcar lead como convertido
+    await supabase.from("leads").update({ status: "converted", is_converted: true, converted_at: new Date().toISOString() } as any).eq("id", convertLead.id);
     emitEvent("lead.status_changed", { lead_id: convertLead.id, old_status: convertLead.status, new_status: "converted" });
-    toast({ title: "Lead convertido em deal!" }); setConvertDialog(false); fetchData();
+    toast({ title: "Lead convertido!", description: "Account, Contact e Deal criados automaticamente." }); setConvertDialog(false); fetchData();
   };
 
   // === CSV Import ===
