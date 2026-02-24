@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,9 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, User, Pencil, Trash2, UserCheck } from "lucide-react";
+import { Plus, Search, User, Pencil, Trash2, UserCheck, AlertTriangle } from "lucide-react";
 
 export default function Contacts() {
+  const navigate = useNavigate();
   const [contacts, setContacts] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,23 +24,20 @@ export default function Contacts() {
   const [form, setForm] = useState({ first_name: "", last_name: "", email: "", phone: "", position: "", account_id: "", is_primary: false });
   const { toast } = useToast();
 
-  // Edit state
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<any>(null);
   const [editForm, setEditForm] = useState({ first_name: "", last_name: "", email: "", phone: "", position: "", account_id: "", is_primary: false });
 
-  // Delete state
   const [deleteContact, setDeleteContact] = useState<any>(null);
 
-  // Convert to customer state
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
   const [convertingContact, setConvertingContact] = useState<any>(null);
   const [convertForm, setConvertForm] = useState({ name: "", document: "", email: "", phone: "" });
 
   const fetchData = useCallback(async () => {
     const [{ data: c }, { data: a }] = await Promise.all([
-      supabase.from("contacts").select("*, crm_accounts(name)").order("created_at", { ascending: false }),
-      supabase.from("crm_accounts").select("id, name").order("name"),
+      supabase.from("contacts").select("*, crm_accounts(id, name)").order("created_at", { ascending: false }),
+      supabase.from("crm_accounts").select("id, name").eq("is_active", true).order("name"),
     ]);
     setContacts(c || []);
     setAccounts(a || []);
@@ -50,7 +49,7 @@ export default function Contacts() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.account_id) {
-      toast({ title: "Empresa obrigatória", description: "Selecione uma empresa antes de criar o contato.", variant: "destructive" });
+      toast({ title: "Conta obrigatória", description: "Selecione uma conta antes de criar o contato.", variant: "destructive" });
       return;
     }
     const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
@@ -89,13 +88,17 @@ export default function Contacts() {
   const handleEditSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingContact) return;
+    if (!editForm.account_id) {
+      toast({ title: "Conta obrigatória", description: "Selecione uma conta antes de salvar.", variant: "destructive" });
+      return;
+    }
     const { error } = await supabase.from("contacts").update({
       first_name: editForm.first_name,
       last_name: editForm.last_name || null,
       email: editForm.email || null,
       phone: editForm.phone || null,
       position: editForm.position || null,
-      account_id: editForm.account_id || null,
+      account_id: editForm.account_id,
       is_primary: editForm.is_primary,
     }).eq("id", editingContact.id);
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
@@ -149,30 +152,42 @@ export default function Contacts() {
     return matchSearch && matchAccount;
   });
 
+  const noAccounts = accounts.length === 0 && !loading;
+
   const contactFormFields = (formState: typeof form, setFormState: (f: typeof form) => void) => (
     <>
+      {/* Conta primeiro */}
+      <div className="space-y-2">
+        <Label>Conta *</Label>
+        {noAccounts ? (
+          <div className="flex items-center gap-2 rounded-md border border-destructive bg-destructive/10 p-3 text-sm">
+            <AlertTriangle className="h-4 w-4 text-destructive" />
+            <span>
+              Você precisa criar uma conta primeiro.{" "}
+              <button type="button" className="underline font-medium text-primary" onClick={() => navigate("/accounts")}>
+                Ir para Contas
+              </button>
+            </span>
+          </div>
+        ) : (
+          <Select value={formState.account_id} onValueChange={(v) => setFormState({ ...formState, account_id: v })}>
+            <SelectTrigger><SelectValue placeholder="Selecione uma conta..." /></SelectTrigger>
+            <SelectContent>
+              {accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+        {!formState.account_id && !noAccounts && <p className="text-xs text-destructive">Conta é obrigatória</p>}
+      </div>
       <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2"><Label>Nome</Label><Input value={formState.first_name} onChange={(e) => setFormState({ ...formState, first_name: e.target.value })} required /></div>
+        <div className="space-y-2"><Label>Nome *</Label><Input value={formState.first_name} onChange={(e) => setFormState({ ...formState, first_name: e.target.value })} required /></div>
         <div className="space-y-2"><Label>Sobrenome</Label><Input value={formState.last_name} onChange={(e) => setFormState({ ...formState, last_name: e.target.value })} /></div>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2"><Label>E-mail</Label><Input type="email" value={formState.email} onChange={(e) => setFormState({ ...formState, email: e.target.value })} /></div>
         <div className="space-y-2"><Label>Telefone</Label><Input value={formState.phone} onChange={(e) => setFormState({ ...formState, phone: e.target.value })} /></div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2"><Label>Cargo</Label><Input value={formState.position} onChange={(e) => setFormState({ ...formState, position: e.target.value })} /></div>
-        <div className="space-y-2">
-          <Label>Empresa *</Label>
-          <Select value={formState.account_id || "__none__"} onValueChange={(v) => setFormState({ ...formState, account_id: v === "__none__" ? "" : v })}>
-            <SelectTrigger><SelectValue placeholder="Selecione uma empresa" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">Nenhuma</SelectItem>
-              {accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          {!formState.account_id && <p className="text-xs text-destructive">Empresa é obrigatória para novos contatos</p>}
-        </div>
-      </div>
+      <div className="space-y-2"><Label>Cargo</Label><Input value={formState.position} onChange={(e) => setFormState({ ...formState, position: e.target.value })} /></div>
     </>
   );
 
@@ -185,17 +200,30 @@ export default function Contacts() {
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button><Plus className="mr-2 h-4 w-4" />Novo Contato</Button>
+            <Button disabled={noAccounts}><Plus className="mr-2 h-4 w-4" />Novo Contato</Button>
           </DialogTrigger>
           <DialogContent className="bg-card border-border">
             <DialogHeader><DialogTitle>Novo Contato</DialogTitle></DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4">
               {contactFormFields(form, setForm)}
-              <Button type="submit" className="w-full">Criar Contato</Button>
+              <Button type="submit" className="w-full" disabled={!form.account_id}>Criar Contato</Button>
             </form>
           </DialogContent>
         </Dialog>
       </div>
+
+      {noAccounts && (
+        <Card className="border-destructive bg-destructive/5">
+          <CardContent className="flex items-center gap-3 p-4">
+            <AlertTriangle className="h-5 w-5 text-destructive" />
+            <p className="text-sm">
+              Nenhuma conta cadastrada. Você precisa{" "}
+              <button className="underline font-medium text-primary" onClick={() => navigate("/accounts")}>criar uma conta</button>{" "}
+              antes de adicionar contatos.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex gap-3 flex-wrap">
         <div className="relative max-w-sm flex-1">
@@ -203,9 +231,9 @@ export default function Contacts() {
           <Input placeholder="Buscar por nome ou email..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
         <Select value={filterAccount} onValueChange={setFilterAccount}>
-          <SelectTrigger className="w-48"><SelectValue placeholder="Empresa" /></SelectTrigger>
+          <SelectTrigger className="w-48"><SelectValue placeholder="Conta" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todas as empresas</SelectItem>
+            <SelectItem value="all">Todas as contas</SelectItem>
             {accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
           </SelectContent>
         </Select>
@@ -217,10 +245,10 @@ export default function Contacts() {
             <TableHeader>
               <TableRow className="border-border">
                 <TableHead>Nome</TableHead>
+                <TableHead>Conta</TableHead>
                 <TableHead>E-mail</TableHead>
                 <TableHead>Telefone</TableHead>
                 <TableHead>Cargo</TableHead>
-                <TableHead>Empresa</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
@@ -238,10 +266,21 @@ export default function Contacts() {
                       {c.first_name} {c.last_name || ""}
                     </div>
                   </TableCell>
+                  <TableCell>
+                    {c.account_id && c.crm_accounts?.name ? (
+                      <button
+                        className="text-primary hover:underline font-medium text-left"
+                        onClick={() => navigate(`/accounts/${c.account_id}`)}
+                      >
+                        {c.crm_accounts.name}
+                      </button>
+                    ) : (
+                      <span className="text-destructive text-sm">Sem Conta</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-muted-foreground">{c.email || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{c.phone || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{c.position || "—"}</TableCell>
-                  <TableCell>{c.crm_accounts?.name || "—"}</TableCell>
                   <TableCell>{c.is_primary ? <Badge variant="default">Principal</Badge> : <Badge variant="secondary">Contato</Badge>}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
@@ -269,7 +308,7 @@ export default function Contacts() {
           <DialogHeader><DialogTitle>Editar Contato</DialogTitle></DialogHeader>
           <form onSubmit={handleEditSave} className="space-y-4">
             {contactFormFields(editForm, setEditForm)}
-            <Button type="submit" className="w-full">Salvar Alterações</Button>
+            <Button type="submit" className="w-full" disabled={!editForm.account_id}>Salvar Alterações</Button>
           </form>
         </DialogContent>
       </Dialog>

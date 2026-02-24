@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_contacts_account_id ON public.contacts(account_id);
