@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Pencil } from "lucide-react";
 
 interface Customer {
   id: string;
@@ -22,6 +22,7 @@ export default function Customers() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", document: "", email: "", phone: "" });
   const { toast } = useToast();
 
@@ -34,24 +35,41 @@ export default function Customers() {
 
   useEffect(() => { fetchCustomers(); }, []);
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const openCreate = () => {
+    setEditingId(null);
+    setForm({ name: "", document: "", email: "", phone: "" });
+    setDialogOpen(true);
+  };
+
+  const openEdit = (c: Customer) => {
+    setEditingId(c.id);
+    setForm({ name: c.name, document: c.document || "", email: c.email || "", phone: c.phone || "" });
+    setDialogOpen(true);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
-    if (!profile) return;
-    const { error } = await supabase.from("customers").insert({
-      tenant_id: profile.tenant_id,
+    const payload = {
       name: form.name,
       document: form.document || null,
       email: form.email || null,
       phone: form.phone || null,
-    });
-    if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
-    else {
+    };
+
+    if (editingId) {
+      const { error } = await supabase.from("customers").update(payload).eq("id", editingId);
+      if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+      toast({ title: "Cliente atualizado!" });
+    } else {
+      const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+      if (!profile) return;
+      const { error } = await supabase.from("customers").insert({ ...payload, tenant_id: profile.tenant_id });
+      if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
       toast({ title: "Cliente criado!" });
-      setForm({ name: "", document: "", email: "", phone: "" });
-      setDialogOpen(false);
-      fetchCustomers();
     }
+    setForm({ name: "", document: "", email: "", phone: "" });
+    setDialogOpen(false);
+    fetchCustomers();
   };
 
   const filtered = customers.filter(
@@ -65,36 +83,35 @@ export default function Customers() {
           <h1 className="text-2xl font-bold tracking-tight">Clientes</h1>
           <p className="text-muted-foreground">Gerencie seus clientes</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button><Plus className="mr-2 h-4 w-4" />Novo Cliente</Button>
-          </DialogTrigger>
-          <DialogContent className="bg-card border-border">
-            <DialogHeader><DialogTitle>Novo Cliente</DialogTitle></DialogHeader>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Nome</Label>
-                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-              </div>
-              <div className="space-y-2">
-                <Label>CPF/CNPJ</Label>
-                <Input value={form.document} onChange={(e) => setForm({ ...form, document: e.target.value })} />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>E-mail</Label>
-                  <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Telefone</Label>
-                  <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-                </div>
-              </div>
-              <Button type="submit" className="w-full">Criar Cliente</Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" />Novo Cliente</Button>
       </div>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="bg-card border-border">
+          <DialogHeader><DialogTitle>{editingId ? "Editar Cliente" : "Novo Cliente"}</DialogTitle></DialogHeader>
+          <form onSubmit={handleSave} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nome</Label>
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            </div>
+            <div className="space-y-2">
+              <Label>CPF/CNPJ</Label>
+              <Input value={form.document} onChange={(e) => setForm({ ...form, document: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>E-mail</Label>
+                <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Telefone</Label>
+                <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              </div>
+            </div>
+            <Button type="submit" className="w-full">{editingId ? "Salvar" : "Criar Cliente"}</Button>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -110,13 +127,14 @@ export default function Customers() {
                 <TableHead>CPF/CNPJ</TableHead>
                 <TableHead>E-mail</TableHead>
                 <TableHead>Telefone</TableHead>
+                <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Nenhum cliente encontrado</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nenhum cliente encontrado</TableCell></TableRow>
               ) : (
                 filtered.map((c) => (
                   <TableRow key={c.id} className="border-border">
@@ -124,6 +142,11 @@ export default function Customers() {
                     <TableCell className="font-mono text-xs">{c.document || "—"}</TableCell>
                     <TableCell className="text-muted-foreground">{c.email || "—"}</TableCell>
                     <TableCell className="text-muted-foreground">{c.phone || "—"}</TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
