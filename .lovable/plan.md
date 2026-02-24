@@ -1,155 +1,84 @@
 
 
-# Completar Refatoracao Salesforce - O Que Falta
+# Completar Pagina de Accounts - Nivel Salesforce
 
-## Analise: O Que Ja Existe vs. O Que Falta
+## O Que Ja Existe
+- Tabela `crm_accounts` com campos basicos (name, cnpj, email, phone, segment, address_json, owner_user_id)
+- Pagina `Accounts.tsx` com CRUD simples (listagem, criar, editar)
+- Rota `/accounts` e link no sidebar
 
-| Item do PDF | Status Atual |
+## O Que Falta (Segundo o PDF)
+
+| Funcionalidade | Status |
 |---|---|
-| Tabela `leads` com `is_converted` | Ja existe |
-| Tabela `crm_accounts` (Accounts) | Tabela existe, **pagina de gestao NAO existe** |
-| Tabela `contacts` com `account_id` | Existe, mas campo e opcional (PDF quer obrigatorio na UI) |
-| Tabela `deals` (Opportunities) | Ja existe |
-| Tabela `contracts` + pagina | Ja existe |
-| Tabela `activities` + pagina | Existe, mas falta vinculacao a Account/Contact na UI |
-| Custom Fields para todos os objetos | So existe para Produtos (`product_custom_fields`) |
-| Report Builder visual | Ja existe (`ReportBuilder.tsx`) |
-| Soft delete de usuarios | **NAO existe** |
-| Campos `converted_to_account_id` e `converted_to_contact_id` em leads | **NAO existem** |
-| Pagina de Accounts (CRUD) | **NAO existe** |
+| Campo `website` na tabela | Falta |
+| Campo `is_active` na tabela | Falta |
+| Campos de endereco separados (city, state, country, postal_code) | Usar `address_json` (ja existe) |
+| Pagina de Detalhes com abas (Contatos, Oportunidades, Contratos, Atividades) | Falta |
+| Seletor de Proprietario (owner) no formulario | Falta |
+| Botao "Desativar" (soft delete) | Falta |
+| Paginacao (10 por pagina) | Falta |
+| Validacao de CNPJ | Falta |
+| Validacao de URL/Website | Falta |
+| Filtro por Proprietario | Falta |
+| Nome clicavel na listagem (abre detalhes) | Falta |
+| Posicao no sidebar (entre Leads e Contacts) | Ja esta correto |
 
 ## Plano de Implementacao
 
-### Fase 1: Migracoes de Banco
+### Fase 1: Migracao de Banco
+Adicionar 2 colunas a `crm_accounts`:
+- `website` (text, nullable)
+- `is_active` (boolean, default true)
 
-**1.1 Adicionar colunas faltantes em `leads`:**
-- `converted_to_account_id` (uuid, ref crm_accounts)
-- `converted_to_contact_id` (uuid, ref contacts)
+Criar indice em `is_active` para performance.
 
-**1.2 Criar tabelas `custom_fields` e `custom_field_values`:**
-- `custom_fields`: define campos customizaveis por objeto (accounts, contacts, deals, contracts)
-- `custom_field_values`: armazena valores por registro
-- RLS com tenant isolation
+### Fase 2: Reescrever Pagina de Listagem (`Accounts.tsx`)
+- Adicionar campo `website` na tabela e no formulario
+- Adicionar seletor de Proprietario (carregado de `profiles`)
+- Adicionar filtro por Proprietario
+- Adicionar paginacao (10 por pagina)
+- Tornar nome clicavel (navega para `/accounts/:id`)
+- Filtrar apenas contas ativas (`is_active = true`)
+- Separar campos de endereco: Endereco, Cidade, Estado, Pais, CEP (salvos em `address_json`)
+- Validacao de CNPJ (formato XX.XXX.XXX/XXXX-XX)
+- Validacao de URL para Website
 
-**1.3 Adicionar `is_active` na tabela `profiles`:**
-- Permitir soft delete de usuarios (desativar em vez de excluir)
+### Fase 3: Criar Pagina de Detalhes (`AccountDetail.tsx`)
+- Rota: `/accounts/:id`
+- Cabecalho com nome da conta e botoes (Editar, Desativar, Voltar)
+- Informacoes principais: CNPJ, Website, Segmento, Telefone, Endereco, Proprietario
+- 4 abas preparadas para futuro: Contatos, Oportunidades, Contratos, Atividades
+  - Cada aba exibe registros vinculados via `account_id`
+- Modal de edicao com mesmos campos do formulario de criacao
+- Botao "Desativar" com confirmacao (marca `is_active = false`)
 
-### Fase 2: Pagina de Accounts (Contas/Empresas)
-
-**Criar `src/pages/Accounts.tsx`** com:
-- Listagem de contas (crm_accounts) com busca e filtros (segmento, proprietario)
-- CRUD completo: criar, editar, desativar (soft delete)
-- Campos: Nome, CNPJ, Website (via email), Segmento, Telefone, Endereco
-- Validacao: CNPJ unico por tenant
-- Adicionar rota `/accounts` no App.tsx e link "Contas" no sidebar CRM
-
-### Fase 3: Melhorias na Pagina de Activities
-
-**Modificar `src/pages/Activities.tsx`:**
-- Adicionar seletores de Account e Contact no formulario
-- Adicionar tipo "WhatsApp Message" e "Note"
-- Mostrar colunas Account e Contact na tabela
-- Filtros por tipo, proprietario, e entidade vinculada
-
-### Fase 4: Melhorias na Pagina de Contacts
-
-**Modificar `src/pages/Contacts.tsx`:**
-- Tornar campo "Empresa" (account_id) obrigatorio na UI
-- Exibir alerta se tentar criar contato sem conta
-
-### Fase 5: Custom Fields Generico
-
-**Criar `src/pages/settings/GenericCustomFieldsSettings.tsx`:**
-- Interface para selecionar objeto (Accounts, Contacts, Deals, Contracts)
-- Criar/editar/excluir campos customizaveis por objeto
-- Tipos: text, number, date, picklist, checkbox
-- Integrar no hub de Settings
-
-### Fase 6: Soft Delete de Usuarios
-
-**Modificar `src/pages/settings/UsersManagement.tsx`:**
-- Substituir DELETE por UPDATE `is_active = false`
-- Filtrar usuarios com `is_active = true` na listagem
-- Botao "Desativar" em vez de "Excluir"
-
-### Fase 7: Atualizar Conversao de Leads
-
-**Modificar `src/pages/Leads.tsx`:**
-- Salvar `converted_to_account_id` e `converted_to_contact_id` ao converter
-- Exibir informacao de conversao na listagem (link para Account)
+### Fase 4: Atualizar Rotas
+- Adicionar rota `/accounts/:id` em `App.tsx`
 
 ## Detalhes Tecnicos
 
 ### SQL da Migracao
 
 ```text
--- Colunas de rastreamento de conversao em leads
-ALTER TABLE public.leads 
-  ADD COLUMN IF NOT EXISTS converted_to_account_id uuid REFERENCES public.crm_accounts(id),
-  ADD COLUMN IF NOT EXISTS converted_to_contact_id uuid REFERENCES public.contacts(id);
+ALTER TABLE public.crm_accounts 
+  ADD COLUMN IF NOT EXISTS website text,
+  ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
 
--- Custom fields generico
-CREATE TABLE public.custom_fields (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid NOT NULL,
-  object_name text NOT NULL, -- 'accounts','contacts','deals','contracts'
-  field_name text NOT NULL,
-  field_type text NOT NULL DEFAULT 'text',
-  field_label text NOT NULL,
-  is_required boolean DEFAULT false,
-  picklist_values jsonb,
-  sort_order integer DEFAULT 0,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now(),
-  UNIQUE(tenant_id, object_name, field_name)
-);
-
-CREATE TABLE public.custom_field_values (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid NOT NULL,
-  custom_field_id uuid NOT NULL REFERENCES public.custom_fields(id) ON DELETE CASCADE,
-  record_id uuid NOT NULL,
-  value text,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now(),
-  UNIQUE(custom_field_id, record_id)
-);
-
--- RLS
-ALTER TABLE public.custom_fields ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Tenant isolation" ON public.custom_fields FOR ALL
-  USING (tenant_id = get_user_tenant_id())
-  WITH CHECK (tenant_id = get_user_tenant_id());
-
-ALTER TABLE public.custom_field_values ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Tenant isolation" ON public.custom_field_values FOR ALL
-  USING (tenant_id = get_user_tenant_id())
-  WITH CHECK (tenant_id = get_user_tenant_id());
-
--- Soft delete para profiles
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
+CREATE INDEX IF NOT EXISTS idx_crm_accounts_is_active ON public.crm_accounts(is_active);
 ```
 
 ### Arquivos a Criar/Modificar
 
 | Arquivo | Acao |
 |---|---|
-| `src/pages/Accounts.tsx` | Criar - CRUD de contas (crm_accounts) |
-| `src/pages/settings/GenericCustomFieldsSettings.tsx` | Criar - Custom fields para todos os objetos |
-| `src/pages/Activities.tsx` | Modificar - Adicionar Account/Contact |
-| `src/pages/Contacts.tsx` | Modificar - Account obrigatorio |
-| `src/pages/Leads.tsx` | Modificar - Salvar IDs de conversao |
-| `src/pages/settings/UsersManagement.tsx` | Modificar - Soft delete |
-| `src/pages/settings/SettingsLayout.tsx` | Modificar - Adicionar link Custom Fields generico |
-| `src/components/AppSidebar.tsx` | Modificar - Adicionar "Contas" no CRM |
-| `src/App.tsx` | Modificar - Adicionar rota /accounts |
-| Migration SQL | Criar |
+| Migration SQL | Criar - website + is_active |
+| `src/pages/Accounts.tsx` | Reescrever - Formulario completo, paginacao, validacoes, owner |
+| `src/pages/AccountDetail.tsx` | Criar - Detalhes com abas |
+| `src/App.tsx` | Modificar - Adicionar rota /accounts/:id |
 
 ### O Que NAO Sera Alterado
-
-- Tabela `crm_accounts` (mantida, sem renomear)
-- Tabela `deals` (mantida como esta)
-- Todas as integracoes: WhatsApp, Campanhas, Funis, BI, Workflows
-- Edge Functions existentes
-- Pagina de Contracts (ja implementada)
-- Fluxo de conversao existente (sera expandido, nao substituido)
+- Tabela `crm_accounts` mantida (nao renomear)
+- Sidebar (posicao ja correta)
+- Integracoes existentes
+- Demais paginas do CRM
