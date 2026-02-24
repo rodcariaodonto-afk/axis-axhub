@@ -1,53 +1,22 @@
 
 
-# Implementar Contracts Completo (Nivel Salesforce)
+# Implementar Opportunities (Oportunidades) - Pipeline de Vendas
 
-## Analise: O Que Ja Existe vs. O Que Falta
+## O Que Existe Hoje
 
-### Tabela `contracts` - Colunas Faltando
+- **Nenhuma** tabela `opportunities` ou `opportunity_stages` no banco
+- **Nenhuma** pagina ou componente de Opportunities no frontend
+- O projeto ja tem um Pipeline/Kanban para Deals, mas Opportunities e um modulo separado conforme o documento
 
-| Coluna PDF | Existe? |
-|---|---|
-| name/title | Existe como `name` |
-| account_id | Existe |
-| deal_id | Existe (extra) |
-| description | **Falta** |
-| contract_type | **Falta** |
-| currency | **Falta** |
-| renewal_date | **Falta** |
-| owner_id | **Falta** |
-| is_active | **Falta** |
-| signature_status | **Falta** |
-| signed_by_id | **Falta** |
-| signed_at | **Falta** |
-| signature_token | **Falta** |
+## Adaptacoes ao Projeto
 
-### Tabelas Novas Necessarias
+O documento referencia `workspace_id` e `users`, mas este projeto usa:
+- `tenant_id` em vez de `workspace_id`
+- `profiles` em vez de `users`
+- `crm_accounts` em vez de `accounts`
+- RLS com `get_user_tenant_id()` em vez de subquery em `users`
 
-| Tabela | Status |
-|---|---|
-| contract_versions | **Falta** |
-| contract_signatures | **Falta** |
-
-### Funcionalidades de UI Faltando
-
-| Funcionalidade | Status |
-|---|---|
-| Sidebar: Contratos apos Contas, antes de Contatos | Falta - esta apos Forecasting |
-| Campos extras no formulario (descricao, tipo, moeda, renovacao, owner) | Falta |
-| Account obrigatorio no form | Falta |
-| Filtro por Conta | Falta |
-| Filtro por Data (range) | Falta |
-| Paginacao (10/pagina) | Falta |
-| Titulo clicavel (abre detalhes) | Falta |
-| Pagina de Detalhes do Contrato | Falta |
-| Modal Editar com descricao da alteracao | Falta |
-| Historico de Versoes | Falta |
-| Secao Assinatura Digital (canvas + status) | Falta |
-| Desativar (soft delete) em vez de Excluir | Falta |
-| Calculo de dias ate vencimento | Falta |
-| Cores de alerta (verde/amarelo/vermelho) | Falta |
-| Validacao data inicio < data termino | Falta |
+Todas as referencias serao adaptadas.
 
 ---
 
@@ -55,66 +24,87 @@
 
 ### Fase 1: Migracao de Banco
 
-**1.1 Adicionar colunas a `contracts`:**
-- `description` (text, nullable)
-- `contract_type` (varchar, nullable) -- Servico, Venda, Parceria, Licenca, Outro
-- `currency` (varchar(3), default 'BRL')
-- `renewal_date` (date, nullable)
-- `owner_id` (uuid, nullable)
-- `is_active` (boolean, default true)
-- `signature_status` (varchar, default 'Unsigned')
-- `signed_by_id` (uuid, nullable)
-- `signed_at` (timestamptz, nullable)
-- `signature_token` (varchar, nullable)
+**1.1 Criar tabela `opportunities`:**
+- id (UUID PK), tenant_id, account_id (FK crm_accounts), name, description, stage (default 'Prospecting'), probability (decimal 0-1), amount, currency (default 'BRL'), expected_close_date, close_date, owner_id (UUID), contact_id (FK contacts), is_active (default true), created_at, updated_at
+- Indexes compostos para performance
+- RLS com tenant isolation via `get_user_tenant_id()`
+- Trigger para updated_at
 
-**1.2 Criar tabela `contract_versions`:**
-- id, contract_id, version_number, title/name, description, contract_type, status, value, currency, start_date, end_date, renewal_date, changed_by_id, change_description, created_at
-- Indice em contract_id
-- RLS com tenant isolation (via join com contracts)
-
-**1.3 Criar tabela `contract_signatures`:**
-- id, contract_id, signer_id, signature_url, signed_at, ip_address, signature_token (unique), is_valid, tenant_id
-- Indice em contract_id
+**1.2 Criar tabela `opportunity_stages`:**
+- id, tenant_id, name, order_index, color, is_won, is_lost, created_at
+- Unique(tenant_id, name)
 - RLS com tenant isolation
 
-**1.4 Indexes em `contracts`:**
-- idx_contracts_account_id, idx_contracts_owner_id, idx_contracts_status, idx_contracts_is_active
+**1.3 Inserir estagios padrao no `handle_new_user()`:**
+- Adicionar criacao automatica dos 6 estagios padrao (Prospecting, Qualification, Proposal, Negotiation, Closed Won, Closed Lost) quando um novo tenant e criado
 
-### Fase 2: Sidebar
+**1.4 Nota:** Para tenants existentes, os estagios serao criados sob demanda na UI (se nenhum estagio existir, cria os padrao automaticamente).
 
-Mover "Contratos" para logo apos "Contas" e antes de "Leads" no array `crmItems`.
+### Fase 2: Menu (Sidebar)
 
-### Fase 3: Reescrever Listagem (`Contracts.tsx`)
+Adicionar "Oportunidades" no array `crmItems` apos "Contratos" e antes de "Contatos":
 
-- Campos extras no formulario: Descricao, Tipo de Contrato, Moeda, Data de Renovacao, Proprietario
-- Account obrigatorio (sem opcao "Nenhuma")
-- Validacoes: titulo obrigatorio, owner obrigatorio, data inicio < data termino, valor positivo
-- Filtros: por Status, por Conta, por Data
-- Paginacao (10 por pagina)
-- Titulo clicavel (navega para `/contracts/:id`)
-- Conta clicavel (navega para `/accounts/:id`)
-- Badge de status com cores do PDF (Draft=cinza, Active=verde, Expired=vermelho, Renewed=azul, Cancelled=preto)
-- Coluna "Dias ate Vencimento" com cores de alerta
-- Soft delete (Desativar) em vez de Excluir
-- Filtrar apenas contratos ativos
+```text
+Dashboard CRM
+Contas
+Contratos
+Oportunidades  <-- NOVO
+Contatos
+Leads
+...
+```
 
-### Fase 4: Criar Pagina de Detalhes (`ContractDetail.tsx`)
+### Fase 3: Pagina de Listagem (`Opportunities.tsx`)
 
-- Rota: `/contracts/:id`
-- Cabecalho: Titulo + Badge de Status + Botoes (Editar, Desativar, Voltar)
-- Secao 1 - Info Principal: Conta (clicavel), Tipo, Proprietario, Data Criacao
-- Secao 2 - Financeiro: Valor formatado, Moeda
-- Secao 3 - Datas: Inicio, Termino, Renovacao, Dias ate Vencimento (com cor)
-- Secao 4 - Descricao
-- Secao 5 - Assinatura Digital: Status badge, botao "Assinar Contrato" (canvas), historico
-- Abas preparadas: Atividades (vazio), Anexos (vazio)
-- Modal Editar: mesmos campos + "Descricao da Alteracao" + cria versao automatica
-- Modal Historico de Versoes: tabela com versoes, botao Restaurar
-- Modal Assinar: canvas para desenho, checkbox concordancia, salva em contract_signatures
+**3.1 Visualizacao Kanban (padrao):**
+- Colunas por estagio com cores customizadas
+- Cards mostrando: nome, conta, valor, probabilidade, valor ponderado
+- Drag-and-drop entre colunas (atualiza estagio)
+- Ao mover para "Closed Won"/"Closed Lost": modal pedindo motivo + preenche close_date
+
+**3.2 Visualizacao em Lista (tabela):**
+- Toggle entre Kanban e Lista
+- Colunas: Nome (clicavel), Conta (clicavel), Estagio (badge), Valor, Probabilidade, Valor Ponderado, Data Fechamento Esperada, Proprietario
+- Paginacao (10/pagina)
+
+**3.3 Barra de Ferramentas:**
+- Botao "Nova Oportunidade"
+- Toggle Kanban/Lista
+- Filtro por Proprietario
+- Filtro por Conta
+- Filtro por Data (range)
+- Busca por nome/conta
+
+**3.4 Resumo de Vendas (cards no topo):**
+- Total de Oportunidades
+- Valor Total
+- Valor Ponderado (amount x probability)
+- Oportunidades Ganhas / Perdidas
+- Taxa de Conversao
+
+**3.5 Modal "Nova Oportunidade":**
+- Campos na ordem: Conta (obrigatorio), Nome (obrigatorio), Descricao, Estagio (obrigatorio, default Prospecting), Probabilidade (0-100%), Valor, Moeda, Data Fechamento Esperada, Contato (filtrado pela conta selecionada), Proprietario (obrigatorio)
+- Validacoes: probabilidade 0-100, valor positivo, campos obrigatorios
+
+### Fase 4: Pagina de Detalhes (`OpportunityDetail.tsx`)
+
+**4.1 Cabecalho:** Nome + Badge de Estagio + Botoes (Editar, Ganhar, Perder, Desativar, Voltar)
+
+**4.2 Secoes:**
+- Info Principal: Conta (clicavel), Contato (clicavel), Proprietario, Datas
+- Financeiro: Valor, Probabilidade, Valor Ponderado, Moeda
+- Datas: Fechamento Esperado, Fechamento Real, Dias ate Fechamento
+- Descricao
+- Abas: Atividades (vazio), Historico (vazio) - preparadas para futuro
+
+**4.3 Modal Editar:**
+- Mesmos campos da criacao, pre-preenchidos
+- Se mudar para Closed Won/Lost: pedir motivo + auto-preencher close_date
 
 ### Fase 5: Rotas
 
-- Adicionar `/contracts/:id` em `App.tsx`
+- `/opportunities` - Listagem (Kanban + Lista)
+- `/opportunities/:id` - Detalhes
 
 ---
 
@@ -122,13 +112,16 @@ Mover "Contratos" para logo apos "Contas" e antes de "Leads" no array `crmItems`
 
 | Arquivo | Acao |
 |---|---|
-| Migration SQL | Criar - colunas + tabelas + indexes |
-| `src/components/AppSidebar.tsx` | Modificar - reordenar Contratos no menu |
-| `src/pages/Contracts.tsx` | Reescrever - formulario completo, filtros, paginacao |
-| `src/pages/ContractDetail.tsx` | Criar - detalhes, versoes, assinatura |
-| `src/App.tsx` | Modificar - adicionar rota /contracts/:id |
+| Migration SQL | Criar - tabelas + indexes + RLS + trigger |
+| `src/components/AppSidebar.tsx` | Modificar - adicionar "Oportunidades" no menu CRM |
+| `src/pages/Opportunities.tsx` | Criar - listagem Kanban + Lista + filtros + resumo |
+| `src/pages/OpportunityDetail.tsx` | Criar - detalhes + editar + acoes |
+| `src/App.tsx` | Modificar - adicionar rotas /opportunities e /opportunities/:id |
 
-## Nota sobre Assinatura Digital
+## Decisao: Edge Functions vs. Supabase Client
 
-A assinatura sera implementada com canvas HTML5 para desenho manual. O envio de link por e-mail e a pagina publica de assinatura serao preparados na estrutura (tabelas e campos) mas a integracao com servico de e-mail ficara para um proximo passo, pois requer configuracao de SMTP/servico de e-mail externo.
+O documento sugere Edge Functions para CRUD, mas este projeto usa Supabase client direto (padrao consistente em todas as paginas). Seguiremos o padrao do projeto usando `supabase.from('opportunities')` diretamente, mantendo consistencia com Contracts, Contacts, Leads, etc.
 
+## Nota sobre Estagios Padrao
+
+Como nao existe um "workspace_id" fixo para inserir estagios padrao, eles serao criados automaticamente para cada tenant na primeira vez que acessar a pagina de Opportunities (se nenhum estagio existir).
