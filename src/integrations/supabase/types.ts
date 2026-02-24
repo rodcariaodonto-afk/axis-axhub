@@ -16,53 +16,91 @@ export type Database = {
     Tables: {
       activities: {
         Row: {
+          account_id: string | null
           contact_id: string | null
+          contract_id: string | null
           created_at: string
+          created_by_id: string | null
           deal_id: string | null
           description: string | null
           done_at: string | null
           due_at: string | null
           id: string
+          is_active: boolean
           lead_id: string | null
+          opportunity_id: string | null
           owner_user_id: string | null
+          priority: string
+          status: string
           tenant_id: string
           title: string
           type: string
+          updated_at: string
         }
         Insert: {
+          account_id?: string | null
           contact_id?: string | null
+          contract_id?: string | null
           created_at?: string
+          created_by_id?: string | null
           deal_id?: string | null
           description?: string | null
           done_at?: string | null
           due_at?: string | null
           id?: string
+          is_active?: boolean
           lead_id?: string | null
+          opportunity_id?: string | null
           owner_user_id?: string | null
+          priority?: string
+          status?: string
           tenant_id: string
           title: string
           type?: string
+          updated_at?: string
         }
         Update: {
+          account_id?: string | null
           contact_id?: string | null
+          contract_id?: string | null
           created_at?: string
+          created_by_id?: string | null
           deal_id?: string | null
           description?: string | null
           done_at?: string | null
           due_at?: string | null
           id?: string
+          is_active?: boolean
           lead_id?: string | null
+          opportunity_id?: string | null
           owner_user_id?: string | null
+          priority?: string
+          status?: string
           tenant_id?: string
           title?: string
           type?: string
+          updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "activities_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "crm_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "activities_contact_id_fkey"
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activities_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
             referencedColumns: ["id"]
           },
           {
@@ -80,7 +118,52 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "activities_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "activities_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      activity_types: {
+        Row: {
+          color: string | null
+          created_at: string
+          icon: string | null
+          id: string
+          is_active: boolean
+          name: string
+          tenant_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          tenant_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_types_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"

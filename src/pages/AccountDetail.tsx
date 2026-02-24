@@ -52,14 +52,16 @@ export default function AccountDetail() {
 
   const fetchRelated = useCallback(async () => {
     if (!id) return;
-    const [c, d, ct] = await Promise.all([
+    const [c, d, ct, act] = await Promise.all([
       supabase.from("contacts").select("*").eq("account_id", id).order("created_at", { ascending: false }),
       supabase.from("deals").select("*").eq("account_id", id).order("created_at", { ascending: false }),
       supabase.from("contracts").select("*").eq("account_id", id).order("created_at", { ascending: false }),
+      supabase.from("activities").select("*, contacts(first_name, last_name)").eq("account_id", id).eq("is_active", true).order("created_at", { ascending: false }).limit(10),
     ]);
     setContacts(c.data || []);
     setDeals(d.data || []);
     setContracts(ct.data || []);
+    setActivities(act.data || []);
   }, [id]);
 
   const fetchOwners = useCallback(async () => {
@@ -203,6 +205,7 @@ export default function AccountDetail() {
           <TabsTrigger value="contacts">Contatos ({contacts.length})</TabsTrigger>
           <TabsTrigger value="deals">Oportunidades ({deals.length})</TabsTrigger>
           <TabsTrigger value="contracts">Contratos ({contracts.length})</TabsTrigger>
+          <TabsTrigger value="activities">Atividades ({activities.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="contacts">
@@ -266,6 +269,28 @@ export default function AccountDetail() {
                     <TableCell className="text-muted-foreground">
                       {ct.start_date ? new Date(ct.start_date).toLocaleDateString("pt-BR") : "—"} — {ct.end_date ? new Date(ct.end_date).toLocaleDateString("pt-BR") : "—"}
                     </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent></Card>
+        </TabsContent>
+
+        <TabsContent value="activities">
+          <Card className="border-border bg-card"><CardContent className="p-0">
+            <Table>
+              <TableHeader><TableRow className="border-border">
+                <TableHead>Assunto</TableHead><TableHead>Tipo</TableHead><TableHead>Status</TableHead><TableHead>Prazo</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {activities.length === 0 ? (
+                  <TableRow><TableCell colSpan={4} className="text-center py-6 text-muted-foreground">Nenhuma atividade vinculada</TableCell></TableRow>
+                ) : activities.map((a) => (
+                  <TableRow key={a.id} className="border-border cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/activities/${a.id}`)}>
+                    <TableCell className="font-medium">{a.title}</TableCell>
+                    <TableCell><Badge variant="outline">{a.type}</Badge></TableCell>
+                    <TableCell><Badge variant={a.status === "Completed" ? "default" : "secondary"}>{a.status === "Open" ? "Aberta" : a.status === "Completed" ? "Concluída" : "Cancelada"}</Badge></TableCell>
+                    <TableCell className="text-muted-foreground">{a.due_at ? new Date(a.due_at).toLocaleDateString("pt-BR") : "—"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

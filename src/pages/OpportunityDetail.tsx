@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Edit, Trophy, XCircle, Power, DollarSign, Calendar, User, Building2 } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface Opportunity {
   id: string; name: string; description: string | null; stage: string;
@@ -30,6 +31,7 @@ export default function OpportunityDetail() {
   const [accounts, setAccounts] = useState<any[]>([]);
   const [contacts, setContacts] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
+  const [activities, setActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
@@ -40,18 +42,20 @@ export default function OpportunityDetail() {
   const fetchData = useCallback(async () => {
     if (!id) return;
     setLoading(true);
-    const [oppRes, stagesRes, accsRes, consRes, profsRes] = await Promise.all([
+    const [oppRes, stagesRes, accsRes, consRes, profsRes, actsRes] = await Promise.all([
       supabase.from("opportunities").select("*").eq("id", id).single(),
       supabase.from("opportunity_stages").select("*").order("order_index"),
       supabase.from("crm_accounts").select("id, name"),
       supabase.from("contacts").select("id, first_name, last_name, account_id"),
       supabase.from("profiles").select("id, full_name"),
+      supabase.from("activities").select("*, contacts(first_name, last_name)").eq("opportunity_id", id).eq("is_active", true).order("created_at", { ascending: false }).limit(10),
     ]);
     if (oppRes.data) setOpp(oppRes.data as Opportunity);
     setStages(stagesRes.data || []);
     setAccounts(accsRes.data || []);
     setContacts(consRes.data || []);
     setProfiles(profsRes.data || []);
+    setActivities(actsRes.data || []);
     setLoading(false);
   }, [id]);
 
@@ -178,8 +182,28 @@ export default function OpportunityDetail() {
       {opp.close_reason && <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Motivo do Fechamento</CardTitle></CardHeader><CardContent><p className="text-sm text-muted-foreground">{opp.close_reason}</p></CardContent></Card>}
 
       {/* Tabs */}
-      <Tabs defaultValue="activities"><TabsList><TabsTrigger value="activities">Atividades</TabsTrigger><TabsTrigger value="history">Histórico</TabsTrigger></TabsList>
-        <TabsContent value="activities"><Card><CardContent className="py-8 text-center text-muted-foreground">Nenhuma atividade registrada.</CardContent></Card></TabsContent>
+      <Tabs defaultValue="activities"><TabsList><TabsTrigger value="activities">Atividades ({activities.length})</TabsTrigger><TabsTrigger value="history">Histórico</TabsTrigger></TabsList>
+        <TabsContent value="activities">
+          {activities.length === 0 ? (
+            <Card><CardContent className="py-8 text-center text-muted-foreground">Nenhuma atividade registrada.</CardContent></Card>
+          ) : (
+            <Card><CardContent className="p-0">
+              <Table>
+                <TableHeader><TableRow><TableHead>Assunto</TableHead><TableHead>Tipo</TableHead><TableHead>Status</TableHead><TableHead>Prazo</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {activities.map((a: any) => (
+                    <TableRow key={a.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/activities/${a.id}`)}>
+                      <TableCell className="font-medium">{a.title}</TableCell>
+                      <TableCell><Badge variant="outline">{a.type}</Badge></TableCell>
+                      <TableCell><Badge variant={a.status === "Completed" ? "default" : "secondary"}>{a.status === "Open" ? "Aberta" : a.status === "Completed" ? "Concluída" : "Cancelada"}</Badge></TableCell>
+                      <TableCell className="text-muted-foreground">{a.due_at ? new Date(a.due_at).toLocaleDateString("pt-BR") : "—"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent></Card>
+          )}
+        </TabsContent>
         <TabsContent value="history"><Card><CardContent className="py-8 text-center text-muted-foreground">Histórico será implementado em breve.</CardContent></Card></TabsContent>
       </Tabs>
 
