@@ -1002,6 +1002,73 @@ export type Database = {
           },
         ]
       }
+      contracts: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          deal_id: string | null
+          document_url: string | null
+          end_date: string | null
+          id: string
+          name: string
+          start_date: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+          value: number | null
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          deal_id?: string | null
+          document_url?: string | null
+          end_date?: string | null
+          id?: string
+          name: string
+          start_date?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          value?: number | null
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          deal_id?: string | null
+          document_url?: string | null
+          end_date?: string | null
+          id?: string
+          name?: string
+          start_date?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "crm_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_accounts: {
         Row: {
           address_json: Json | null
@@ -2730,9 +2797,11 @@ export type Database = {
       leads: {
         Row: {
           channel: string | null
+          converted_at: string | null
           created_at: string
           email: string | null
           id: string
+          is_converted: boolean | null
           name: string
           notes: string | null
           owner_user_id: string | null
@@ -2746,9 +2815,11 @@ export type Database = {
         }
         Insert: {
           channel?: string | null
+          converted_at?: string | null
           created_at?: string
           email?: string | null
           id?: string
+          is_converted?: boolean | null
           name: string
           notes?: string | null
           owner_user_id?: string | null
@@ -2762,9 +2833,11 @@ export type Database = {
         }
         Update: {
           channel?: string | null
+          converted_at?: string | null
           created_at?: string
           email?: string | null
           id?: string
+          is_converted?: boolean | null
           name?: string
           notes?: string | null
           owner_user_id?: string | null
