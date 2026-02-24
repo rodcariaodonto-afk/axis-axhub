@@ -5586,6 +5586,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      count_leads_by_source: {
+        Args: never
+        Returns: {
+          label: string
+          value: number
+        }[]
+      }
+      count_leads_by_status: {
+        Args: never
+        Returns: {
+          label: string
+          value: number
+        }[]
+      }
       create_default_bi_dashboards: {
         Args: { p_tenant_id: string; p_user_id: string }
         Returns: undefined
