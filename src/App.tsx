@@ -27,6 +27,8 @@ const Activities = lazy(() => import("./pages/Activities"));
 const ActivityDetail = lazy(() => import("./pages/ActivityDetail"));
 const FunnelReport = lazy(() => import("./pages/FunnelReport"));
 const Reports = lazy(() => import("./pages/Reports"));
+const ReportBuilderPage = lazy(() => import("./pages/ReportBuilderPage"));
+const ReportViewPage = lazy(() => import("./pages/ReportViewPage"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const NotificationPreferences = lazy(() => import("./pages/NotificationPreferences"));
 const Contacts = lazy(() => import("./pages/Contacts"));
@@ -97,6 +99,8 @@ const App = () => (
               <Route path="/activities/:id" element={<ProtectedRoute><ActivityDetail /></ProtectedRoute>} />
               <Route path="/funnel-report" element={<ProtectedRoute><FunnelReport /></ProtectedRoute>} />
               <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+              <Route path="/reports/:id/builder" element={<ProtectedRoute><ReportBuilderPage /></ProtectedRoute>} />
+              <Route path="/reports/:id/view" element={<ProtectedRoute><ReportViewPage /></ProtectedRoute>} />
               <Route path="/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
               <Route path="/proposals" element={<ProtectedRoute><Proposals /></ProtectedRoute>} />
               <Route path="/crm-dashboard" element={<ProtectedRoute><CrmDashboard /></ProtectedRoute>} />

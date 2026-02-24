@@ -4658,8 +4658,13 @@ export type Database = {
           data: Json | null
           description: string | null
           id: string
+          is_active: boolean | null
+          is_favorite: boolean | null
           is_public: boolean | null
+          last_run_at: string | null
           name: string
+          object_name: string | null
+          report_type: string | null
           shared_with: Json | null
           template_id: string | null
           tenant_id: string
@@ -4673,8 +4678,13 @@ export type Database = {
           data?: Json | null
           description?: string | null
           id?: string
+          is_active?: boolean | null
+          is_favorite?: boolean | null
           is_public?: boolean | null
+          last_run_at?: string | null
           name: string
+          object_name?: string | null
+          report_type?: string | null
           shared_with?: Json | null
           template_id?: string | null
           tenant_id: string
@@ -4688,8 +4698,13 @@ export type Database = {
           data?: Json | null
           description?: string | null
           id?: string
+          is_active?: boolean | null
+          is_favorite?: boolean | null
           is_public?: boolean | null
+          last_run_at?: string | null
           name?: string
+          object_name?: string | null
+          report_type?: string | null
           shared_with?: Json | null
           template_id?: string | null
           tenant_id?: string
