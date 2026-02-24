@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,56 +11,110 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Pencil, Building2 } from "lucide-react";
+import { Plus, Search, Pencil, Building2, ChevronLeft, ChevronRight } from "lucide-react";
 
 const SEGMENTS = ["Tecnologia", "Varejo", "Serviços", "Indústria", "Saúde", "Educação", "Financeiro", "Outro"];
+const PAGE_SIZE = 10;
+
+function validateCNPJ(cnpj: string): boolean {
+  if (!cnpj) return true;
+  return /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/.test(cnpj);
+}
+
+function validateURL(url: string): boolean {
+  if (!url) return true;
+  try { new URL(url.startsWith("http") ? url : `https://${url}`); return true; } catch { return false; }
+}
 
 export default function Accounts() {
+  const navigate = useNavigate();
   const [accounts, setAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterSegment, setFilterSegment] = useState("all");
+  const [filterOwner, setFilterOwner] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", cnpj: "", email: "", phone: "", segment: "", address: "" });
+  const [owners, setOwners] = useState<any[]>([]);
+  const [page, setPage] = useState(1);
+  const [form, setForm] = useState({
+    name: "", cnpj: "", email: "", phone: "", segment: "", website: "",
+    street: "", city: "", state: "", country: "", postal_code: "", owner_user_id: "",
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
-    const { data } = await supabase.from("crm_accounts").select("*").order("created_at", { ascending: false });
+    const { data } = await supabase
+      .from("crm_accounts")
+      .select("*")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
     setAccounts(data || []);
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const fetchOwners = useCallback(async () => {
+    const { data } = await supabase.from("profiles").select("id, full_name, email");
+    setOwners(data || []);
+  }, []);
+
+  useEffect(() => { fetchData(); fetchOwners(); }, [fetchData, fetchOwners]);
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ name: "", cnpj: "", email: "", phone: "", segment: "", address: "" });
+    setForm({ name: "", cnpj: "", email: "", phone: "", segment: "", website: "", street: "", city: "", state: "", country: "", postal_code: "", owner_user_id: "" });
+    setErrors({});
     setDialogOpen(true);
   };
 
   const openEdit = (a: any) => {
     setEditingId(a.id);
+    const addr = a.address_json || {};
     setForm({
       name: a.name,
       cnpj: a.cnpj || "",
       email: a.email || "",
       phone: a.phone || "",
       segment: a.segment || "",
-      address: a.address_json?.street || "",
+      website: a.website || "",
+      street: addr.street || "",
+      city: addr.city || "",
+      state: addr.state || "",
+      country: addr.country || "",
+      postal_code: addr.postal_code || "",
+      owner_user_id: a.owner_user_id || "",
     });
+    setErrors({});
     setDialogOpen(true);
+  };
+
+  const validate = () => {
+    const e: Record<string, string> = {};
+    if (!form.name.trim()) e.name = "Nome obrigatório";
+    if (form.cnpj && !validateCNPJ(form.cnpj)) e.cnpj = "Formato: XX.XXX.XXX/XXXX-XX";
+    if (form.website && !validateURL(form.website)) e.website = "URL inválida";
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validate()) return;
+
+    const addressJson = (form.street || form.city || form.state || form.country || form.postal_code)
+      ? { street: form.street, city: form.city, state: form.state, country: form.country, postal_code: form.postal_code }
+      : null;
+
     const payload: any = {
       name: form.name,
       cnpj: form.cnpj || null,
       email: form.email || null,
       phone: form.phone || null,
       segment: form.segment || null,
-      address_json: form.address ? { street: form.address } : null,
+      website: form.website || null,
+      address_json: addressJson,
+      owner_user_id: form.owner_user_id || null,
     };
 
     if (editingId) {
@@ -80,8 +135,20 @@ export default function Accounts() {
   const filtered = accounts.filter((a) => {
     const matchSearch = a.name.toLowerCase().includes(search.toLowerCase()) || (a.cnpj || "").includes(search) || (a.email || "").toLowerCase().includes(search.toLowerCase());
     const matchSegment = filterSegment === "all" || a.segment === filterSegment;
-    return matchSearch && matchSegment;
+    const matchOwner = filterOwner === "all" || a.owner_user_id === filterOwner;
+    return matchSearch && matchSegment && matchOwner;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => { setPage(1); }, [search, filterSegment, filterOwner]);
+
+  const getOwnerName = (id: string | null) => {
+    if (!id) return "—";
+    const o = owners.find((p) => p.id === id);
+    return o ? (o.full_name || o.email) : "—";
+  };
 
   return (
     <div className="space-y-6">
@@ -94,12 +161,20 @@ export default function Accounts() {
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="bg-card border-border">
+        <DialogContent className="bg-card border-border max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editingId ? "Editar Conta" : "Nova Conta"}</DialogTitle></DialogHeader>
           <form onSubmit={handleSave} className="space-y-4">
-            <div className="space-y-2"><Label>Nome da Empresa *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
+            <div className="space-y-2">
+              <Label>Nome da Empresa *</Label>
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+              {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
+            </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>CNPJ</Label><Input value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} placeholder="00.000.000/0000-00" /></div>
+              <div className="space-y-2">
+                <Label>CNPJ</Label>
+                <Input value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} placeholder="00.000.000/0000-00" />
+                {errors.cnpj && <p className="text-xs text-destructive">{errors.cnpj}</p>}
+              </div>
               <div className="space-y-2">
                 <Label>Segmento</Label>
                 <Select value={form.segment || "__none__"} onValueChange={(v) => setForm({ ...form, segment: v === "__none__" ? "" : v })}>
@@ -115,7 +190,30 @@ export default function Accounts() {
               <div className="space-y-2"><Label>E-mail</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
               <div className="space-y-2"><Label>Telefone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
             </div>
-            <div className="space-y-2"><Label>Endereço</Label><Textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} rows={2} /></div>
+            <div className="space-y-2">
+              <Label>Website</Label>
+              <Input value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} placeholder="https://exemplo.com" />
+              {errors.website && <p className="text-xs text-destructive">{errors.website}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label>Proprietário</Label>
+              <Select value={form.owner_user_id || "__none__"} onValueChange={(v) => setForm({ ...form, owner_user_id: v === "__none__" ? "" : v })}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Nenhum</SelectItem>
+                  {owners.map((o) => <SelectItem key={o.id} value={o.id}>{o.full_name || o.email}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2"><Label>Endereço</Label><Input value={form.street} onChange={(e) => setForm({ ...form, street: e.target.value })} placeholder="Rua, número" /></div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2"><Label>Cidade</Label><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
+              <div className="space-y-2"><Label>Estado</Label><Input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2"><Label>País</Label><Input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} /></div>
+              <div className="space-y-2"><Label>CEP</Label><Input value={form.postal_code} onChange={(e) => setForm({ ...form, postal_code: e.target.value })} /></div>
+            </div>
             <Button type="submit" className="w-full">{editingId ? "Salvar" : "Criar"}</Button>
           </form>
         </DialogContent>
@@ -133,6 +231,13 @@ export default function Accounts() {
             {SEGMENTS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={filterOwner} onValueChange={setFilterOwner}>
+          <SelectTrigger className="w-48"><SelectValue placeholder="Proprietário" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os proprietários</SelectItem>
+            {owners.map((o) => <SelectItem key={o.id} value={o.id}>{o.full_name || o.email}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
 
       <Card className="border-border bg-card">
@@ -145,26 +250,28 @@ export default function Accounts() {
                 <TableHead>E-mail</TableHead>
                 <TableHead>Telefone</TableHead>
                 <TableHead>Segmento</TableHead>
+                <TableHead>Proprietário</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
-              ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhuma conta encontrada</TableCell></TableRow>
-              ) : filtered.map((a) => (
+                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+              ) : paginated.length === 0 ? (
+                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhuma conta encontrada</TableCell></TableRow>
+              ) : paginated.map((a) => (
                 <TableRow key={a.id} className="border-border">
                   <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4 text-muted-foreground" />
-                      {a.name}
-                    </div>
+                    <button onClick={() => navigate(`/accounts/${a.id}`)} className="flex items-center gap-2 hover:text-primary transition-colors text-left">
+                      <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="underline-offset-2 hover:underline">{a.name}</span>
+                    </button>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{a.cnpj || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{a.email || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{a.phone || "—"}</TableCell>
                   <TableCell>{a.segment ? <Badge variant="outline">{a.segment}</Badge> : "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{getOwnerName(a.owner_user_id)}</TableCell>
                   <TableCell>
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(a)}>
                       <Pencil className="h-4 w-4" />
@@ -176,6 +283,22 @@ export default function Accounts() {
           </Table>
         </CardContent>
       </Card>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            {filtered.length} conta(s) — Página {page} de {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+              <ChevronLeft className="h-4 w-4 mr-1" />Anterior
+            </Button>
+            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
+              Próxima<ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
