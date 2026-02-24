@@ -41,6 +41,7 @@ const Workflows = lazy(() => import("./pages/Workflows"));
 const WhatsApp = lazy(() => import("./pages/WhatsApp"));
 const Campanhas = lazy(() => import("./pages/Campanhas"));
 const Contracts = lazy(() => import("./pages/Contracts"));
+const ContractDetail = lazy(() => import("./pages/ContractDetail"));
 const Accounts = lazy(() => import("./pages/Accounts"));
 const AccountDetail = lazy(() => import("./pages/AccountDetail"));
 const Funis = lazy(() => import("./pages/Funis"));
@@ -106,6 +107,7 @@ const App = () => (
               <Route path="/whatsapp" element={<ProtectedRoute><WhatsApp /></ProtectedRoute>} />
               <Route path="/campanhas" element={<ProtectedRoute><Campanhas /></ProtectedRoute>} />
               <Route path="/contracts" element={<ProtectedRoute><Contracts /></ProtectedRoute>} />
+              <Route path="/contracts/:id" element={<ProtectedRoute><ContractDetail /></ProtectedRoute>} />
               <Route path="/accounts" element={<ProtectedRoute><Accounts /></ProtectedRoute>} />
               <Route path="/accounts/:id" element={<ProtectedRoute><AccountDetail /></ProtectedRoute>} />
               <Route path="/funis" element={<ProtectedRoute><Funis /></ProtectedRoute>} />
