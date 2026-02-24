@@ -1,84 +1,58 @@
 
 
-# Completar Pagina de Accounts - Nivel Salesforce
+# Ajustar Contacts para Exigir Account - O Que Falta
 
-## O Que Ja Existe
-- Tabela `crm_accounts` com campos basicos (name, cnpj, email, phone, segment, address_json, owner_user_id)
-- Pagina `Accounts.tsx` com CRUD simples (listagem, criar, editar)
-- Rota `/accounts` e link no sidebar
+## Analise: Atual vs. Documento
 
-## O Que Falta (Segundo o PDF)
-
-| Funcionalidade | Status |
+| Requisito do PDF | Status Atual |
 |---|---|
-| Campo `website` na tabela | Falta |
-| Campo `is_active` na tabela | Falta |
-| Campos de endereco separados (city, state, country, postal_code) | Usar `address_json` (ja existe) |
-| Pagina de Detalhes com abas (Contatos, Oportunidades, Contratos, Atividades) | Falta |
-| Seletor de Proprietario (owner) no formulario | Falta |
-| Botao "Desativar" (soft delete) | Falta |
-| Paginacao (10 por pagina) | Falta |
-| Validacao de CNPJ | Falta |
-| Validacao de URL/Website | Falta |
-| Filtro por Proprietario | Falta |
-| Nome clicavel na listagem (abre detalhes) | Falta |
-| Posicao no sidebar (entre Leads e Contacts) | Ja esta correto |
+| Coluna `account_id` na tabela `contacts` | Ja existe (nullable) |
+| Index em `account_id` | Falta criar |
+| Campo "Conta" PRIMEIRO no formulario (antes do Nome) | Falta - hoje aparece por ultimo |
+| Remover opcao "Nenhuma" do select de conta | Falta - hoje permite "Nenhuma" |
+| Mensagem quando nao existem contas no workspace | Falta |
+| Validacao obrigatoria no Edit tambem | Falta - edit permite account vazio |
+| Nome da conta clicavel na tabela (link para /accounts/:id) | Falta |
+| Coluna "Conta" como segunda coluna (apos Nome) | Ja existe mas esta na 5a posicao |
 
 ## Plano de Implementacao
 
 ### Fase 1: Migracao de Banco
-Adicionar 2 colunas a `crm_accounts`:
-- `website` (text, nullable)
-- `is_active` (boolean, default true)
 
-Criar indice em `is_active` para performance.
-
-### Fase 2: Reescrever Pagina de Listagem (`Accounts.tsx`)
-- Adicionar campo `website` na tabela e no formulario
-- Adicionar seletor de Proprietario (carregado de `profiles`)
-- Adicionar filtro por Proprietario
-- Adicionar paginacao (10 por pagina)
-- Tornar nome clicavel (navega para `/accounts/:id`)
-- Filtrar apenas contas ativas (`is_active = true`)
-- Separar campos de endereco: Endereco, Cidade, Estado, Pais, CEP (salvos em `address_json`)
-- Validacao de CNPJ (formato XX.XXX.XXX/XXXX-XX)
-- Validacao de URL para Website
-
-### Fase 3: Criar Pagina de Detalhes (`AccountDetail.tsx`)
-- Rota: `/accounts/:id`
-- Cabecalho com nome da conta e botoes (Editar, Desativar, Voltar)
-- Informacoes principais: CNPJ, Website, Segmento, Telefone, Endereco, Proprietario
-- 4 abas preparadas para futuro: Contatos, Oportunidades, Contratos, Atividades
-  - Cada aba exibe registros vinculados via `account_id`
-- Modal de edicao com mesmos campos do formulario de criacao
-- Botao "Desativar" com confirmacao (marca `is_active = false`)
-
-### Fase 4: Atualizar Rotas
-- Adicionar rota `/accounts/:id` em `App.tsx`
-
-## Detalhes Tecnicos
-
-### SQL da Migracao
+Criar index de performance na coluna `account_id` da tabela `contacts` (a coluna ja existe, nao precisa recriar).
 
 ```text
-ALTER TABLE public.crm_accounts 
-  ADD COLUMN IF NOT EXISTS website text,
-  ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
-
-CREATE INDEX IF NOT EXISTS idx_crm_accounts_is_active ON public.crm_accounts(is_active);
+CREATE INDEX IF NOT EXISTS idx_contacts_account_id ON public.contacts(account_id);
 ```
 
-### Arquivos a Criar/Modificar
+Nota: NAO vamos adicionar constraint NOT NULL pois ja existem contatos sem conta no banco. A validacao sera feita apenas na UI.
+
+### Fase 2: Modificar `src/pages/Contacts.tsx`
+
+**2.1 Reordenar formulario** - Campo "Conta" passa a ser o PRIMEIRO campo, antes de Nome/Sobrenome.
+
+**2.2 Remover opcao "Nenhuma"** - O select de conta nao tera mais a opcao "Nenhuma". Placeholder sera "Selecione uma conta...".
+
+**2.3 Mensagem de contas vazias** - Se `accounts.length === 0`, exibir aviso: "Voce precisa criar uma conta primeiro. Va para CRM > Contas" com link.
+
+**2.4 Validacao no Edit** - Adicionar mesma validacao de `account_id` obrigatorio no `handleEditSave`.
+
+**2.5 Reordenar colunas da tabela** - Coluna "Conta" passa para segunda posicao (apos Nome).
+
+**2.6 Nome da conta clicavel** - Na coluna "Conta", o nome sera um link que navega para `/accounts/:id`.
+
+**2.7 Contatos sem conta** - Exibir "Sem Conta" em vermelho para contatos que nao tem `account_id`.
+
+### Arquivos a Modificar
 
 | Arquivo | Acao |
 |---|---|
-| Migration SQL | Criar - website + is_active |
-| `src/pages/Accounts.tsx` | Reescrever - Formulario completo, paginacao, validacoes, owner |
-| `src/pages/AccountDetail.tsx` | Criar - Detalhes com abas |
-| `src/App.tsx` | Modificar - Adicionar rota /accounts/:id |
+| Migration SQL | Criar - index em contacts.account_id |
+| `src/pages/Contacts.tsx` | Modificar - reordenar form, validacoes, tabela, links |
 
-### O Que NAO Sera Alterado
-- Tabela `crm_accounts` mantida (nao renomear)
-- Sidebar (posicao ja correta)
-- Integracoes existentes
-- Demais paginas do CRM
+### O Que NAO Sera Feito
+
+- Edge Functions (o projeto usa Supabase client direto, nao edge functions para CRUD)
+- Constraint NOT NULL no banco (protege dados existentes)
+- Pagina de detalhes do contato (nao existe ainda e nao sera criada neste escopo)
+
