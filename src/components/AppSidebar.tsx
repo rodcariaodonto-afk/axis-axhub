@@ -116,9 +116,9 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="p-4">
-        <div className="flex items-center gap-2">
-          <img src={axisLogo} alt="Axis" className="h-12" />
+      <SidebarHeader className="px-3 py-3">
+        <div className="flex items-center justify-center">
+          <img src={axisLogo} alt="Axis" className="w-full max-w-[180px] h-auto object-contain" />
         </div>
       </SidebarHeader>
       <SidebarSeparator />
