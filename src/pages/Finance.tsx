@@ -3,8 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowUpCircle, ArrowDownCircle, Banknote, TrendingUp, TrendingDown } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import FinanceCategoryManager from "@/components/finance/FinanceCategoryManager";
 
 export default function Finance() {
   const [totals, setTotals] = useState({ receivable: 0, payable: 0, bankBalance: 0, paidThisMonth: 0, receivedThisMonth: 0 });
@@ -79,108 +81,121 @@ export default function Finance() {
         <p className="text-muted-foreground">Visão geral financeira do seu negócio</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
-        <Card className="border-border bg-card">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">A Receber (Pendente)</CardTitle>
-            <ArrowUpCircle className="h-4 w-4 text-success" />
-          </CardHeader>
-          <CardContent><div className={`text-2xl font-bold ${loading ? "animate-pulse" : ""}`}>{loading ? "..." : fmt(totals.receivable)}</div></CardContent>
-        </Card>
-        <Card className="border-border bg-card">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">A Pagar (Pendente)</CardTitle>
-            <ArrowDownCircle className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent><div className={`text-2xl font-bold ${loading ? "animate-pulse" : ""}`}>{loading ? "..." : fmt(totals.payable)}</div></CardContent>
-        </Card>
-        <Card className="border-border bg-card">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Saldo Bancário</CardTitle>
-            <Banknote className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent><div className={`text-2xl font-bold ${loading ? "animate-pulse" : ""}`}>{loading ? "..." : fmt(totals.bankBalance)}</div></CardContent>
-        </Card>
-        <Card className="border-border bg-card">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Recebido no Mês</CardTitle>
-            <TrendingUp className="h-4 w-4 text-success" />
-          </CardHeader>
-          <CardContent><div className={`text-2xl font-bold ${loading ? "animate-pulse" : ""}`}>{loading ? "..." : fmt(totals.receivedThisMonth)}</div></CardContent>
-        </Card>
-        <Card className="border-border bg-card">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pago no Mês</CardTitle>
-            <TrendingDown className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent><div className={`text-2xl font-bold ${loading ? "animate-pulse" : ""}`}>{loading ? "..." : fmt(totals.paidThisMonth)}</div></CardContent>
-        </Card>
-      </div>
+      <Tabs defaultValue="overview">
+        <TabsList>
+          <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+          <TabsTrigger value="categories">Categorias</TabsTrigger>
+        </TabsList>
 
-      <Card className="border-border bg-card">
-        <CardHeader><CardTitle>Fluxo de Caixa — 7 meses</CardTitle></CardHeader>
-        <CardContent>
-          {chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-                <Legend />
-                <Bar dataKey="Receber" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Pagar" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="text-center py-12 text-muted-foreground">Cadastre receitas e despesas para visualizar o fluxo de caixa.</p>
-          )}
-        </CardContent>
-      </Card>
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
+            <Card className="border-border bg-card">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">A Receber (Pendente)</CardTitle>
+                <ArrowUpCircle className="h-4 w-4 text-success" />
+              </CardHeader>
+              <CardContent><div className={`text-2xl font-bold ${loading ? "animate-pulse" : ""}`}>{loading ? "..." : fmt(totals.receivable)}</div></CardContent>
+            </Card>
+            <Card className="border-border bg-card">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">A Pagar (Pendente)</CardTitle>
+                <ArrowDownCircle className="h-4 w-4 text-destructive" />
+              </CardHeader>
+              <CardContent><div className={`text-2xl font-bold ${loading ? "animate-pulse" : ""}`}>{loading ? "..." : fmt(totals.payable)}</div></CardContent>
+            </Card>
+            <Card className="border-border bg-card">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Saldo Bancário</CardTitle>
+                <Banknote className="h-4 w-4 text-primary" />
+              </CardHeader>
+              <CardContent><div className={`text-2xl font-bold ${loading ? "animate-pulse" : ""}`}>{loading ? "..." : fmt(totals.bankBalance)}</div></CardContent>
+            </Card>
+            <Card className="border-border bg-card">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Recebido no Mês</CardTitle>
+                <TrendingUp className="h-4 w-4 text-success" />
+              </CardHeader>
+              <CardContent><div className={`text-2xl font-bold ${loading ? "animate-pulse" : ""}`}>{loading ? "..." : fmt(totals.receivedThisMonth)}</div></CardContent>
+            </Card>
+            <Card className="border-border bg-card">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Pago no Mês</CardTitle>
+                <TrendingDown className="h-4 w-4 text-destructive" />
+              </CardHeader>
+              <CardContent><div className={`text-2xl font-bold ${loading ? "animate-pulse" : ""}`}>{loading ? "..." : fmt(totals.paidThisMonth)}</div></CardContent>
+            </Card>
+          </div>
 
-      <Card className="border-border bg-card">
-        <CardHeader><CardTitle>Últimos Lançamentos</CardTitle></CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-border">
-                <TableHead>Tipo</TableHead>
-                <TableHead>Descrição</TableHead>
-                <TableHead>Entidade</TableHead>
-                <TableHead>Vencimento</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Valor</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
-              ) : recentItems.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum lançamento encontrado</TableCell></TableRow>
+          <Card className="border-border bg-card">
+            <CardHeader><CardTitle>Fluxo de Caixa — 7 meses</CardTitle></CardHeader>
+            <CardContent>
+              {chartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                    <Legend />
+                    <Bar dataKey="Receber" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Pagar" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
               ) : (
-                recentItems.map((item, i) => (
-                  <TableRow key={i} className="border-border">
-                    <TableCell>
-                      <Badge variant={item.type === "receivable" ? "default" : "secondary"}>
-                        {item.type === "receivable" ? "Receber" : "Pagar"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-medium">{item.description}</TableCell>
-                    <TableCell className="text-muted-foreground">{item.entity || "—"}</TableCell>
-                    <TableCell>{new Date(item.due_date).toLocaleDateString("pt-BR")}</TableCell>
-                    <TableCell>
-                      <Badge variant={item.status === "paid" ? "default" : item.status === "overdue" ? "destructive" : "secondary"}>
-                        {statusLabels[item.status] || item.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-medium">{fmt(Number(item.amount))}</TableCell>
-                  </TableRow>
-                ))
+                <p className="text-center py-12 text-muted-foreground">Cadastre receitas e despesas para visualizar o fluxo de caixa.</p>
               )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border bg-card">
+            <CardHeader><CardTitle>Últimos Lançamentos</CardTitle></CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-border">
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Descrição</TableHead>
+                    <TableHead>Entidade</TableHead>
+                    <TableHead>Vencimento</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                  ) : recentItems.length === 0 ? (
+                    <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum lançamento encontrado</TableCell></TableRow>
+                  ) : (
+                    recentItems.map((item, i) => (
+                      <TableRow key={i} className="border-border">
+                        <TableCell>
+                          <Badge variant={item.type === "receivable" ? "default" : "secondary"}>
+                            {item.type === "receivable" ? "Receber" : "Pagar"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-medium">{item.description}</TableCell>
+                        <TableCell className="text-muted-foreground">{item.entity || "—"}</TableCell>
+                        <TableCell>{new Date(item.due_date).toLocaleDateString("pt-BR")}</TableCell>
+                        <TableCell>
+                          <Badge variant={item.status === "paid" ? "default" : item.status === "overdue" ? "destructive" : "secondary"}>
+                            {statusLabels[item.status] || item.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-medium">{fmt(Number(item.amount))}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="categories">
+          <FinanceCategoryManager />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
