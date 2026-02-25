@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, MoreHorizontal, ArrowRightCircle, Pencil, Trash2, Upload, Download, Users, Target, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { emitEvent } from "@/lib/emitEvent";
+import { LeadTagManager } from "@/components/leads/LeadTagManager";
 
 const statusLabels: Record<string, string> = { new: "Novo", contacted: "Contatado", qualified: "Qualificado", unqualified: "Desqualificado", converted: "Convertido" };
 const sourceLabels: Record<string, string> = { manual: "Manual", website: "Website", referral: "Indicação", social: "Redes Sociais", ads: "Anúncios" };
@@ -22,6 +23,7 @@ const PAGE_SIZE = 50;
 
 export default function Leads() {
   const [leads, setLeads] = useState<any[]>([]);
+  const [leadTagsMap, setLeadTagsMap] = useState<Record<string, { name: string; color: string }[]>>({});
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -35,7 +37,19 @@ export default function Leads() {
   const [dealName, setDealName] = useState("");
   const [dealValue, setDealValue] = useState("");
   const [form, setForm] = useState({ name: "", email: "", phone: "", source: "manual", score: "0", notes: "" });
+  const [formTagIds, setFormTagIds] = useState<string[]>([]);
+  const [userTenantId, setUserTenantId] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Fetch tenant id once
+  useEffect(() => {
+    (async () => {
+      const { data: { user: u } } = await supabase.auth.getUser();
+      if (!u) return;
+      const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", u.id).single();
+      if (profile) setUserTenantId(profile.tenant_id);
+    })();
+  }, []);
 
   // CSV import state
   const [csvDialog, setCsvDialog] = useState(false);
@@ -84,8 +98,38 @@ export default function Leads() {
     query = query.range(from, to);
 
     const { data, count } = await query;
-    setLeads(data || []);
+    const leadsList = data || [];
+    setLeads(leadsList);
     setTotalCount(count ?? 0);
+
+    // Fetch colored tags for these leads
+    if (leadsList.length > 0) {
+      const leadIds = leadsList.map((l: any) => l.id);
+      const { data: ltData } = await supabase
+        .from("lead_tags")
+        .select("lead_id, tag_id")
+        .in("lead_id", leadIds);
+      if (ltData && ltData.length > 0) {
+        const tagIds = [...new Set(ltData.map((r: any) => r.tag_id))];
+        const { data: tagDefs } = await supabase
+          .from("lead_tag_definitions")
+          .select("id, name, color")
+          .in("id", tagIds);
+        const tagMap = new Map((tagDefs || []).map((t: any) => [t.id, { name: t.name, color: t.color }]));
+        const result: Record<string, { name: string; color: string }[]> = {};
+        for (const r of ltData) {
+          const tag = tagMap.get(r.tag_id);
+          if (tag) {
+            if (!result[r.lead_id]) result[r.lead_id] = [];
+            result[r.lead_id].push(tag);
+          }
+        }
+        setLeadTagsMap(result);
+      } else {
+        setLeadTagsMap({});
+      }
+    }
+
     setLoading(false);
   }, [page, filterStatus, debouncedSearch]);
 
@@ -93,26 +137,37 @@ export default function Leads() {
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
-  const openCreate = () => { setEditingId(null); setForm({ name: "", email: "", phone: "", source: "manual", score: "0", notes: "" }); setDialogOpen(true); };
-  const openEdit = (lead: any) => { setEditingId(lead.id); setForm({ name: lead.name, email: lead.email || "", phone: lead.phone || "", source: lead.source || "manual", score: String(lead.score || 0), notes: lead.notes || "" }); setDialogOpen(true); };
+  const openCreate = () => { setEditingId(null); setForm({ name: "", email: "", phone: "", source: "manual", score: "0", notes: "" }); setFormTagIds([]); setDialogOpen(true); };
+  const openEdit = async (lead: any) => {
+    setEditingId(lead.id);
+    setForm({ name: lead.name, email: lead.email || "", phone: lead.phone || "", source: lead.source || "manual", score: String(lead.score || 0), notes: lead.notes || "" });
+    // Load existing tag associations
+    const { data: lt } = await supabase.from("lead_tags").select("tag_id").eq("lead_id", lead.id);
+    setFormTagIds((lt || []).map((r: any) => r.tag_id));
+    setDialogOpen(true);
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingId) {
       const { error } = await supabase.from("leads").update({ name: form.name, email: form.email || null, phone: form.phone || null, source: form.source, score: parseInt(form.score) || 0, notes: form.notes || null }).eq("id", editingId);
-      if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
-      else { toast({ title: "Lead atualizado!" }); setDialogOpen(false); fetchData(); }
-    } else {
-      const { data: { user: u } } = await supabase.auth.getUser();
-      if (!u) return;
-      const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", u.id).single();
-      if (!profile) return;
-      const { data: newLead, error } = await supabase.from("leads").insert({ tenant_id: profile.tenant_id, name: form.name, email: form.email || null, phone: form.phone || null, source: form.source, score: parseInt(form.score) || 0, notes: form.notes || null }).select().single();
-      if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
-      else {
-        toast({ title: "Lead criado!" }); setDialogOpen(false); fetchData();
-        emitEvent("lead.created", { lead_id: newLead.id, name: newLead.name, source: newLead.source });
+      if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+      // Sync tags
+      await supabase.from("lead_tags").delete().eq("lead_id", editingId);
+      if (formTagIds.length > 0 && userTenantId) {
+        await supabase.from("lead_tags").insert(formTagIds.map((tid) => ({ tenant_id: userTenantId, lead_id: editingId, tag_id: tid })));
       }
+      toast({ title: "Lead atualizado!" }); setDialogOpen(false); fetchData();
+    } else {
+      if (!userTenantId) return;
+      const { data: newLead, error } = await supabase.from("leads").insert({ tenant_id: userTenantId, name: form.name, email: form.email || null, phone: form.phone || null, source: form.source, score: parseInt(form.score) || 0, notes: form.notes || null }).select().single();
+      if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+      // Save tags
+      if (formTagIds.length > 0) {
+        await supabase.from("lead_tags").insert(formTagIds.map((tid) => ({ tenant_id: userTenantId, lead_id: newLead.id, tag_id: tid })));
+      }
+      toast({ title: "Lead criado!" }); setDialogOpen(false); fetchData();
+      emitEvent("lead.created", { lead_id: newLead.id, name: newLead.name, source: newLead.source });
     }
   };
 
@@ -398,6 +453,14 @@ export default function Leads() {
               <div className="space-y-2"><Label>Score</Label><Input type="number" value={form.score} onChange={(e) => setForm({ ...form, score: e.target.value })} /></div>
             </div>
             <div className="space-y-2"><Label>Notas</Label><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3} /></div>
+            {userTenantId && (
+              <LeadTagManager
+                tenantId={userTenantId}
+                leadId={editingId}
+                selectedTagIds={formTagIds}
+                onTagsChange={setFormTagIds}
+              />
+            )}
             <Button type="submit" className="w-full">{editingId ? "Salvar" : "Criar Lead"}</Button>
           </form>
         </DialogContent>
@@ -571,7 +634,9 @@ export default function Leads() {
                   <TableCell><Badge variant="secondary">{sourceLabels[l.source] || l.source}</Badge></TableCell>
                   <TableCell>
                     <div className="flex gap-1 flex-wrap">
-                      {(l.tags || []).length > 0 ? l.tags.map((tag: string) => (
+                      {(leadTagsMap[l.id] || []).length > 0 ? leadTagsMap[l.id].map((tag) => (
+                        <Badge key={tag.name} className="text-[10px] text-white" style={{ backgroundColor: tag.color }}>{tag.name}</Badge>
+                      )) : (l.tags || []).length > 0 ? l.tags.map((tag: string) => (
                         <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
                       )) : <span className="text-muted-foreground">—</span>}
                     </div>
