@@ -33,6 +33,7 @@ export const triggersCatalog: CatalogItem[] = [
   { id: "order.paid", label: "Pedido pago", description: "Quando um pedido é marcado como pago", icon: CreditCard, category: "trigger" },
   { id: "customer.created", label: "Cliente criado", description: "Quando um novo cliente é cadastrado", icon: Users, category: "trigger" },
   { id: "manual", label: "Execução manual", description: "Executado manualmente pelo usuário", icon: Play, category: "trigger" },
+  { id: "form.submitted", label: "Formulário respondido", description: "Quando uma resposta de formulário é enviada", icon: ClipboardList, category: "trigger" },
   {
     id: "whatsapp.message_received", label: "Mensagem recebida no WhatsApp", description: "Quando uma mensagem é recebida via WhatsApp", icon: MessageSquare, category: "trigger",
     configFields: [
