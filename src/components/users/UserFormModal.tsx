@@ -233,7 +233,23 @@ export default function UserFormModal({ open, onOpenChange, onSuccess, editUser 
           </TabsContent>
 
           <TabsContent value="permissoes" className="mt-4">
-            <PermissionsTab permissions={permissions} onChange={setPermissions} />
+          <PermissionsTab permissions={permissions} onChange={(newPerms) => {
+            setPermissions(newPerms);
+            // Auto-sync role based on permissions
+            const allChecked = newPerms.every((p) =>
+              p.can_view && p.can_create && p.can_edit && p.can_delete && p.can_export && p.can_manage_users
+            );
+            const anyChecked = newPerms.some((p) =>
+              p.can_view || p.can_create || p.can_edit || p.can_delete || p.can_export || p.can_manage_users
+            );
+            if (allChecked) {
+              setRole("admin");
+            } else if (anyChecked && role === "readonly") {
+              setRole("sales");
+            } else if (!anyChecked) {
+              setRole("readonly");
+            }
+          }} />
           </TabsContent>
         </Tabs>
 

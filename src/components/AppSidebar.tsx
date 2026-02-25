@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { useLocation } from "react-router-dom";
 import {
   Sidebar, SidebarContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
@@ -23,6 +24,7 @@ interface MenuChild {
   title: string;
   url: string;
   icon: React.ElementType;
+  module?: string; // permission module key
 }
 
 interface MenuGroup {
@@ -35,6 +37,7 @@ interface MenuGroup {
 
 export function AppSidebar() {
   const { signOut } = useAuth();
+  const { hasPermission, isAdmin, isLoading: permLoading } = useUserPermissions();
   const location = useLocation();
 
   const groups: MenuGroup[] = [
@@ -43,14 +46,14 @@ export function AppSidebar() {
       icon: BarChart3,
       defaultOpen: true,
       children: [
-        { title: "Dashboard", url: "/crm-dashboard", icon: Gauge },
-        { title: "Leads", url: "/leads", icon: UserPlus },
-        { title: "Contas", url: "/accounts", icon: Building2 },
-        { title: "Contatos", url: "/contacts", icon: Contact },
-        { title: "Oportunidades", url: "/opportunities", icon: TrendingUp },
-        { title: "Contratos", url: "/contracts", icon: FileText },
-        { title: "Atividades", url: "/activities", icon: CalendarCheck },
-        { title: "Relatórios", url: "/reports", icon: FileBarChart },
+        { title: "Dashboard", url: "/crm-dashboard", icon: Gauge, module: "dashboard" },
+        { title: "Leads", url: "/leads", icon: UserPlus, module: "crm" },
+        { title: "Contas", url: "/accounts", icon: Building2, module: "crm" },
+        { title: "Contatos", url: "/contacts", icon: Contact, module: "contatos" },
+        { title: "Oportunidades", url: "/opportunities", icon: TrendingUp, module: "crm" },
+        { title: "Contratos", url: "/contracts", icon: FileText, module: "crm" },
+        { title: "Atividades", url: "/activities", icon: CalendarCheck, module: "crm" },
+        { title: "Relatórios", url: "/reports", icon: FileBarChart, module: "relatorios" },
       ],
     },
     {
@@ -58,58 +61,64 @@ export function AppSidebar() {
       icon: Package,
       defaultOpen: true,
       children: [
-        { title: "Produtos", url: "/products", icon: Package },
-        { title: "Estoque", url: "/stock", icon: Warehouse },
-        { title: "Clientes", url: "/customers", icon: Users },
-        { title: "Pedidos", url: "/orders", icon: ShoppingCart },
-        { title: "Compras", url: "/purchases", icon: ArrowDownCircle },
-        { title: "Fornecedores", url: "/suppliers", icon: Truck },
+        { title: "Produtos", url: "/products", icon: Package, module: "produtos" },
+        { title: "Estoque", url: "/stock", icon: Warehouse, module: "produtos" },
+        { title: "Clientes", url: "/customers", icon: Users, module: "contatos" },
+        { title: "Pedidos", url: "/orders", icon: ShoppingCart, module: "produtos" },
+        { title: "Compras", url: "/purchases", icon: ArrowDownCircle, module: "produtos" },
+        { title: "Fornecedores", url: "/suppliers", icon: Truck, module: "produtos" },
       ],
     },
     {
       label: "Financeiro",
       icon: Banknote,
       children: [
-        { title: "Contas a Receber", url: "/receivables", icon: ArrowUpCircle },
-        { title: "Contas a Pagar", url: "/payables", icon: ArrowDownCircle },
-        { title: "Contas Bancárias", url: "/bank-accounts", icon: Building2 },
-        { title: "Fluxo de Caixa", url: "/finance", icon: Banknote },
+        { title: "Contas a Receber", url: "/receivables", icon: ArrowUpCircle, module: "financeiro" },
+        { title: "Contas a Pagar", url: "/payables", icon: ArrowDownCircle, module: "financeiro" },
+        { title: "Contas Bancárias", url: "/bank-accounts", icon: Building2, module: "financeiro" },
+        { title: "Fluxo de Caixa", url: "/finance", icon: Banknote, module: "financeiro" },
       ],
     },
     {
       label: "Comunicação",
       icon: MessageCircle,
       children: [
-        { title: "WhatsApp", url: "/whatsapp", icon: MessageCircle },
-        { title: "Chat Interno", url: "/internal-chat", icon: MessageSquare },
-        { title: "Campanhas", url: "/campanhas", icon: Megaphone },
+        { title: "WhatsApp", url: "/whatsapp", icon: MessageCircle, module: "whatsapp" },
+        { title: "Chat Interno", url: "/internal-chat", icon: MessageSquare, module: "whatsapp" },
+        { title: "Campanhas", url: "/campanhas", icon: Megaphone, module: "campanhas" },
       ],
     },
     {
       label: "Automação",
       icon: Zap,
       children: [
-        { title: "Workflows", url: "/workflows", icon: GitBranch },
-        { title: "Cadências", url: "/cadences", icon: Zap },
+        { title: "Workflows", url: "/workflows", icon: GitBranch, module: "workflows" },
+        { title: "Cadências", url: "/cadences", icon: Zap, module: "automacao" },
       ],
     },
     {
       label: "Inteligência",
       icon: BrainCircuit,
       children: [
-        { title: "Business Intelligence", url: "/business-intelligence", icon: BrainCircuit },
+        { title: "Business Intelligence", url: "/business-intelligence", icon: BrainCircuit, module: "dashboard" },
       ],
     },
     {
       label: "Administração",
       icon: Settings,
       children: [
-        { title: "Configurações", url: "/settings", icon: Settings },
+        { title: "Configurações", url: "/settings", icon: Settings, module: "configuracoes" },
         { title: "Documentação", url: "/documentation", icon: BookOpen },
       ],
       action: { label: "Sair", icon: LogOut, onClick: signOut },
     },
   ];
+
+  const canViewChild = (child: MenuChild) => {
+    if (isAdmin || permLoading) return true;
+    if (!child.module) return true;
+    return hasPermission(child.module, "view");
+  };
 
   const isGroupActive = (group: MenuGroup) =>
     group.children.some((c) => location.pathname === c.url || location.pathname.startsWith(c.url + "/"));
@@ -125,6 +134,9 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarMenu>
           {groups.map((group) => {
+            const visibleChildren = group.children.filter(canViewChild);
+            if (visibleChildren.length === 0 && !group.action) return null;
+
             const GroupIcon = group.icon;
             const active = isGroupActive(group);
             return (
@@ -139,7 +151,7 @@ export function AppSidebar() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      {group.children.map((child) => (
+                      {visibleChildren.map((child) => (
                         <SidebarMenuSubItem key={child.url}>
                           <SidebarMenuSubButton asChild>
                             <NavLink
