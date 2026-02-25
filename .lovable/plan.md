@@ -1,45 +1,51 @@
 
 
-# Email de Confirmacao para Respondente do Formulario
+# Corrigir Workflow Runner - Ações CRM e Bug de Execução
 
-## Objetivo
-Enviar automaticamente um email de confirmacao ao usuario que preencher o formulario, com a mensagem: "Seu formulario foi entregue e em breve entraremos em contato."
+## Problema
 
-## Abordagem
-Adicionar o envio de email via Resend diretamente na Edge Function `process-form-response`, que ja e disparada automaticamente apos cada submissao. Isso evita criar uma nova function e aproveita o fluxo existente.
+O workflow "Integração Formulários com CRM" falha com erro 500 porque:
 
-## Passo 1 - Configurar a API Key do Resend
-Vou solicitar a sua API Key do Resend e armazena-la de forma segura no backend. Ela so sera acessivel pelas funcoes do servidor, nunca exposta no frontend.
+1. Linha com `supabase.rpc("", {}).catch(() => {})` causa erro fatal: o retorno do Supabase SDK não tem `.catch()` direto
+2. As 5 novas ações (`create_lead`, `create_account`, `create_contact`, `create_opportunity`, `send_email`) não estão implementadas no `executeAction()` do backend - apenas existem no catálogo do frontend
 
-## Passo 2 - Atualizar a Edge Function
-Adicionar um novo passo (passo 10) na funcao `process-form-response` que envia o email de confirmacao:
+## Alterações
 
-- **Destinatario**: email do respondente (extraido da resposta)
-- **Remetente**: `noreply@axhub.com.br` (ou outro dominio verificado no Resend)
-- **Assunto**: "Confirmacao - Recebemos seu formulario"
-- **Corpo**: Email HTML simples e profissional com a mensagem de confirmacao, logo da Axis e nome do respondente
+### Arquivo: `supabase/functions/workflow-runner/index.ts`
 
-O envio sera feito via chamada HTTP direta a API do Resend (`https://api.resend.com/emails`), usando o secret `RESEND_API_KEY`.
+1. **Remover a linha quebrada** do `supabase.rpc("", {}).catch(() => {})` (linha ~89) - era um placeholder sem utilidade
 
-## Alteracoes
+2. **Adicionar 5 novos cases no `executeAction()`**:
 
-| Arquivo | Mudanca |
-|---|---|
-| Secret `RESEND_API_KEY` | Adicionar a API Key do Resend |
-| `supabase/functions/process-form-response/index.ts` | Novo passo 10: envio de email de confirmacao via Resend API |
+   - **`create_lead`**: Insere na tabela `leads` com campos name, email, company, source, status
+   - **`create_account`**: Insere na tabela `crm_accounts` com campos name, segment/industry, country
+   - **`create_contact`**: Insere na tabela `contacts` com campos first_name, last_name, email, account_id
+   - **`create_opportunity`**: Busca o primeiro estágio de oportunidade e insere na tabela `opportunities` com name, amount, stage_id, source
+   - **`send_email`**: Usa a API do Resend (via secret `RESEND_API_KEY`) para enviar email com campos to, subject, body
 
-## Detalhes tecnicos do email
+3. **Resolver templates de variáveis**: As configurações usam `{{respondent_name}}`, `{{respondent_email}}`, etc. Adicionar uma função auxiliar `resolveTemplate()` que substitui essas variáveis pelos valores do `trigger_data`
 
+## Detalhes técnicos
+
+### Resolução de variáveis
 ```text
-De: Axis CRM <noreply@axhub.com.br>
-Para: {respondent_email}
-Assunto: Confirmacao - Recebemos seu formulario
-
-Corpo HTML:
-- Saudacao com nome do respondente
-- Mensagem: "Seu formulario foi entregue e em breve entraremos em contato."
-- Rodape com branding Axis
+Entrada: "Olá {{respondent_name}}"
+trigger_data: { respondent_name: "João" }
+Saída: "Olá João"
 ```
 
-O envio e feito com try/catch para nao bloquear o restante do processamento caso o email falhe.
+### Fluxo corrigido
+```text
+Trigger (form.submitted)
+  -> create_lead (INSERT leads)
+  -> create_account (INSERT crm_accounts)
+  -> create_contact (INSERT contacts)
+  -> create_opportunity (INSERT opportunities)
+  -> send_email (Resend API)
+  -> create_notification (INSERT notifications)
+```
+
+| Arquivo | Mudança |
+|---|---|
+| `supabase/functions/workflow-runner/index.ts` | Remover bug do rpc, adicionar 5 action handlers, adicionar resolveTemplate() |
 
