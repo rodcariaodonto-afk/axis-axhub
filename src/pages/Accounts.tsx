@@ -122,7 +122,9 @@ export default function Accounts() {
       if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
       toast({ title: "Conta atualizada!" });
     } else {
-      const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
       if (!profile) return;
       const { error } = await supabase.from("crm_accounts").insert({ ...payload, tenant_id: profile.tenant_id });
       if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }

@@ -73,7 +73,8 @@ export function CardDetailModal({ deal, stages, open, onOpenChange, onRefresh }:
 
     // Log history for stage change
     if (oldStageId !== form.stage_id) {
-      const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+      const { data: { user: u } } = await supabase.auth.getUser();
+      const { data: profile } = u ? await supabase.from("profiles").select("tenant_id").eq("id", u.id).single() : { data: null };
       if (profile) {
         await supabase.from("deal_history").insert({
           tenant_id: profile.tenant_id, deal_id: deal.id, tipo_acao: "movido",
@@ -94,7 +95,8 @@ export function CardDetailModal({ deal, stages, open, onOpenChange, onRefresh }:
     emitEvent("deal.won", { deal_id: deal.id, name: deal.name, value: deal.estimated_value });
 
     try {
-      const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+      const { data: { user: u2 } } = await supabase.auth.getUser();
+      const { data: profile } = u2 ? await supabase.from("profiles").select("tenant_id").eq("id", u2.id).single() : { data: null };
       if (profile) {
         await supabase.from("deal_history").insert({
           tenant_id: profile.tenant_id, deal_id: deal.id, tipo_acao: "editado",
@@ -145,7 +147,8 @@ export function CardDetailModal({ deal, stages, open, onOpenChange, onRefresh }:
     if (!deal) return;
     await supabase.from("deals").update({ status: "lost", lost_reason: lostReason || null }).eq("id", deal.id);
     emitEvent("deal.lost", { deal_id: deal.id, name: deal.name, reason: lostReason });
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: { user: u3 } } = await supabase.auth.getUser();
+    const { data: profile } = u3 ? await supabase.from("profiles").select("tenant_id").eq("id", u3.id).single() : { data: null };
     if (profile) {
       await supabase.from("deal_history").insert({
         tenant_id: profile.tenant_id, deal_id: deal.id, tipo_acao: "editado",

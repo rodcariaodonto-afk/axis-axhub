@@ -44,7 +44,9 @@ export default function Cadences() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
     if (!profile) return;
     const { error } = await supabase.from("sales_cadences").insert({
       tenant_id: profile.tenant_id, name: form.name, description: form.description || null,
@@ -73,7 +75,9 @@ export default function Cadences() {
   const addStep = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stepDialog) return;
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: { user: u } } = await supabase.auth.getUser();
+    if (!u) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", u.id).single();
     if (!profile) return;
     const existingSteps = steps[stepDialog] || [];
     const { error } = await supabase.from("cadence_steps").insert({

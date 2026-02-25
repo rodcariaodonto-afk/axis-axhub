@@ -75,7 +75,9 @@ export default function Orders() {
 
   const handleCreate = async () => {
     if (!selectedCustomer || items.length === 0) { toast({ title: "Erro", description: "Selecione um cliente e adicione itens.", variant: "destructive" }); return; }
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
     if (!profile) return;
     const orderNumber = `PED-${Date.now().toString(36).toUpperCase()}`;
     const { data: order, error } = await supabase.from("orders").insert({ tenant_id: profile.tenant_id, number: orderNumber, customer_id: selectedCustomer, subtotal, total: subtotal, notes: notes || null }).select().single();
@@ -94,7 +96,8 @@ export default function Orders() {
     if (newStatus === "completed") {
       try {
         const { data: order } = await supabase.from("orders").select("*").eq("id", orderId).single();
-        const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+        const { data: { user: u } } = await supabase.auth.getUser();
+        const { data: profile } = u ? await supabase.from("profiles").select("tenant_id").eq("id", u.id).single() : { data: null };
         if (order && profile) {
           const dueDate = new Date();
           dueDate.setDate(dueDate.getDate() + 30);

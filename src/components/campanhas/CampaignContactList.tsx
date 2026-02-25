@@ -33,7 +33,9 @@ export function CampaignContactList({ campaignId }: CampaignContactListProps) {
 
   const addContact = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
     if (!profile) return;
     const { error } = await supabase.from("campanhas_contatos").insert({ tenant_id: profile.tenant_id, campanha_id: campaignId, telefone: form.telefone, nome: form.nome || null });
     if (error) { toast({ title: "Erro ao adicionar contato", description: error.message, variant: "destructive" }); return; }
@@ -41,7 +43,9 @@ export function CampaignContactList({ campaignId }: CampaignContactListProps) {
   };
 
   const bulkAdd = async () => {
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: { user: u } } = await supabase.auth.getUser();
+    if (!u) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", u.id).single();
     if (!profile) return;
     const lines = bulkText.split("\n").filter(Boolean);
     const rows = lines.map((line) => {

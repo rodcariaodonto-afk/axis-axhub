@@ -42,7 +42,9 @@ export default function Forecasting() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: { user: u } } = await supabase.auth.getUser();
+    if (!u) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", u.id).single();
     if (!profile || !user) return;
     const { error } = await supabase.from("deal_forecasts").insert({
       tenant_id: profile.tenant_id,

@@ -62,8 +62,9 @@ export default function Receivables() {
     setPasswordDialog({
       open: true, title: "Excluir Recebível", description: `Confirme sua senha para excluir "${item.description}". Esta ação não pode ser desfeita.`, variant: "destructive",
       onConfirm: async () => {
-        const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
         const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
         if (!profile || !user) return;
         await supabase.from("audit_logs").insert({ tenant_id: profile.tenant_id, entity: "receivable", action: "delete", entity_id: item.id, actor_user_id: user.id, before_json: item, after_json: null });
         const { error } = await supabase.from("receivables").delete().eq("id", item.id);
@@ -75,8 +76,9 @@ export default function Receivables() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
     if (!profile || !user) return;
 
     if (editItem) {
@@ -107,7 +109,9 @@ export default function Receivables() {
   };
 
   const handlePaymentConfirm = async (bankAccountId: string, paymentDate: string) => {
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
     if (!profile) return;
 
     const { error: updateError } = await supabase.from("receivables").update({

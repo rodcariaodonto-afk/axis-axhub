@@ -93,7 +93,9 @@ export default function Activities() {
     const { data } = await supabase.from("activity_types").select("*").eq("is_active", true);
     if (data && data.length > 0) { setActivityTypes(data); return; }
     // Create defaults
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
     if (!profile) return;
     const rows = defaultTypes.map(t => ({ tenant_id: profile.tenant_id, ...t }));
     await supabase.from("activity_types").insert(rows);
@@ -231,7 +233,9 @@ export default function Activities() {
       if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
       toast({ title: "Atividade atualizada!" });
     } else {
-      const { data: profile } = await supabase.from("profiles").select("tenant_id, id").single();
+      const { data: { user: u } } = await supabase.auth.getUser();
+      if (!u) return;
+      const { data: profile } = await supabase.from("profiles").select("tenant_id, id").eq("id", u.id).single();
       if (!profile) return;
       payload.tenant_id = profile.tenant_id;
       payload.created_by_id = profile.id;

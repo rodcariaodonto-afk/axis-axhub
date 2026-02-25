@@ -45,7 +45,9 @@ export default function Stock() {
 
   const handleMovement = async () => {
     if (!movForm.product_id || !movForm.warehouse_id || !movForm.quantity) { toast({ title: "Preencha todos os campos", variant: "destructive" }); return; }
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
     if (!profile) return;
     const qty = parseInt(movForm.quantity);
     
@@ -66,7 +68,9 @@ export default function Stock() {
 
   const handleCreateWarehouse = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: { user: u } } = await supabase.auth.getUser();
+    if (!u) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", u.id).single();
     if (!profile) return;
     const { error } = await supabase.from("warehouses").insert({ tenant_id: profile.tenant_id, name: whForm.name });
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
