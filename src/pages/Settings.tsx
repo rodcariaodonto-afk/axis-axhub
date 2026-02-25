@@ -1,7 +1,5 @@
 import { useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { ShieldAlert } from "lucide-react";
 import SettingsLayout, { type SettingsSection } from "./settings/SettingsLayout";
 import ProfileSettings from "./settings/ProfileSettings";
@@ -33,25 +31,18 @@ const SECTION_MAP: Record<SettingsSection, React.ComponentType> = {
 };
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { hasPermission, isAdmin, isLoading } = useUserPermissions();
   const [section, setSection] = useState<SettingsSection>("profile");
-
-  const { data: isAdmin, isLoading } = useQuery({
-    queryKey: ["is-admin", user?.id],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data } = await supabase.rpc("has_role", { _user_id: user!.id, _role: "admin" });
-      return !!data;
-    },
-  });
 
   if (isLoading) return <div className="flex items-center justify-center h-64"><div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
 
-  if (!isAdmin && section !== "profile" && section !== "notifications") {
+  const canAccessSettings = isAdmin || hasPermission("configuracoes", "view");
+
+  if (!canAccessSettings && section !== "profile" && section !== "notifications") {
     setSection("profile");
   }
 
-  if (!isAdmin) {
+  if (!canAccessSettings) {
     return (
       <div className="space-y-6">
         <div>
