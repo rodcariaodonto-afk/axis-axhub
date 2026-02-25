@@ -213,7 +213,6 @@ export default function UsersManagement() {
                           variant="ghost"
                           size="icon"
                           onClick={() => handleResendInvite(p.id)}
-                          disabled={p.id === user?.id}
                           title="Reenviar convite"
                         >
                           <MailPlus className="h-4 w-4" />
