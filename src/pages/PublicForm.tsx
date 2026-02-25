@@ -62,16 +62,26 @@ export default function PublicForm() {
 
   const handleSubmit = async () => {
     setSubmitting(true);
-    const { error } = await supabase.from("form_responses").insert({
+    const { data: inserted, error } = await supabase.from("form_responses").insert({
       form_id: form.id,
       tenant_id: form.tenant_id,
       respondent_name: respondentName,
       respondent_email: respondentEmail,
       response_data: answers,
       completed: true,
-    });
+    }).select("id").single();
+    if (error) { setSubmitting(false); toast({ title: "Erro ao enviar", description: error.message, variant: "destructive" }); return; }
+
+    // Trigger process-form-response automatically
+    try {
+      await supabase.functions.invoke("process-form-response", {
+        body: { form_response_id: inserted.id },
+      });
+    } catch (e) {
+      console.error("[PublicForm] process-form-response invoke error:", e);
+    }
+
     setSubmitting(false);
-    if (error) { toast({ title: "Erro ao enviar", description: error.message, variant: "destructive" }); return; }
     setStep("success");
   };
 
