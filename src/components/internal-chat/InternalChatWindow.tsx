@@ -110,6 +110,23 @@ export function InternalChatWindow({ conversation, onMessageSent }: Props) {
     // Update conversation updated_at
     await supabase.from("internal_conversations").update({ updated_at: new Date().toISOString() }).eq("id", conversation.id);
 
+    // Send notification to other participants
+    const { data: senderProfile } = await supabase.from("profiles").select("full_name").eq("id", user.id).single();
+    const senderName = senderProfile?.full_name || "Alguém";
+    const otherParticipants = (conversation.participants || []).filter((p) => p.user_id !== user.id);
+    if (otherParticipants.length > 0) {
+      const notifications = otherParticipants.map((p) => ({
+        tenant_id: profile.tenant_id,
+        recipient_id: p.user_id,
+        notification_type_id: "internal_chat_message",
+        title: `Nova mensagem de ${senderName}`,
+        message: text.trim().length > 80 ? text.trim().substring(0, 80) + "..." : text.trim(),
+        priority: "normal",
+        action_url: "/chat-interno",
+      }));
+      await supabase.from("notifications").insert(notifications);
+    }
+
     setText("");
     setSending(false);
     onMessageSent();

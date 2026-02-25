@@ -42,6 +42,7 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   { id: 'payment_overdue_critical', name: 'Pagamento Crítico Vencido', description: 'Pagamento vencido há mais de 30 dias', category: 'financial', defaultPriority: 'urgent', icon: 'AlertOctagon' },
   { id: 'backup_completed', name: 'Backup Concluído', description: 'Quando o backup do sistema é concluído', category: 'system', defaultPriority: 'low', icon: 'HardDrive' },
   { id: 'maintenance_scheduled', name: 'Manutenção Programada', description: 'Quando uma manutenção do sistema é agendada', category: 'system', defaultPriority: 'normal', icon: 'Wrench' },
+  { id: 'internal_chat_message', name: 'Mensagem no Chat Interno', description: 'Quando alguém envia uma mensagem no chat interno', category: 'system', defaultPriority: 'normal', icon: 'MessageSquare' },
 ];
 
 export const NOTIFICATION_CATEGORY_LABELS: Record<string, string> = {
