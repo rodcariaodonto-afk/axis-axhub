@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, MailPlus } from "lucide-react";
 import UserFormModal from "@/components/users/UserFormModal";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -97,6 +97,20 @@ export default function UsersManagement() {
       permissions: perms && perms.length > 0 ? perms : undefined,
     });
     setModalOpen(true);
+  };
+
+  const handleResendInvite = async (profileId: string) => {
+    if (!confirm("Deseja reenviar o convite para este usuário?")) return;
+    try {
+      const { data, error } = await supabase.functions.invoke("resend-user-invite", {
+        body: { user_id: profileId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: data?.message || "Convite reenviado com sucesso" });
+    } catch (err: any) {
+      toast({ title: "Erro ao reenviar convite", description: err.message, variant: "destructive" });
+    }
   };
 
   const handleDelete = async (profileId: string) => {
@@ -192,14 +206,24 @@ export default function UsersManagement() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(p.id)}>
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(p.id)} title="Editar">
                           <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleResendInvite(p.id)}
+                          disabled={p.id === user?.id}
+                          title="Reenviar convite"
+                        >
+                          <MailPlus className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => handleDelete(p.id)}
                           disabled={p.id === user?.id}
+                          title="Desativar"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
