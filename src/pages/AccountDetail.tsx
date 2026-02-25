@@ -214,7 +214,7 @@ export default function AccountDetail() {
         )}
         <Card className="border-border bg-card"><CardContent className="p-4 flex items-center gap-3">
           <User className="h-5 w-5 text-muted-foreground" />
-          <div><p className="text-xs text-muted-foreground">Proprietário</p><p className="font-medium">{getOwnerName(account.owner_user_id)}</p></div>
+          <div><p className="text-xs text-muted-foreground">Responsável</p><p className="font-medium">{getOwnerName(account.owner_user_id)}</p></div>
         </CardContent></Card>
       </div>
 
@@ -374,16 +374,6 @@ export default function AccountDetail() {
                 <Input value={form.instagram} onChange={(e) => setForm({ ...form, instagram: e.target.value })} placeholder="@perfil" />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Proprietário</Label>
-              <Select value={form.owner_user_id || "__none__"} onValueChange={(v) => setForm({ ...form, owner_user_id: v === "__none__" ? "" : v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Nenhum</SelectItem>
-                  {owners.map((o) => <SelectItem key={o.id} value={o.id}>{o.full_name || o.email}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
             <div className="space-y-2"><Label>Endereço</Label><Input value={form.street} onChange={(e) => setForm({ ...form, street: e.target.value })} /></div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2"><Label>Cidade</Label><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
@@ -392,6 +382,16 @@ export default function AccountDetail() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2"><Label>País</Label><Input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} /></div>
               <div className="space-y-2"><Label>CEP</Label><Input value={form.postal_code} onChange={(e) => setForm({ ...form, postal_code: e.target.value })} /></div>
+            </div>
+            <div className="space-y-2">
+              <Label>Responsável</Label>
+              <Select value={form.owner_user_id || "__none__"} onValueChange={(v) => setForm({ ...form, owner_user_id: v === "__none__" ? "" : v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Nenhum</SelectItem>
+                  {owners.map((o) => <SelectItem key={o.id} value={o.id}>{o.full_name || o.email}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <Button type="submit" className="w-full">Salvar</Button>
           </form>
