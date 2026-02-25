@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Pencil, Building2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search, Pencil, Building2, ChevronLeft, ChevronRight, UserCheck } from "lucide-react";
 
 const SEGMENTS = ["Tecnologia", "Varejo", "Serviços", "Indústria", "Saúde", "Educação", "Financeiro", "Outro"];
 const PAGE_SIZE = 10;
@@ -49,6 +49,9 @@ export default function Accounts() {
     resp_name: "", resp_cpf: "", resp_phone: "", resp_email: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [convertDialogOpen, setConvertDialogOpen] = useState(false);
+  const [convertingAccount, setConvertingAccount] = useState<any>(null);
+  const [convertForm, setConvertForm] = useState({ name: "", document: "", email: "", phone: "" });
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
@@ -155,6 +158,37 @@ export default function Accounts() {
     }
     setDialogOpen(false);
     fetchData();
+  };
+
+  const handleConvertOpen = (a: any) => {
+    setConvertingAccount(a);
+    setConvertForm({
+      name: a.name,
+      document: a.cnpj || "",
+      email: a.email || "",
+      phone: a.phone || "",
+    });
+    setConvertDialogOpen(true);
+  };
+
+  const handleConvert = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!convertingAccount) return;
+    const { data: { user: u } } = await supabase.auth.getUser();
+    if (!u) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", u.id).single();
+    if (!profile) return;
+    const { error } = await supabase.from("customers").insert({
+      tenant_id: profile.tenant_id,
+      name: convertForm.name,
+      document: convertForm.document || null,
+      email: convertForm.email || null,
+      phone: convertForm.phone || null,
+    });
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Conta convertida em cliente!" });
+    setConvertDialogOpen(false);
+    setConvertingAccount(null);
   };
 
   const filtered = accounts.filter((a) => {
@@ -311,7 +345,7 @@ export default function Accounts() {
                 <TableHead>Telefone</TableHead>
                 <TableHead>Segmento</TableHead>
                 <TableHead>Responsável</TableHead>
-                <TableHead className="w-10" />
+                <TableHead className="w-20" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -333,9 +367,14 @@ export default function Accounts() {
                   <TableCell>{a.segment ? <Badge variant="outline">{a.segment}</Badge> : "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{getOwnerName(a.owner_user_id)}</TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(a)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Editar" onClick={() => openEdit(a)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Converter em Cliente" onClick={() => handleConvertOpen(a)}>
+                        <UserCheck className="h-4 w-4 text-primary" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -359,6 +398,36 @@ export default function Accounts() {
           </div>
         </div>
       )}
+
+      {/* Convert to Customer Dialog */}
+      <Dialog open={convertDialogOpen} onOpenChange={setConvertDialogOpen}>
+        <DialogContent className="bg-card border-border">
+          <DialogHeader><DialogTitle>Converter em Cliente</DialogTitle></DialogHeader>
+          <form onSubmit={handleConvert} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nome</Label>
+              <Input value={convertForm.name} onChange={(e) => setConvertForm({ ...convertForm, name: e.target.value })} required />
+            </div>
+            <div className="space-y-2">
+              <Label>CPF/CNPJ</Label>
+              <Input value={convertForm.document} onChange={(e) => setConvertForm({ ...convertForm, document: e.target.value })} placeholder="Opcional" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>E-mail</Label>
+                <Input type="email" value={convertForm.email} onChange={(e) => setConvertForm({ ...convertForm, email: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Telefone</Label>
+                <Input value={convertForm.phone} onChange={(e) => setConvertForm({ ...convertForm, phone: e.target.value })} />
+              </div>
+            </div>
+            <Button type="submit" className="w-full">
+              <UserCheck className="mr-2 h-4 w-4" />Converter em Cliente
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
