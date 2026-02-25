@@ -1,0 +1,1 @@
+ALTER TABLE public.crm_accounts ADD COLUMN IF NOT EXISTS responsible_json JSONB;

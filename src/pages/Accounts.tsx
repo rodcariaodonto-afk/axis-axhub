@@ -46,6 +46,7 @@ export default function Accounts() {
   const [form, setForm] = useState({
     name: "", cnpj: "", email: "", phone: "", segment: "", website: "", instagram: "",
     street: "", city: "", state: "", country: "", postal_code: "", owner_user_id: "",
+    resp_name: "", resp_cpf: "", resp_phone: "", resp_email: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { toast } = useToast();
@@ -70,7 +71,7 @@ export default function Accounts() {
   const openCreate = () => {
     setEditingId(null);
     setDocType("cnpj");
-    setForm({ name: "", cnpj: "", email: "", phone: "", segment: "", website: "", instagram: "", street: "", city: "", state: "", country: "", postal_code: "", owner_user_id: "" });
+    setForm({ name: "", cnpj: "", email: "", phone: "", segment: "", website: "", instagram: "", street: "", city: "", state: "", country: "", postal_code: "", owner_user_id: "", resp_name: "", resp_cpf: "", resp_phone: "", resp_email: "" });
     setErrors({});
     setDialogOpen(true);
   };
@@ -79,6 +80,7 @@ export default function Accounts() {
     setEditingId(a.id);
     setDocType(detectDocType(a.cnpj || ""));
     const addr = a.address_json || {};
+    const resp = (a as any).responsible_json || {};
     setForm({
       name: a.name,
       cnpj: a.cnpj || "",
@@ -93,6 +95,10 @@ export default function Accounts() {
       country: addr.country || "",
       postal_code: addr.postal_code || "",
       owner_user_id: a.owner_user_id || "",
+      resp_name: resp.name || "",
+      resp_cpf: resp.cpf || "",
+      resp_phone: resp.phone || "",
+      resp_email: resp.email || "",
     });
     setErrors({});
     setDialogOpen(true);
@@ -117,6 +123,10 @@ export default function Accounts() {
       ? { street: form.street, city: form.city, state: form.state, country: form.country, postal_code: form.postal_code }
       : null;
 
+    const responsibleJson = docType === "cnpj" && (form.resp_name || form.resp_cpf || form.resp_phone || form.resp_email)
+      ? { name: form.resp_name, cpf: form.resp_cpf, phone: form.resp_phone, email: form.resp_email }
+      : null;
+
     const payload: any = {
       name: form.name,
       cnpj: form.cnpj || null,
@@ -127,6 +137,7 @@ export default function Accounts() {
       instagram: form.instagram || null,
       address_json: addressJson,
       owner_user_id: form.owner_user_id || null,
+      responsible_json: responsibleJson,
     };
 
     if (editingId) {
@@ -229,6 +240,21 @@ export default function Accounts() {
                 <Input value={form.instagram} onChange={(e) => setForm({ ...form, instagram: e.target.value })} placeholder="@perfil" />
               </div>
             </div>
+            {docType === "cnpj" && (
+              <>
+                <div className="border border-border rounded-lg p-4 space-y-4">
+                  <p className="text-sm font-medium text-muted-foreground">Responsável pela Empresa</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>Nome do Responsável</Label><Input value={form.resp_name} onChange={(e) => setForm({ ...form, resp_name: e.target.value })} placeholder="Nome completo" /></div>
+                    <div className="space-y-2"><Label>CPF do Responsável</Label><Input value={form.resp_cpf} onChange={(e) => setForm({ ...form, resp_cpf: e.target.value })} placeholder="000.000.000-00" /></div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>Telefone do Responsável</Label><Input value={form.resp_phone} onChange={(e) => setForm({ ...form, resp_phone: e.target.value })} placeholder="(00) 00000-0000" /></div>
+                    <div className="space-y-2"><Label>E-mail do Responsável</Label><Input type="email" value={form.resp_email} onChange={(e) => setForm({ ...form, resp_email: e.target.value })} placeholder="email@empresa.com" /></div>
+                  </div>
+                </div>
+              </>
+            )}
             <div className="space-y-2"><Label>Endereço</Label><Input value={form.street} onChange={(e) => setForm({ ...form, street: e.target.value })} placeholder="Rua, número" /></div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2"><Label>Cidade</Label><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>

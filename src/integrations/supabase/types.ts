@@ -1432,6 +1432,7 @@ export type Database = {
           name: string
           owner_user_id: string | null
           phone: string | null
+          responsible_json: Json | null
           segment: string | null
           tenant_id: string
           updated_at: string | null
@@ -1448,6 +1449,7 @@ export type Database = {
           name: string
           owner_user_id?: string | null
           phone?: string | null
+          responsible_json?: Json | null
           segment?: string | null
           tenant_id: string
           updated_at?: string | null
@@ -1464,6 +1466,7 @@ export type Database = {
           name?: string
           owner_user_id?: string | null
           phone?: string | null
+          responsible_json?: Json | null
           segment?: string | null
           tenant_id?: string
           updated_at?: string | null
