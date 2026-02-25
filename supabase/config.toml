@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.create-user-with-permissions]
 verify_jwt = false
+
+[functions.process-form-response]
+verify_jwt = false

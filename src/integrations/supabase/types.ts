@@ -499,6 +499,118 @@ export type Database = {
           },
         ]
       }
+      bi_form_data: {
+        Row: {
+          account_id: string | null
+          additional_data: Json | null
+          country: string | null
+          created_at: string
+          estimated_value: number | null
+          form_id: string | null
+          form_response_id: string | null
+          has_inclusion_program: boolean | null
+          id: string
+          institution_name: string | null
+          investment_capacity: string | null
+          lead_id: string | null
+          opportunity_id: string | null
+          respondent_email: string | null
+          respondent_name: string | null
+          respondent_role: string | null
+          special_needs_types: string[] | null
+          students_with_special_needs: number | null
+          tenant_id: string
+          total_students: number | null
+        }
+        Insert: {
+          account_id?: string | null
+          additional_data?: Json | null
+          country?: string | null
+          created_at?: string
+          estimated_value?: number | null
+          form_id?: string | null
+          form_response_id?: string | null
+          has_inclusion_program?: boolean | null
+          id?: string
+          institution_name?: string | null
+          investment_capacity?: string | null
+          lead_id?: string | null
+          opportunity_id?: string | null
+          respondent_email?: string | null
+          respondent_name?: string | null
+          respondent_role?: string | null
+          special_needs_types?: string[] | null
+          students_with_special_needs?: number | null
+          tenant_id: string
+          total_students?: number | null
+        }
+        Update: {
+          account_id?: string | null
+          additional_data?: Json | null
+          country?: string | null
+          created_at?: string
+          estimated_value?: number | null
+          form_id?: string | null
+          form_response_id?: string | null
+          has_inclusion_program?: boolean | null
+          id?: string
+          institution_name?: string | null
+          investment_capacity?: string | null
+          lead_id?: string | null
+          opportunity_id?: string | null
+          respondent_email?: string | null
+          respondent_name?: string | null
+          respondent_role?: string | null
+          special_needs_types?: string[] | null
+          students_with_special_needs?: number | null
+          tenant_id?: string
+          total_students?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bi_form_data_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "crm_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bi_form_data_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bi_form_data_form_response_id_fkey"
+            columns: ["form_response_id"]
+            isOneToOne: false
+            referencedRelation: "form_responses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bi_form_data_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bi_form_data_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bi_form_data_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bi_manual_adjustments: {
         Row: {
           adjustment_date: string

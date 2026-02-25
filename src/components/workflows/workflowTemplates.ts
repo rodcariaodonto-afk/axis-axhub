@@ -81,6 +81,20 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
       ],
     },
   },
+  {
+    id: "integracao-formularios",
+    name: "Integração Formulários CRM/ERP/BI",
+    description: "Ao receber resposta de formulário, cria lead, conta, contato, oportunidade, atividade e dados de BI automaticamente",
+    category: "vendas",
+    icon: "📋",
+    definition: {
+      nodes: [
+        { id: "n1", type: "trigger", catalogId: "form.submitted", config: {} },
+        { id: "n2", type: "action", catalogId: "create_notification", config: { title: "Nova resposta de formulário", message: "Uma nova resposta foi recebida e processada automaticamente", priority: "high" } },
+        { id: "n3", type: "action", catalogId: "create_activity", config: { title: "Follow-up de formulário", type: "task", description: "Entrar em contato com o respondente do formulário" } },
+      ],
+    },
+  },
   // ── Operações ──
   {
     id: "novo-pedido",
