@@ -21,10 +21,10 @@ Deno.serve(async (req) => {
 
     console.log("[process-form-response] Starting for:", form_response_id);
 
-    // 1. Fetch the response + parent form
+    // 1. Fetch the response + parent form (column is "name", not "title")
     const { data: response, error: respErr } = await supabase
       .from("form_responses")
-      .select("*, forms!inner(id, tenant_id, user_id, title)")
+      .select("*, forms!inner(id, tenant_id, user_id, name, form_config)")
       .eq("id", form_response_id)
       .single();
 
@@ -33,30 +33,47 @@ Deno.serve(async (req) => {
     const tenant_id = response.forms.tenant_id;
     const form_owner_id = response.forms.user_id;
     const rd = response.response_data as Record<string, any>;
+    const formConfig = (response.forms.form_config || []) as Array<{ id: string; label: string; type?: string }>;
 
-    // 2. Extract fields from response_data (keys are question labels)
+    // Build a map from question ID to label for searching
+    const idToLabel: Record<string, string> = {};
+    for (const q of formConfig) {
+      if (q.id && q.label) {
+        idToLabel[q.id] = q.label;
+      }
+    }
+
+    // Build a label-based lookup: merge question labels with their answer values
+    const labelValueMap: Record<string, any> = {};
+    for (const [key, value] of Object.entries(rd)) {
+      const label = idToLabel[key] || key;
+      labelValueMap[label.toLowerCase()] = value;
+    }
+
+    console.log("[process-form-response] Label-value map keys:", Object.keys(labelValueMap));
+
+    // 2. Extract fields by searching labels
     const findValue = (keywords: string[]): string => {
-      for (const key of Object.keys(rd)) {
-        const lk = key.toLowerCase();
-        if (keywords.some((kw) => lk.includes(kw))) {
-          const v = rd[key];
-          return Array.isArray(v) ? v.join(", ") : String(v || "");
+      for (const [label, val] of Object.entries(labelValueMap)) {
+        if (keywords.some((kw) => label.includes(kw.toLowerCase()))) {
+          return Array.isArray(val) ? val.join(", ") : String(val || "");
         }
       }
       return "";
     };
 
-    const respondent_name = findValue(["seu nome", "your name", "nome completo"]) || response.respondent_name || "Sem nome";
-    const email = findValue(["e-mail", "email"]) || response.respondent_email || "";
+    // Use stored respondent info as primary source, form answers as enrichment
+    const respondent_name = response.respondent_name || findValue(["seu nome", "your name", "nome completo"]) || "Sem nome";
+    const email = response.respondent_email || findValue(["e-mail", "email", "melhor email"]) || "";
     const phone = findValue(["telefone", "phone", "whatsapp"]);
-    const institution = findValue(["instituição", "institution", "escola", "school"]) || "Instituição desconhecida";
+    const institution = findValue(["instituição", "institution", "escola", "school", "nome completo de sua instituição"]) || "Instituição desconhecida";
     const country = findValue(["país", "country", "pais"]);
     const role = findValue(["cargo", "role", "função", "funcao"]);
-    const totalStudentsStr = findValue(["total de alunos", "total students", "quantos alunos"]);
-    const specialNeedsStr = findValue(["necessidades especiais", "special needs", "alunos com deficiência"]);
-    const specialNeedsTypes = findValue(["tipos de necessidades", "types of needs", "deficiências atendidas"]);
+    const totalStudentsStr = findValue(["total de alunos", "total students", "quantas crianças", "quantos alunos"]);
+    const specialNeedsStr = findValue(["necessidades especiais", "special needs", "alunos com deficiência", "quantos alunos aproximadamente"]);
+    const specialNeedsTypes = findValue(["tipos de necessidades", "types of needs", "deficiências atendidas", "quais são os tipos"]);
     const hasInclusionStr = findValue(["programa de inclusão", "inclusion program"]);
-    const investmentCapacity = findValue(["capacidade de investimento", "investment capacity", "investimento"]);
+    const investmentCapacity = findValue(["capacidade de investimento", "investment capacity", "investimento", "investir em novas soluções"]);
 
     const totalStudents = parseInt(totalStudentsStr) || 0;
     const studentsWithNeeds = parseInt(specialNeedsStr) || 0;
@@ -66,8 +83,9 @@ Deno.serve(async (req) => {
     // Estimated value based on investment capacity
     let estimatedValue = 1000;
     const invLower = investmentCapacity.toLowerCase();
-    if (invLower.includes("significativ")) estimatedValue = 5000;
-    else if (invLower.includes("moderad")) estimatedValue = 3000;
+    if (invLower.includes("significativ") || invLower.includes("acima de r$ 5.000")) estimatedValue = 5000;
+    else if (invLower.includes("moderad") || invLower.includes("r$ 3.000") || invLower.includes("r$ 1.000")) estimatedValue = 3000;
+    else if (invLower.includes("r$ 500")) estimatedValue = 1500;
 
     console.log("[process-form-response] Extracted:", { respondent_name, email, institution, investmentCapacity, estimatedValue });
 
@@ -111,6 +129,23 @@ Deno.serve(async (req) => {
         else lead_id = newLead.id;
         console.log("[process-form-response] Lead created:", lead_id);
       }
+    } else {
+      // No email - still create lead with name
+      const { data: newLead, error: leadErr } = await supabase
+        .from("leads")
+        .insert({
+          tenant_id,
+          name: respondent_name,
+          phone: phone || null,
+          source: "formulario",
+          status: "new",
+          score: 40,
+        })
+        .select("id")
+        .single();
+      if (leadErr) console.error("[process-form-response] Lead insert error:", leadErr.message);
+      else lead_id = newLead?.id;
+      console.log("[process-form-response] Lead created (no email):", lead_id);
     }
 
     // 4. Create Account
@@ -162,7 +197,6 @@ Deno.serve(async (req) => {
     // 6. Create Opportunity
     let opportunity_id: string | null = null;
     try {
-      // Get first opportunity stage name
       const { data: stages } = await supabase
         .from("opportunity_stages")
         .select("name")
@@ -248,7 +282,7 @@ Deno.serve(async (req) => {
         tenant_id,
         recipient_id: form_owner_id,
         notification_type_id: "form_response",
-        title: `Nova resposta: ${response.forms.title}`,
+        title: `Nova resposta: ${response.forms.name}`,
         message: `${respondent_name} (${institution}) respondeu ao formulário. Valor estimado: R$ ${estimatedValue.toLocaleString("pt-BR")}`,
         priority: "high",
         related_entity_type: "form_response",
@@ -333,7 +367,7 @@ Deno.serve(async (req) => {
         const triggerData = {
           form_response_id,
           form_id: response.forms.id,
-          form_title: response.forms.title,
+          form_title: response.forms.name,
           respondent_name,
           respondent_email: email,
           respondent_phone: phone,
