@@ -320,6 +320,63 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 11. Dispatch workflows triggered by form.submitted
+    try {
+      const { data: workflows } = await supabase
+        .from("workflows")
+        .select("id")
+        .eq("tenant_id", tenant_id)
+        .eq("is_active", true)
+        .contains("trigger_types", ["form.submitted"]);
+
+      if (workflows && workflows.length > 0) {
+        const triggerData = {
+          form_response_id,
+          form_id: response.forms.id,
+          form_title: response.forms.title,
+          respondent_name,
+          respondent_email: email,
+          respondent_phone: phone,
+          institution_name: institution,
+          country,
+          respondent_role: role,
+          total_students: totalStudents,
+          students_with_special_needs: studentsWithNeeds,
+          has_inclusion_program: hasInclusion,
+          investment_capacity: investmentCapacity,
+          estimated_value: estimatedValue,
+          lead_id,
+          account_id,
+          contact_id,
+          opportunity_id,
+        };
+
+        for (const wf of workflows) {
+          try {
+            const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+            const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+            await fetch(`${supabaseUrl}/functions/v1/workflow-runner`, {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${serviceKey}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                workflow_id: wf.id,
+                trigger_data: triggerData,
+                trigger_type: "form.submitted",
+              }),
+            });
+            console.log("[process-form-response] Workflow dispatched:", wf.id);
+          } catch (wfErr) {
+            console.error("[process-form-response] Workflow dispatch error:", wfErr.message);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[process-form-response] Workflow query error:", e.message);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
