@@ -83,15 +83,19 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
   },
   {
     id: "integracao-formularios",
-    name: "Integração Formulários CRM/ERP/BI",
-    description: "Ao receber resposta de formulário, cria lead, conta, contato, oportunidade, atividade e dados de BI automaticamente",
+    name: "Integração Formulários com CRM",
+    description: "Ao receber resposta de formulário, cria Lead, Conta, Contato, Oportunidade, envia e-mail e notificação interna automaticamente",
     category: "vendas",
     icon: "📋",
     definition: {
       nodes: [
         { id: "n1", type: "trigger", catalogId: "form.submitted", config: {} },
-        { id: "n2", type: "action", catalogId: "create_notification", config: { title: "Nova resposta de formulário", message: "Uma nova resposta foi recebida e processada automaticamente", priority: "high" } },
-        { id: "n3", type: "action", catalogId: "create_activity", config: { title: "Follow-up de formulário", type: "task", description: "Entrar em contato com o respondente do formulário" } },
+        { id: "n2", type: "action", catalogId: "create_lead", config: { name: "{{respondent_name}}", email: "{{respondent_email}}", company: "{{institution_name}}", source: "Formulário Educação Inclusiva", status: "Novo" } },
+        { id: "n3", type: "action", catalogId: "create_account", config: { name: "{{institution_name}}", industry: "Educação", country: "Angola" } },
+        { id: "n4", type: "action", catalogId: "create_contact", config: { name: "{{respondent_name}}", email: "{{respondent_email}}", account_id: "" } },
+        { id: "n5", type: "action", catalogId: "create_opportunity", config: { name: "Solução IA para {{institution_name}}", stage: "Qualificação", estimated_value: "3000" } },
+        { id: "n6", type: "action", catalogId: "send_email", config: { to: "rodcaria@axhub.com.br", subject: "Novo Lead: {{respondent_name}}", body: "Um novo lead foi gerado a partir do formulário de Educação Inclusiva.\n\nNome: {{respondent_name}}\nEmail: {{respondent_email}}\nInstituição: {{institution_name}}" } },
+        { id: "n7", type: "action", catalogId: "create_notification", config: { title: "Novo lead via formulário", message: "Lead {{respondent_name}} criado com conta, contato e oportunidade", priority: "high" } },
       ],
     },
   },

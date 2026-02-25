@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Pencil, Trash2, Zap, Play, FileText } from "lucide-react";
+import { Plus, Pencil, Trash2, Zap, Play, FileText, ClipboardList } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { WorkflowTemplateSelector } from "./WorkflowTemplateSelector";
+import { WORKFLOW_TEMPLATES } from "./workflowTemplates";
 import type { WorkflowTemplate } from "./workflowTemplates";
 
 interface Workflow {
@@ -83,6 +84,26 @@ export function WorkflowList({ onEdit, onCreate }: Props) {
     fetchWorkflows();
   };
 
+  const handleCreateModel = async () => {
+    const template = WORKFLOW_TEMPLATES.find((t) => t.id === "integracao-formularios");
+    if (!template) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id, id").maybeSingle();
+    if (!profile) { toast({ title: "Erro", description: "Perfil não encontrado.", variant: "destructive" }); return; }
+    const { data, error } = await supabase.from("workflows").insert({
+      tenant_id: profile.tenant_id,
+      name: template.name,
+      description: template.description,
+      definition: template.definition as any,
+      is_active: true,
+      is_published: true,
+      created_by: profile.id,
+    }).select("id").single();
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Workflow modelo criado com sucesso!" });
+    fetchWorkflows();
+    if (data) onEdit(data.id);
+  };
+
   if (loading) {
     return (
       <div className="space-y-3">
@@ -95,6 +116,7 @@ export function WorkflowList({ onEdit, onCreate }: Props) {
   return (
     <div className="space-y-3">
       <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={handleCreateModel}><ClipboardList className="h-4 w-4 mr-1" />Criar Workflow Modelo</Button>
         <Button variant="outline" onClick={() => setTemplateOpen(true)}><FileText className="h-4 w-4 mr-1" />Usar Template</Button>
         <Button onClick={onCreate}><Plus className="h-4 w-4 mr-1" />Novo Workflow</Button>
       </div>

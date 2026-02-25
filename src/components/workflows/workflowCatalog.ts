@@ -108,6 +108,48 @@ export const actionsCatalog: CatalogItem[] = [
       { key: "message", label: "Mensagem", type: "textarea", required: true, placeholder: "Texto da mensagem" },
     ],
   },
+  {
+    id: "create_lead", label: "Criar Lead no CRM", description: "Cria um novo lead automaticamente", icon: UserPlus, category: "action",
+    configFields: [
+      { key: "name", label: "Nome", type: "text", required: true, placeholder: "{{respondent_name}}" },
+      { key: "email", label: "E-mail", type: "text", required: true, placeholder: "{{respondent_email}}" },
+      { key: "company", label: "Empresa", type: "text", placeholder: "{{institution_name}}" },
+      { key: "source", label: "Fonte", type: "text", placeholder: "Formulário" },
+      { key: "status", label: "Status", type: "select", options: [{ value: "Novo", label: "Novo" }, { value: "Qualificado", label: "Qualificado" }] },
+    ],
+  },
+  {
+    id: "create_account", label: "Criar Conta no CRM", description: "Cria uma nova conta/empresa", icon: Users, category: "action",
+    configFields: [
+      { key: "name", label: "Nome da empresa", type: "text", required: true, placeholder: "{{institution_name}}" },
+      { key: "industry", label: "Setor", type: "text", placeholder: "Educação" },
+      { key: "country", label: "País", type: "text", placeholder: "Angola" },
+    ],
+  },
+  {
+    id: "create_contact", label: "Criar Contato no CRM", description: "Cria um novo contato vinculado a uma conta", icon: UserPlus, category: "action",
+    configFields: [
+      { key: "name", label: "Nome", type: "text", required: true, placeholder: "{{respondent_name}}" },
+      { key: "email", label: "E-mail", type: "text", placeholder: "{{respondent_email}}" },
+      { key: "account_id", label: "ID da Conta (opcional)", type: "text", placeholder: "Automático se vazio" },
+    ],
+  },
+  {
+    id: "create_opportunity", label: "Criar Oportunidade", description: "Cria uma nova oportunidade no pipeline", icon: TrendingUp, category: "action",
+    configFields: [
+      { key: "name", label: "Nome", type: "text", required: true, placeholder: "Solução IA para {{institution_name}}" },
+      { key: "stage", label: "Etapa", type: "text", placeholder: "Qualificação" },
+      { key: "estimated_value", label: "Valor estimado", type: "number", placeholder: "3000" },
+    ],
+  },
+  {
+    id: "send_email", label: "Enviar E-mail", description: "Envia um e-mail de notificação", icon: Send, category: "action",
+    configFields: [
+      { key: "to", label: "Destinatário", type: "text", required: true, placeholder: "email@exemplo.com" },
+      { key: "subject", label: "Assunto", type: "text", required: true, placeholder: "Assunto do e-mail" },
+      { key: "body", label: "Corpo", type: "textarea", required: true, placeholder: "Conteúdo do e-mail" },
+    ],
+  },
 ];
 
 // ── Conditions ──
