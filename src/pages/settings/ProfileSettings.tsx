@@ -55,6 +55,15 @@ export default function ProfileSettings() {
     setProfileLoaded(true);
   }
 
+  // Sync profile email if auth email differs (e.g. confirmed while offline)
+  useEffect(() => {
+    if (user?.email && profile?.email && user.email !== profile.email) {
+      supabase.from("profiles").update({ email: user.email }).eq("id", user.id).then(() => {
+        qc.invalidateQueries({ queryKey: ["my-profile"] });
+      });
+    }
+  }, [user?.email, profile?.email, user?.id, qc]);
+
   const updateProfile = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
