@@ -92,12 +92,18 @@ export function WorkflowBuilder({ workflowId, onBack }: Props) {
     publish ? setPublishing(true) : setSaving(true);
     const definition = buildDefinition();
 
+    // Extract trigger types from trigger nodes
+    const triggerTypes = definition.nodes
+      .filter((n: { type: string }) => n.type === "trigger")
+      .map((n: { catalogId: string }) => n.catalogId);
+
     let error;
     if (workflowId) {
       ({ error } = await supabase.from("workflows").update({
         name: name.trim(),
         description: description.trim() || null,
         definition: JSON.parse(JSON.stringify(definition)),
+        trigger_types: triggerTypes,
         ...(publish ? { is_published: true, published_at: new Date().toISOString(), is_active: true } : {}),
       }).eq("id", workflowId));
     } else {
@@ -105,6 +111,7 @@ export function WorkflowBuilder({ workflowId, onBack }: Props) {
         name: name.trim(),
         description: description.trim() || null,
         definition: JSON.parse(JSON.stringify(definition)),
+        trigger_types: triggerTypes,
         tenant_id: tenantId,
         created_by: user.id,
         ...(publish ? { is_published: true, published_at: new Date().toISOString(), is_active: true } : {}),
