@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -8,14 +8,27 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "@/hooks/use-toast";
-import { Camera, Loader2 } from "lucide-react";
+import { Camera, Loader2, Mail } from "lucide-react";
 
 export default function ProfileSettings() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync profile email when auth email changes
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if ((event === "USER_UPDATED") && session?.user) {
+        const newEmail = session.user.email;
+        await supabase.from("profiles").update({ email: newEmail }).eq("id", session.user.id);
+        qc.invalidateQueries({ queryKey: ["my-profile"] });
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [qc]);
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [newEmail, setNewEmail] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -173,6 +186,56 @@ export default function ProfileSettings() {
             </div>
             <Button type="submit" disabled={updateProfile.isPending}>
               {updateProfile.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Change email */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="h-5 w-5" /> Alterar E-mail
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!newEmail || newEmail === profile?.email) return;
+              try {
+                const { error } = await supabase.auth.updateUser({ email: newEmail });
+                if (error) throw error;
+                toast({
+                  title: "Confirmação enviada",
+                  description: "Verifique o novo e-mail e o e-mail atual para confirmar a alteração.",
+                });
+                setNewEmail("");
+              } catch (err: any) {
+                toast({ title: err.message || "Erro ao alterar e-mail", variant: "destructive" });
+              }
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-1.5">
+              <Label>E-mail atual</Label>
+              <Input value={profile?.email || ""} disabled className="opacity-60" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Novo E-mail</Label>
+              <Input
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="novo@email.com"
+                required
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Será enviado um link de confirmação para ambos os e-mails (atual e novo).
+            </p>
+            <Button type="submit" disabled={!newEmail || newEmail === profile?.email}>
+              Alterar E-mail
             </Button>
           </form>
         </CardContent>
