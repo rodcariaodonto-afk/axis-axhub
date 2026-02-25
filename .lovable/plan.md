@@ -1,64 +1,65 @@
 
-# Plano: Aba "Categorias" no Financeiro com Tags de Receita/Despesa
+# Plano: Melhorias no Cadastro de Contas
 
-## Objetivo
-Adicionar uma aba "Categorias" dentro da pagina Financeiro (`/finance`), onde o usuario pode criar categorias financeiras com:
-- Nome da categoria
-- Tipo: **Receita** ou **Despesa** (radio)
-- Cor da categoria (color picker com hex input, como na imagem de referencia)
-- Listagem, edicao e exclusao das categorias criadas
+## 1. Seletor CNPJ / CPF
+Substituir o campo fixo "CNPJ" por um seletor que permite escolher entre **CPF** ou **CNPJ**, com mascara e validacao adequada para cada tipo.
 
-## Mudancas
+### Mudancas em `src/pages/Accounts.tsx`:
+- Adicionar campo `doc_type` ao estado do form (`"cnpj"` ou `"cpf"`)
+- Trocar o label fixo "CNPJ" por um `Select` com opcoes "CNPJ" e "CPF"
+- Ajustar placeholder e validacao conforme o tipo selecionado:
+  - CPF: `000.000.000-00` (regex `^\d{3}\.\d{3}\.\d{3}-\d{2}$`)
+  - CNPJ: `00.000.000/0000-00` (regex existente)
+- A coluna `cnpj` do banco continua sendo usada para ambos (sem necessidade de migracao, apenas muda o label)
 
-### 1. Migracao de banco de dados
-Criar tabela `finance_categories` com:
-- `id` UUID (PK)
-- `tenant_id` UUID (FK para tenants)
-- `name` TEXT (nome da categoria)
-- `type` TEXT ('receita' | 'despesa')
-- `color` TEXT (hex color, ex: '#3B82F6')
-- `created_at` TIMESTAMPTZ
-- `updated_at` TIMESTAMPTZ
+### Mudancas em `src/pages/AccountDetail.tsx`:
+- Mesma logica de seletor CNPJ/CPF no modal de edicao
+- Na exibicao do detalhe, mostrar o label correto baseado no formato do documento armazenado
 
-Politicas RLS:
-- SELECT, INSERT, UPDATE, DELETE filtrados por `tenant_id = get_user_tenant_id()`
+### Na listagem (tabela):
+- Renomear coluna "CNPJ" para "Documento" para acomodar ambos os tipos
 
-### 2. Reestruturar `Finance.tsx` com Tabs
-Transformar a pagina Finance para usar o componente `Tabs` (ja existente em `src/components/ui/tabs.tsx`):
-- **Aba "Visao Geral"** (default) -- conteudo atual do dashboard financeiro
-- **Aba "Categorias"** -- novo conteudo com CRUD de categorias
+## 2. Campo Instagram
+Adicionar um campo "Instagram" ao formulario de criacao/edicao de contas.
 
-### 3. Novo componente `src/components/finance/FinanceCategoryManager.tsx`
-Conteudo da aba Categorias:
-- Botao "Nova Categoria" que abre um Dialog
-- Dialog com:
-  - Input "Nome da Categoria" (placeholder: "Ex: Alimentacao, Salario...")
-  - Radio group "Tipo": Receita / Despesa
-  - "Cor da Categoria": input hex color + preview de cor (similar a imagem)
-  - Botao "Criar"
-- Tabela listando categorias existentes com badge colorido, nome, tipo e acoes (editar/excluir)
+### Migracao de banco:
+- Adicionar coluna `instagram` (TEXT, nullable) na tabela `crm_accounts`
 
-### 4. Atualizar types (automatico)
-O arquivo `types.ts` sera atualizado automaticamente apos a migracao.
+### Mudancas em `src/pages/Accounts.tsx`:
+- Adicionar campo `instagram` ao estado do form
+- Adicionar input com placeholder `@perfil` abaixo do campo Website
+- Salvar no payload
+
+### Mudancas em `src/pages/AccountDetail.tsx`:
+- Exibir card de Instagram na area de informacoes (com icone)
+- Adicionar campo Instagram no modal de edicao
+
+## 3. Sobre o campo Proprietario
+O campo "Proprietario" indica **quem da equipe e responsavel por essa conta** (o vendedor/gerente de conta). Nao e quem criou, mas quem cuida do relacionamento com o cliente. Esse e um padrao de CRM para distribuicao de carteira. O campo continuara funcionando da mesma forma.
+
+## Resumo dos arquivos
+
+| Arquivo | Acao |
+|---------|------|
+| Migracao SQL | Criar — adicionar coluna `instagram` em `crm_accounts` |
+| `src/pages/Accounts.tsx` | Editar — seletor CPF/CNPJ + campo Instagram |
+| `src/pages/AccountDetail.tsx` | Editar — seletor CPF/CNPJ + campo Instagram + exibicao |
 
 ## Detalhes Tecnicos
 
+### Seletor de documento no formulario:
 ```text
-Finance.tsx
-+-----------------------------------------+
-|  [Visao Geral]  [Categorias]            |
-+-----------------------------------------+
-|                                         |
-|  (conteudo da aba selecionada)          |
-|                                         |
-+-----------------------------------------+
+[CPF v] [___.___.___-__]     [Segmento v]
+  ou
+[CNPJ v] [__.___.___/____-__]  [Segmento v]
 ```
 
-- O color picker usara um input `type="color"` nativo do HTML + input text para digitar o hex manualmente, replicando a experiencia da imagem de referencia
-- A tabela `finance_categories` fica isolada por tenant via RLS, disponivel para todos os usuarios da empresa
-- Seguira o padrao `getUserTenantId()` para queries seguras
+### Deteccao automatica ao editar:
+- Se o valor armazenado em `cnpj` tiver 14 digitos (formato CNPJ), seleciona CNPJ
+- Se tiver 11 digitos (formato CPF), seleciona CPF
+- Caso contrario, padrao CNPJ
 
-### Arquivos a criar/editar:
-1. **Criar**: Migracao SQL para `finance_categories`
-2. **Criar**: `src/components/finance/FinanceCategoryManager.tsx`
-3. **Editar**: `src/pages/Finance.tsx` -- adicionar Tabs com aba Visao Geral + Categorias
+### Campo Instagram:
+- Input texto com placeholder `@perfil`
+- Armazenado como texto simples na coluna `instagram`
+- Exibido como link clicavel para `https://instagram.com/{perfil}` na pagina de detalhe
