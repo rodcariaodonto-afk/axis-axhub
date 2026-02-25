@@ -40,18 +40,15 @@ Deno.serve(async (req) => {
     const tenantId = callerProfile.tenant_id;
 
     const body = await req.json();
-    const { email, password, full_name, phone, birth_date, role, default_theme, default_menu, farewell_message, work_hours, permissions } = body;
+    const { email, full_name, phone, birth_date, role, default_theme, default_menu, farewell_message, work_hours, permissions } = body;
 
-    if (!email || !password || !full_name || !role) {
-      throw new Error("Missing required fields: email, password, full_name, role");
+    if (!email || !full_name || !role) {
+      throw new Error("Missing required fields: email, full_name, role");
     }
 
-    // Create auth user
-    const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { full_name },
+    // Invite user by email — sends an automatic invitation email with a link to set password
+    const { data: authData, error: authError } = await adminClient.auth.admin.inviteUserByEmail(email, {
+      data: { full_name },
     });
     if (authError) throw authError;
     const newUserId = authData.user.id;

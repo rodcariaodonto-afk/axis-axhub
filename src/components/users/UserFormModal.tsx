@@ -66,7 +66,7 @@ export default function UserFormModal({ open, onOpenChange, onSuccess, editUser 
 
   const [fullName, setFullName] = useState(editUser?.full_name || "");
   const [email, setEmail] = useState(editUser?.email || "");
-  const [password, setPassword] = useState("");
+  
   const [phone, setPhone] = useState(editUser?.phone || "");
   const [birthDate, setBirthDate] = useState(editUser?.birth_date || "");
   const [role, setRole] = useState<AppRole>(editUser?.role || "readonly");
@@ -78,7 +78,7 @@ export default function UserFormModal({ open, onOpenChange, onSuccess, editUser 
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
-    if (!fullName || !email || (!isEditing && !password)) {
+    if (!fullName || !email) {
       toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
       return;
     }
@@ -126,7 +126,6 @@ export default function UserFormModal({ open, onOpenChange, onSuccess, editUser 
         const { data, error } = await supabase.functions.invoke("create-user-with-permissions", {
           body: {
             email,
-            password,
             full_name: fullName,
             phone: phone || null,
             birth_date: birthDate || null,
@@ -179,9 +178,8 @@ export default function UserFormModal({ open, onOpenChange, onSuccess, editUser 
                 <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={isEditing} placeholder="email@empresa.com" />
               </div>
               {!isEditing && (
-                <div className="space-y-2">
-                  <Label>Senha *</Label>
-                  <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mínimo 6 caracteres" />
+                <div className="space-y-2 col-span-2">
+                  <p className="text-sm text-muted-foreground">Um e-mail de convite será enviado para o usuário definir sua senha.</p>
                 </div>
               )}
               <div className="space-y-2">
