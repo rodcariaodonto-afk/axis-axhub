@@ -9,16 +9,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Pencil, Building2, ChevronLeft, ChevronRight } from "lucide-react";
 
 const SEGMENTS = ["Tecnologia", "Varejo", "Serviços", "Indústria", "Saúde", "Educação", "Financeiro", "Outro"];
 const PAGE_SIZE = 10;
 
-function validateCNPJ(cnpj: string): boolean {
-  if (!cnpj) return true;
-  return /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/.test(cnpj);
+function detectDocType(doc: string): "cpf" | "cnpj" {
+  const digits = (doc || "").replace(/\D/g, "");
+  return digits.length === 11 ? "cpf" : "cnpj";
+}
+
+function validateDoc(doc: string, type: "cpf" | "cnpj"): boolean {
+  if (!doc) return true;
+  if (type === "cpf") return /^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(doc);
+  return /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/.test(doc);
 }
 
 function validateURL(url: string): boolean {
@@ -37,8 +42,9 @@ export default function Accounts() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [owners, setOwners] = useState<any[]>([]);
   const [page, setPage] = useState(1);
+  const [docType, setDocType] = useState<"cpf" | "cnpj">("cnpj");
   const [form, setForm] = useState({
-    name: "", cnpj: "", email: "", phone: "", segment: "", website: "",
+    name: "", cnpj: "", email: "", phone: "", segment: "", website: "", instagram: "",
     street: "", city: "", state: "", country: "", postal_code: "", owner_user_id: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -63,13 +69,15 @@ export default function Accounts() {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ name: "", cnpj: "", email: "", phone: "", segment: "", website: "", street: "", city: "", state: "", country: "", postal_code: "", owner_user_id: "" });
+    setDocType("cnpj");
+    setForm({ name: "", cnpj: "", email: "", phone: "", segment: "", website: "", instagram: "", street: "", city: "", state: "", country: "", postal_code: "", owner_user_id: "" });
     setErrors({});
     setDialogOpen(true);
   };
 
   const openEdit = (a: any) => {
     setEditingId(a.id);
+    setDocType(detectDocType(a.cnpj || ""));
     const addr = a.address_json || {};
     setForm({
       name: a.name,
@@ -78,6 +86,7 @@ export default function Accounts() {
       phone: a.phone || "",
       segment: a.segment || "",
       website: a.website || "",
+      instagram: (a as any).instagram || "",
       street: addr.street || "",
       city: addr.city || "",
       state: addr.state || "",
@@ -92,7 +101,9 @@ export default function Accounts() {
   const validate = () => {
     const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = "Nome obrigatório";
-    if (form.cnpj && !validateCNPJ(form.cnpj)) e.cnpj = "Formato: XX.XXX.XXX/XXXX-XX";
+    if (form.cnpj && !validateDoc(form.cnpj, docType)) {
+      e.cnpj = docType === "cpf" ? "Formato: 000.000.000-00" : "Formato: 00.000.000/0000-00";
+    }
     if (form.website && !validateURL(form.website)) e.website = "URL inválida";
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -113,6 +124,7 @@ export default function Accounts() {
       phone: form.phone || null,
       segment: form.segment || null,
       website: form.website || null,
+      instagram: form.instagram || null,
       address_json: addressJson,
       owner_user_id: form.owner_user_id || null,
     };
@@ -173,8 +185,22 @@ export default function Accounts() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>CNPJ</Label>
-                <Input value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} placeholder="00.000.000/0000-00" />
+                <Label>Documento</Label>
+                <div className="flex gap-2">
+                  <Select value={docType} onValueChange={(v) => { setDocType(v as "cpf" | "cnpj"); setForm({ ...form, cnpj: "" }); }}>
+                    <SelectTrigger className="w-24 shrink-0"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cnpj">CNPJ</SelectItem>
+                      <SelectItem value="cpf">CPF</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    value={form.cnpj}
+                    onChange={(e) => setForm({ ...form, cnpj: e.target.value })}
+                    placeholder={docType === "cpf" ? "000.000.000-00" : "00.000.000/0000-00"}
+                    className="flex-1"
+                  />
+                </div>
                 {errors.cnpj && <p className="text-xs text-destructive">{errors.cnpj}</p>}
               </div>
               <div className="space-y-2">
@@ -192,10 +218,16 @@ export default function Accounts() {
               <div className="space-y-2"><Label>E-mail</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
               <div className="space-y-2"><Label>Telefone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
             </div>
-            <div className="space-y-2">
-              <Label>Website</Label>
-              <Input value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} placeholder="https://exemplo.com" />
-              {errors.website && <p className="text-xs text-destructive">{errors.website}</p>}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Website</Label>
+                <Input value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} placeholder="https://exemplo.com" />
+                {errors.website && <p className="text-xs text-destructive">{errors.website}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label>Instagram</Label>
+                <Input value={form.instagram} onChange={(e) => setForm({ ...form, instagram: e.target.value })} placeholder="@perfil" />
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Proprietário</Label>
@@ -224,7 +256,7 @@ export default function Accounts() {
       <div className="flex gap-3 flex-wrap">
         <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar por nome, CNPJ ou email..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+          <Input placeholder="Buscar por nome, documento ou email..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
         <Select value={filterSegment} onValueChange={setFilterSegment}>
           <SelectTrigger className="w-44"><SelectValue placeholder="Segmento" /></SelectTrigger>
@@ -248,7 +280,7 @@ export default function Accounts() {
             <TableHeader>
               <TableRow className="border-border">
                 <TableHead>Empresa</TableHead>
-                <TableHead>CNPJ</TableHead>
+                <TableHead>Documento</TableHead>
                 <TableHead>E-mail</TableHead>
                 <TableHead>Telefone</TableHead>
                 <TableHead>Segmento</TableHead>

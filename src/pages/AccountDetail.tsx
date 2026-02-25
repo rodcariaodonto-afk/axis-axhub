@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -12,14 +12,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Pencil, Power, Globe, Phone, Mail, MapPin, Building2, User } from "lucide-react";
+import { ArrowLeft, Pencil, Power, Globe, Phone, Mail, MapPin, Building2, User, Instagram } from "lucide-react";
 
 const SEGMENTS = ["Tecnologia", "Varejo", "Serviços", "Indústria", "Saúde", "Educação", "Financeiro", "Outro"];
 
-function validateCNPJ(cnpj: string): boolean {
-  if (!cnpj) return true;
-  return /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/.test(cnpj);
+function detectDocType(doc: string): "cpf" | "cnpj" {
+  const digits = (doc || "").replace(/\D/g, "");
+  return digits.length === 11 ? "cpf" : "cnpj";
 }
+
+function validateDoc(doc: string, type: "cpf" | "cnpj"): boolean {
+  if (!doc) return true;
+  if (type === "cpf") return /^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(doc);
+  return /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/.test(doc);
+}
+
 function validateURL(url: string): boolean {
   if (!url) return true;
   try { new URL(url.startsWith("http") ? url : `https://${url}`); return true; } catch { return false; }
@@ -35,7 +42,8 @@ export default function AccountDetail() {
   const [owners, setOwners] = useState<any[]>([]);
   const [editOpen, setEditOpen] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [form, setForm] = useState({ name: "", cnpj: "", email: "", phone: "", segment: "", website: "", street: "", city: "", state: "", country: "", postal_code: "", owner_user_id: "" });
+  const [docType, setDocType] = useState<"cpf" | "cnpj">("cnpj");
+  const [form, setForm] = useState({ name: "", cnpj: "", email: "", phone: "", segment: "", website: "", instagram: "", street: "", city: "", state: "", country: "", postal_code: "", owner_user_id: "" });
 
   // Related data
   const [contacts, setContacts] = useState<any[]>([]);
@@ -80,9 +88,10 @@ export default function AccountDetail() {
   const openEdit = () => {
     if (!account) return;
     const addr = account.address_json || {};
+    setDocType(detectDocType(account.cnpj || ""));
     setForm({
       name: account.name, cnpj: account.cnpj || "", email: account.email || "", phone: account.phone || "",
-      segment: account.segment || "", website: account.website || "",
+      segment: account.segment || "", website: account.website || "", instagram: (account as any).instagram || "",
       street: addr.street || "", city: addr.city || "", state: addr.state || "", country: addr.country || "", postal_code: addr.postal_code || "",
       owner_user_id: account.owner_user_id || "",
     });
@@ -93,7 +102,9 @@ export default function AccountDetail() {
   const validate = () => {
     const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = "Nome obrigatório";
-    if (form.cnpj && !validateCNPJ(form.cnpj)) e.cnpj = "Formato: XX.XXX.XXX/XXXX-XX";
+    if (form.cnpj && !validateDoc(form.cnpj, docType)) {
+      e.cnpj = docType === "cpf" ? "Formato: 000.000.000-00" : "Formato: 00.000.000/0000-00";
+    }
     if (form.website && !validateURL(form.website)) e.website = "URL inválida";
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -106,8 +117,8 @@ export default function AccountDetail() {
       ? { street: form.street, city: form.city, state: form.state, country: form.country, postal_code: form.postal_code } : null;
     const { error } = await supabase.from("crm_accounts").update({
       name: form.name, cnpj: form.cnpj || null, email: form.email || null, phone: form.phone || null,
-      segment: form.segment || null, website: form.website || null, address_json: addressJson,
-      owner_user_id: form.owner_user_id || null,
+      segment: form.segment || null, website: form.website || null, instagram: form.instagram || null,
+      address_json: addressJson, owner_user_id: form.owner_user_id || null,
     }).eq("id", id);
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     toast({ title: "Conta atualizada!" });
@@ -127,6 +138,8 @@ export default function AccountDetail() {
 
   const addr = account.address_json || {};
   const addressStr = [addr.street, addr.city, addr.state, addr.country, addr.postal_code].filter(Boolean).join(", ");
+  const docLabel = account.cnpj ? (detectDocType(account.cnpj) === "cpf" ? "CPF" : "CNPJ") : "Documento";
+  const instagramHandle = (account as any).instagram?.replace(/^@/, "") || "";
 
   return (
     <div className="space-y-6">
@@ -166,7 +179,7 @@ export default function AccountDetail() {
         {account.cnpj && (
           <Card className="border-border bg-card"><CardContent className="p-4 flex items-center gap-3">
             <Building2 className="h-5 w-5 text-muted-foreground" />
-            <div><p className="text-xs text-muted-foreground">CNPJ</p><p className="font-medium">{account.cnpj}</p></div>
+            <div><p className="text-xs text-muted-foreground">{docLabel}</p><p className="font-medium">{account.cnpj}</p></div>
           </CardContent></Card>
         )}
         {account.email && (
@@ -185,6 +198,12 @@ export default function AccountDetail() {
           <Card className="border-border bg-card"><CardContent className="p-4 flex items-center gap-3">
             <Globe className="h-5 w-5 text-muted-foreground" />
             <div><p className="text-xs text-muted-foreground">Website</p><a href={account.website.startsWith("http") ? account.website : `https://${account.website}`} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline">{account.website}</a></div>
+          </CardContent></Card>
+        )}
+        {instagramHandle && (
+          <Card className="border-border bg-card"><CardContent className="p-4 flex items-center gap-3">
+            <Instagram className="h-5 w-5 text-muted-foreground" />
+            <div><p className="text-xs text-muted-foreground">Instagram</p><a href={`https://instagram.com/${instagramHandle}`} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline">@{instagramHandle}</a></div>
           </CardContent></Card>
         )}
         {addressStr && (
@@ -311,8 +330,22 @@ export default function AccountDetail() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>CNPJ</Label>
-                <Input value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} placeholder="00.000.000/0000-00" />
+                <Label>Documento</Label>
+                <div className="flex gap-2">
+                  <Select value={docType} onValueChange={(v) => { setDocType(v as "cpf" | "cnpj"); setForm({ ...form, cnpj: "" }); }}>
+                    <SelectTrigger className="w-24 shrink-0"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cnpj">CNPJ</SelectItem>
+                      <SelectItem value="cpf">CPF</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    value={form.cnpj}
+                    onChange={(e) => setForm({ ...form, cnpj: e.target.value })}
+                    placeholder={docType === "cpf" ? "000.000.000-00" : "00.000.000/0000-00"}
+                    className="flex-1"
+                  />
+                </div>
                 {errors.cnpj && <p className="text-xs text-destructive">{errors.cnpj}</p>}
               </div>
               <div className="space-y-2">
@@ -330,10 +363,16 @@ export default function AccountDetail() {
               <div className="space-y-2"><Label>E-mail</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
               <div className="space-y-2"><Label>Telefone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
             </div>
-            <div className="space-y-2">
-              <Label>Website</Label>
-              <Input value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} placeholder="https://exemplo.com" />
-              {errors.website && <p className="text-xs text-destructive">{errors.website}</p>}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Website</Label>
+                <Input value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} placeholder="https://exemplo.com" />
+                {errors.website && <p className="text-xs text-destructive">{errors.website}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label>Instagram</Label>
+                <Input value={form.instagram} onChange={(e) => setForm({ ...form, instagram: e.target.value })} placeholder="@perfil" />
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Proprietário</Label>
