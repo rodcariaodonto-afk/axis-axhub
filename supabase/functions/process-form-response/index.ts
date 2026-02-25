@@ -263,6 +263,67 @@ Deno.serve(async (req) => {
       console.error("[process-form-response] Notification error:", e.message);
     }
 
+    // 10. Send confirmation email to respondent via Resend
+    if (email) {
+      try {
+        const resendApiKey = Deno.env.get("RESEND_API_KEY");
+        if (resendApiKey) {
+          const emailHtml = `
+            <!DOCTYPE html>
+            <html>
+            <head><meta charset="utf-8"></head>
+            <body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,sans-serif;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 0;">
+                <tr><td align="center">
+                  <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+                    <tr><td style="background:#1a1a2e;padding:24px;text-align:center;">
+                      <h1 style="color:#ffffff;margin:0;font-size:22px;">Axis CRM</h1>
+                    </td></tr>
+                    <tr><td style="padding:32px 24px;">
+                      <p style="font-size:16px;color:#333;">Olá <strong>${respondent_name}</strong>,</p>
+                      <p style="font-size:15px;color:#555;line-height:1.6;">
+                        Seu formulário foi entregue e em breve entraremos em contato.
+                      </p>
+                      <p style="font-size:14px;color:#888;margin-top:24px;">Obrigado por nos enviar suas informações!</p>
+                    </td></tr>
+                    <tr><td style="background:#f9fafb;padding:16px 24px;text-align:center;">
+                      <p style="font-size:12px;color:#aaa;margin:0;">© Axis CRM — axhub.com.br</p>
+                    </td></tr>
+                  </table>
+                </td></tr>
+              </table>
+            </body>
+            </html>
+          `;
+
+          const resendRes = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${resendApiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              from: "Axis CRM <noreply@axhub.com.br>",
+              to: [email],
+              subject: "Confirmação - Recebemos seu formulário",
+              html: emailHtml,
+            }),
+          });
+
+          if (!resendRes.ok) {
+            const errBody = await resendRes.text();
+            console.error("[process-form-response] Resend error:", errBody);
+          } else {
+            console.log("[process-form-response] Confirmation email sent to:", email);
+          }
+        } else {
+          console.warn("[process-form-response] RESEND_API_KEY not configured, skipping email");
+        }
+      } catch (e) {
+        console.error("[process-form-response] Email send error:", e.message);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
