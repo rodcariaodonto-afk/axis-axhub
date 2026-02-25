@@ -162,15 +162,15 @@ Deno.serve(async (req) => {
     // 6. Create Opportunity
     let opportunity_id: string | null = null;
     try {
-      // Get first opportunity stage
+      // Get first opportunity stage name
       const { data: stages } = await supabase
         .from("opportunity_stages")
-        .select("id")
+        .select("name")
         .eq("tenant_id", tenant_id)
         .order("order_index", { ascending: true })
         .limit(1);
 
-      const stage_id = stages?.[0]?.id || null;
+      const stageName = stages?.[0]?.name || "Prospecting";
 
       const { data: opp, error: oppErr } = await supabase
         .from("opportunities")
@@ -179,11 +179,11 @@ Deno.serve(async (req) => {
           name: `Oportunidade - ${institution}`,
           amount: estimatedValue,
           probability: 30,
-          stage_id,
-          source: "formulario",
+          stage: stageName,
           account_id: account_id,
           contact_id: contact_id,
-          notes: `Gerado automaticamente do formulário. Capacidade de investimento: ${investmentCapacity || "Não informado"}`,
+          owner_id: form_owner_id,
+          description: `Gerado automaticamente do formulário. Capacidade de investimento: ${investmentCapacity || "Não informado"}`,
         })
         .select("id")
         .single();
@@ -246,17 +246,13 @@ Deno.serve(async (req) => {
     try {
       await supabase.from("notifications").insert({
         tenant_id,
-        user_id: form_owner_id,
-        type: "form_response",
+        recipient_id: form_owner_id,
+        notification_type_id: "form_response",
         title: `Nova resposta: ${response.forms.title}`,
         message: `${respondent_name} (${institution}) respondeu ao formulário. Valor estimado: R$ ${estimatedValue.toLocaleString("pt-BR")}`,
         priority: "high",
-        data: {
-          form_response_id,
-          lead_id,
-          account_id,
-          opportunity_id,
-        },
+        related_entity_type: "form_response",
+        related_entity_id: form_response_id,
       });
       console.log("[process-form-response] Notification sent");
     } catch (e) {

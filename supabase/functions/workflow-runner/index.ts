@@ -163,7 +163,6 @@ async function executeAction(
       const { data, error } = await supabase.from("leads").insert({
         tenant_id: tenantId, name, email, phone, source,
         status: r(config.status) || "new",
-        company: r(config.company) || triggerData.institution_name || null,
         owner_user_id: createdBy,
       }).select("id").single();
       if (error) throw new Error("Create lead error: " + error.message);
@@ -198,14 +197,13 @@ async function executeAction(
     case "create_opportunity": {
       const name = r(config.name) || r(config.opportunity_name) || "Oportunidade do Workflow";
       const amount = Number(r(config.amount) || triggerData.estimated_value || 0);
-      const source = r(config.source) || "workflow";
-      // Find first opportunity stage
-      const { data: stage } = await supabase.from("opportunity_stages")
-        .select("id").eq("tenant_id", tenantId).order("order_index", { ascending: true }).limit(1).single();
-      if (!stage) throw new Error("No opportunity stages found for tenant");
+      // Find first opportunity stage name
+      const { data: stageData } = await supabase.from("opportunity_stages")
+        .select("name").eq("tenant_id", tenantId).order("order_index", { ascending: true }).limit(1).single();
+      const stageName = stageData?.name || "Prospecting";
       const { data, error } = await supabase.from("opportunities").insert({
-        tenant_id: tenantId, name, amount, stage_id: stage.id, source,
-        owner_user_id: createdBy,
+        tenant_id: tenantId, name, amount, stage: stageName,
+        owner_id: createdBy,
       }).select("id").single();
       if (error) throw new Error("Create opportunity error: " + error.message);
       return { action: "opportunity_created", opportunity_id: data.id };
