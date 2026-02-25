@@ -1,60 +1,64 @@
 
+# Plano: Aba "Categorias" no Financeiro com Tags de Receita/Despesa
 
-# Corrigir Integração Formulário -> CRM, Oportunidades, BI e Email
+## Objetivo
+Adicionar uma aba "Categorias" dentro da pagina Financeiro (`/finance`), onde o usuario pode criar categorias financeiras com:
+- Nome da categoria
+- Tipo: **Receita** ou **Despesa** (radio)
+- Cor da categoria (color picker com hex input, como na imagem de referencia)
+- Listagem, edicao e exclusao das categorias criadas
 
-## Problemas Encontrados
+## Mudancas
 
-### 1. A função `process-form-response` NUNCA executa
-O gatilho SQL `notify_form_response_created` usa `net.http_post` da extensão `pg_net`, mas:
-- A extensão `pg_net` NAO esta instalada no banco
-- As configuracoes `app.settings.supabase_url` e `app.settings.service_role_key` estao NULL
-- O gatilho falha silenciosamente (tem EXCEPTION WHEN OTHERS) e os dados nunca sao processados
+### 1. Migracao de banco de dados
+Criar tabela `finance_categories` com:
+- `id` UUID (PK)
+- `tenant_id` UUID (FK para tenants)
+- `name` TEXT (nome da categoria)
+- `type` TEXT ('receita' | 'despesa')
+- `color` TEXT (hex color, ex: '#3B82F6')
+- `created_at` TIMESTAMPTZ
+- `updated_at` TIMESTAMPTZ
 
-### 2. Colunas erradas na `process-form-response`
-Mesmo se a funcao rodasse, ela falharia porque:
-- **Notifications**: usa `user_id` e `type` mas a tabela tem `recipient_id` e `notification_type_id`
-- **Opportunities**: usa `stage_id`, `source`, `notes` mas a tabela tem `stage` (texto), e NAO tem colunas `source` nem `notes`
+Politicas RLS:
+- SELECT, INSERT, UPDATE, DELETE filtrados por `tenant_id = get_user_tenant_id()`
 
-### 3. Colunas erradas no `workflow-runner`
-A execucao do workflow falha com erro "Could not find the 'company' column of 'leads'" porque:
-- **create_lead**: insere `company` mas a tabela `leads` nao tem essa coluna
-- **create_opportunity**: usa `stage_id`, `source`, `owner_user_id` mas deveria ser `stage` (texto) e `owner_id`
+### 2. Reestruturar `Finance.tsx` com Tabs
+Transformar a pagina Finance para usar o componente `Tabs` (ja existente em `src/components/ui/tabs.tsx`):
+- **Aba "Visao Geral"** (default) -- conteudo atual do dashboard financeiro
+- **Aba "Categorias"** -- novo conteudo com CRUD de categorias
 
-### 4. Workflow executado com trigger_data vazio
-O workflow foi disparado manualmente sem dados, por isso `{{respondent_name}}` aparece literal na notificacao.
+### 3. Novo componente `src/components/finance/FinanceCategoryManager.tsx`
+Conteudo da aba Categorias:
+- Botao "Nova Categoria" que abre um Dialog
+- Dialog com:
+  - Input "Nome da Categoria" (placeholder: "Ex: Alimentacao, Salario...")
+  - Radio group "Tipo": Receita / Despesa
+  - "Cor da Categoria": input hex color + preview de cor (similar a imagem)
+  - Botao "Criar"
+- Tabela listando categorias existentes com badge colorido, nome, tipo e acoes (editar/excluir)
 
-## Plano de Correção
+### 4. Atualizar types (automatico)
+O arquivo `types.ts` sera atualizado automaticamente apos a migracao.
 
-### Passo 1 - Migracao: Instalar pg_net e configurar settings
-```sql
-CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
+## Detalhes Tecnicos
 
-ALTER DATABASE postgres SET app.settings.supabase_url = 'https://dgybxarkvmaajfeesqdv.supabase.co';
+```text
+Finance.tsx
++-----------------------------------------+
+|  [Visao Geral]  [Categorias]            |
++-----------------------------------------+
+|                                         |
+|  (conteudo da aba selecionada)          |
+|                                         |
++-----------------------------------------+
 ```
-NOTA: `ALTER DATABASE` nao e permitido em migracoes. Alternativa: reescrever o gatilho para usar a URL diretamente em vez de `current_setting`.
 
-**Solucao real**: Reescrever a funcao `notify_form_response_created()` para usar a URL hardcoded do projeto em vez de `current_setting`, e instalar `pg_net`.
+- O color picker usara um input `type="color"` nativo do HTML + input text para digitar o hex manualmente, replicando a experiencia da imagem de referencia
+- A tabela `finance_categories` fica isolada por tenant via RLS, disponivel para todos os usuarios da empresa
+- Seguira o padrao `getUserTenantId()` para queries seguras
 
-### Passo 2 - Migracao: Recriar funcao do gatilho com URL fixa
-Recriar `notify_form_response_created()` com a URL do projeto escrita diretamente e a service role key obtida do vault ou como constante.
-
-### Passo 3 - Corrigir `process-form-response` (Edge Function)
-| Linha | Problema | Correcao |
-|---|---|---|
-| Notificacao (step 9) | `user_id`, `type` | `recipient_id`, `notification_type_id` |
-| Oportunidade (step 6) | `stage_id`, `source`, `notes` | `stage` (nome do estagio como texto), remover `source` e `notes` |
-
-### Passo 4 - Corrigir `workflow-runner` (Edge Function)
-| Acao | Problema | Correcao |
-|---|---|---|
-| `create_lead` | Insere `company` | Remover campo `company` |
-| `create_opportunity` | `stage_id`, `source`, `owner_user_id` | Usar `stage` (texto), remover `source`, usar `owner_id` |
-
-### Alteracoes por arquivo
-
-| Arquivo | Mudanca |
-|---|---|
-| Migracao SQL | Instalar `pg_net`, recriar funcao `notify_form_response_created` com URL fixa |
-| `supabase/functions/process-form-response/index.ts` | Corrigir colunas de notifications e opportunities |
-| `supabase/functions/workflow-runner/index.ts` | Remover `company` do create_lead, corrigir create_opportunity |
-
+### Arquivos a criar/editar:
+1. **Criar**: Migracao SQL para `finance_categories`
+2. **Criar**: `src/components/finance/FinanceCategoryManager.tsx`
+3. **Editar**: `src/pages/Finance.tsx` -- adicionar Tabs com aba Visao Geral + Categorias
