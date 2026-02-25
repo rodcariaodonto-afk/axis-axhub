@@ -73,8 +73,8 @@ export default function Forms() {
   };
 
   const handleSeedForm = async () => {
-    const { data: profile } = await supabase.from("profiles").select("tenant_id, id").single();
-    if (!profile) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id, id").maybeSingle();
+    if (!profile) { toast({ title: "Erro", description: "Perfil não encontrado. Verifique se seu usuário está configurado corretamente.", variant: "destructive" }); return; }
     const { error } = await supabase.from("forms").insert({
       tenant_id: profile.tenant_id,
       user_id: profile.id,
@@ -119,11 +119,9 @@ export default function Forms() {
           <p className="text-muted-foreground">Crie e gerencie formulários para coletar informações</p>
         </div>
         <div className="flex gap-2">
-          {(!forms || forms.length === 0) && !isLoading && (
-            <Button variant="outline" onClick={handleSeedForm}>
-              <FileText className="mr-2 h-4 w-4" />Criar Formulário Modelo
-            </Button>
-          )}
+          <Button variant="outline" onClick={handleSeedForm}>
+            <FileText className="mr-2 h-4 w-4" />Criar Formulário Modelo
+          </Button>
           <Button onClick={() => setCreateOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />Criar Novo Formulário
           </Button>
