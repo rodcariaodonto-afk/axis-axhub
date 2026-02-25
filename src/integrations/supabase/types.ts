@@ -5747,6 +5747,7 @@ export type Database = {
           successful_executions: number
           tenant_id: string
           total_executions: number
+          trigger_types: string[] | null
           updated_at: string
           version: number
         }
@@ -5764,6 +5765,7 @@ export type Database = {
           successful_executions?: number
           tenant_id: string
           total_executions?: number
+          trigger_types?: string[] | null
           updated_at?: string
           version?: number
         }
@@ -5781,6 +5783,7 @@ export type Database = {
           successful_executions?: number
           tenant_id?: string
           total_executions?: number
+          trigger_types?: string[] | null
           updated_at?: string
           version?: number
         }
