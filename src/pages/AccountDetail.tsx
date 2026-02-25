@@ -43,7 +43,7 @@ export default function AccountDetail() {
   const [editOpen, setEditOpen] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [docType, setDocType] = useState<"cpf" | "cnpj">("cnpj");
-  const [form, setForm] = useState({ name: "", cnpj: "", email: "", phone: "", segment: "", website: "", instagram: "", street: "", city: "", state: "", country: "", postal_code: "", owner_user_id: "" });
+  const [form, setForm] = useState({ name: "", cnpj: "", email: "", phone: "", segment: "", website: "", instagram: "", street: "", city: "", state: "", country: "", postal_code: "", owner_user_id: "", resp_name: "", resp_cpf: "", resp_phone: "", resp_email: "" });
 
   // Related data
   const [contacts, setContacts] = useState<any[]>([]);
@@ -88,12 +88,14 @@ export default function AccountDetail() {
   const openEdit = () => {
     if (!account) return;
     const addr = account.address_json || {};
+    const resp = (account as any).responsible_json || {};
     setDocType(detectDocType(account.cnpj || ""));
     setForm({
       name: account.name, cnpj: account.cnpj || "", email: account.email || "", phone: account.phone || "",
       segment: account.segment || "", website: account.website || "", instagram: (account as any).instagram || "",
       street: addr.street || "", city: addr.city || "", state: addr.state || "", country: addr.country || "", postal_code: addr.postal_code || "",
       owner_user_id: account.owner_user_id || "",
+      resp_name: resp.name || "", resp_cpf: resp.cpf || "", resp_phone: resp.phone || "", resp_email: resp.email || "",
     });
     setErrors({});
     setEditOpen(true);
@@ -115,10 +117,13 @@ export default function AccountDetail() {
     if (!validate()) return;
     const addressJson = (form.street || form.city || form.state || form.country || form.postal_code)
       ? { street: form.street, city: form.city, state: form.state, country: form.country, postal_code: form.postal_code } : null;
+    const responsibleJson = docType === "cnpj" && (form.resp_name || form.resp_cpf || form.resp_phone || form.resp_email)
+      ? { name: form.resp_name, cpf: form.resp_cpf, phone: form.resp_phone, email: form.resp_email }
+      : null;
     const { error } = await supabase.from("crm_accounts").update({
       name: form.name, cnpj: form.cnpj || null, email: form.email || null, phone: form.phone || null,
       segment: form.segment || null, website: form.website || null, instagram: form.instagram || null,
-      address_json: addressJson, owner_user_id: form.owner_user_id || null,
+      address_json: addressJson, owner_user_id: form.owner_user_id || null, responsible_json: responsibleJson,
     }).eq("id", id);
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     toast({ title: "Conta atualizada!" });
@@ -140,6 +145,7 @@ export default function AccountDetail() {
   const addressStr = [addr.street, addr.city, addr.state, addr.country, addr.postal_code].filter(Boolean).join(", ");
   const docLabel = account.cnpj ? (detectDocType(account.cnpj) === "cpf" ? "CPF" : "CNPJ") : "Documento";
   const instagramHandle = (account as any).instagram?.replace(/^@/, "") || "";
+  const resp = (account as any).responsible_json || {};
 
   return (
     <div className="space-y-6">
@@ -216,6 +222,18 @@ export default function AccountDetail() {
           <User className="h-5 w-5 text-muted-foreground" />
           <div><p className="text-xs text-muted-foreground">Responsável</p><p className="font-medium">{getOwnerName(account.owner_user_id)}</p></div>
         </CardContent></Card>
+        {resp.name && (
+          <Card className="border-border bg-card"><CardContent className="p-4 flex items-center gap-3">
+            <User className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <p className="text-xs text-muted-foreground">Responsável pela Empresa</p>
+              <p className="font-medium">{resp.name}</p>
+              {resp.cpf && <p className="text-xs text-muted-foreground">CPF: {resp.cpf}</p>}
+              {resp.phone && <p className="text-xs text-muted-foreground">Tel: {resp.phone}</p>}
+              {resp.email && <p className="text-xs text-muted-foreground">{resp.email}</p>}
+            </div>
+          </CardContent></Card>
+        )}
       </div>
 
       {/* Related tabs */}
@@ -383,6 +401,19 @@ export default function AccountDetail() {
               <div className="space-y-2"><Label>País</Label><Input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} /></div>
               <div className="space-y-2"><Label>CEP</Label><Input value={form.postal_code} onChange={(e) => setForm({ ...form, postal_code: e.target.value })} /></div>
             </div>
+            {docType === "cnpj" && (
+              <div className="border border-border rounded-lg p-4 space-y-4">
+                <p className="text-sm font-medium text-muted-foreground">Responsável pela Empresa</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2"><Label>Nome do Responsável</Label><Input value={form.resp_name} onChange={(e) => setForm({ ...form, resp_name: e.target.value })} placeholder="Nome completo" /></div>
+                  <div className="space-y-2"><Label>CPF do Responsável</Label><Input value={form.resp_cpf} onChange={(e) => setForm({ ...form, resp_cpf: e.target.value })} placeholder="000.000.000-00" /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2"><Label>Telefone do Responsável</Label><Input value={form.resp_phone} onChange={(e) => setForm({ ...form, resp_phone: e.target.value })} placeholder="(00) 00000-0000" /></div>
+                  <div className="space-y-2"><Label>E-mail do Responsável</Label><Input type="email" value={form.resp_email} onChange={(e) => setForm({ ...form, resp_email: e.target.value })} placeholder="email@empresa.com" /></div>
+                </div>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Responsável</Label>
               <Select value={form.owner_user_id || "__none__"} onValueChange={(v) => setForm({ ...form, owner_user_id: v === "__none__" ? "" : v })}>
