@@ -53,7 +53,9 @@ export default function Forms() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { data: profile } = await supabase.from("profiles").select("tenant_id, id").single();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id, id").eq("id", user.id).single();
     if (!profile) return;
     const { error } = await supabase.from("forms").insert({
       tenant_id: profile.tenant_id,
@@ -73,7 +75,9 @@ export default function Forms() {
   };
 
   const handleSeedForm = async () => {
-    const { data: profile } = await supabase.from("profiles").select("tenant_id, id").maybeSingle();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { toast({ title: "Erro", description: "Usuário não autenticado.", variant: "destructive" }); return; }
+    const { data: profile } = await supabase.from("profiles").select("tenant_id, id").eq("id", user.id).maybeSingle();
     if (!profile) { toast({ title: "Erro", description: "Perfil não encontrado. Verifique se seu usuário está configurado corretamente.", variant: "destructive" }); return; }
     const { error } = await supabase.from("forms").insert({
       tenant_id: profile.tenant_id,
