@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -64,18 +64,33 @@ interface UserFormModalProps {
 export default function UserFormModal({ open, onOpenChange, onSuccess, editUser }: UserFormModalProps) {
   const isEditing = !!editUser;
 
-  const [fullName, setFullName] = useState(editUser?.full_name || "");
-  const [email, setEmail] = useState(editUser?.email || "");
-  
-  const [phone, setPhone] = useState(editUser?.phone || "");
-  const [birthDate, setBirthDate] = useState(editUser?.birth_date || "");
-  const [role, setRole] = useState<AppRole>(editUser?.role || "readonly");
-  const [defaultTheme, setDefaultTheme] = useState(editUser?.default_theme || "dark");
-  const [defaultMenu, setDefaultMenu] = useState(editUser?.default_menu || "open");
-  const [farewellMessage, setFarewellMessage] = useState(editUser?.farewell_message || "");
-  const [workHours, setWorkHours] = useState<WorkHourEntry[]>(editUser?.work_hours || defaultWorkHours());
-  const [permissions, setPermissions] = useState<PermissionEntry[]>(editUser?.permissions || defaultPermissions());
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [birthDate, setBirthDate] = useState("");
+  const [role, setRole] = useState<AppRole>("readonly");
+  const [defaultTheme, setDefaultTheme] = useState("dark");
+  const [defaultMenu, setDefaultMenu] = useState("open");
+  const [farewellMessage, setFarewellMessage] = useState("");
+  const [workHours, setWorkHours] = useState<WorkHourEntry[]>(defaultWorkHours());
+  const [permissions, setPermissions] = useState<PermissionEntry[]>(defaultPermissions());
   const [saving, setSaving] = useState(false);
+
+  // Re-sync state whenever the modal opens or editUser changes
+  useEffect(() => {
+    if (open) {
+      setFullName(editUser?.full_name || "");
+      setEmail(editUser?.email || "");
+      setPhone(editUser?.phone || "");
+      setBirthDate(editUser?.birth_date || "");
+      setRole(editUser?.role || "readonly");
+      setDefaultTheme(editUser?.default_theme || "dark");
+      setDefaultMenu(editUser?.default_menu || "open");
+      setFarewellMessage(editUser?.farewell_message || "");
+      setWorkHours(editUser?.work_hours || defaultWorkHours());
+      setPermissions(editUser?.permissions || defaultPermissions());
+    }
+  }, [open, editUser]);
 
   const handleSave = async () => {
     if (!fullName || !email) {
