@@ -60,7 +60,9 @@ export default function Pipeline() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
     if (!profile) return;
     const { data: newDeal, error } = await supabase.from("deals").insert({
       tenant_id: profile.tenant_id, pipeline_id: pipelineId, stage_id: form.stage_id, name: form.name,
@@ -91,7 +93,8 @@ export default function Pipeline() {
     setDeals((prev) => prev.map((d) => d.id === dealId ? { ...d, stage_id: stageId } : d));
     await supabase.from("deals").update({ stage_id: stageId }).eq("id", dealId);
 
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: { user: u } } = await supabase.auth.getUser();
+    const { data: profile } = u ? await supabase.from("profiles").select("tenant_id").eq("id", u.id).single() : { data: null };
     if (profile) {
       await supabase.from("deal_history").insert({
         tenant_id: profile.tenant_id, deal_id: dealId, tipo_acao: "movido",

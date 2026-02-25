@@ -1,8 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getUserProfile } from "@/lib/getUserTenantId";
 
 export async function emitEvent(eventName: string, payload: Record<string, any>) {
   try {
-    const { data: profile } = await supabase.from("profiles").select("tenant_id, id").single();
+    const profile = await getUserProfile();
     if (!profile) return;
     await supabase.from("event_outbox").insert({
       tenant_id: profile.tenant_id,

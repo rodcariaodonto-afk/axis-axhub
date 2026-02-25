@@ -87,7 +87,9 @@ export function WorkflowList({ onEdit, onCreate }: Props) {
   const handleCreateModel = async () => {
     const template = WORKFLOW_TEMPLATES.find((t) => t.id === "integracao-formularios");
     if (!template) return;
-    const { data: profile } = await supabase.from("profiles").select("tenant_id, id").maybeSingle();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { toast({ title: "Erro", description: "Usuário não autenticado.", variant: "destructive" }); return; }
+    const { data: profile } = await supabase.from("profiles").select("tenant_id, id").eq("id", user.id).single();
     if (!profile) { toast({ title: "Erro", description: "Perfil não encontrado.", variant: "destructive" }); return; }
     const { data, error } = await supabase.from("workflows").insert({
       tenant_id: profile.tenant_id,

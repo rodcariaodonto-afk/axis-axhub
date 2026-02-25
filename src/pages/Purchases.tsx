@@ -59,7 +59,9 @@ export default function Purchases() {
 
   const handleCreate = async () => {
     if (!selectedSupplier || items.length === 0) { toast({ title: "Erro", description: "Selecione fornecedor e itens.", variant: "destructive" }); return; }
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
     if (!profile) return;
     const number = `OC-${Date.now().toString(36).toUpperCase()}`;
     const { data: po, error } = await supabase.from("purchase_orders").insert({
@@ -77,7 +79,9 @@ export default function Purchases() {
   const receiveOrder = async (poId: string) => {
     const { data: poItems } = await supabase.from("po_items").select("*").eq("po_id", poId);
     if (!poItems) return;
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: { user: u } } = await supabase.auth.getUser();
+    if (!u) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", u.id).single();
     if (!profile) return;
     const { data: warehouse } = await supabase.from("warehouses").select("id").eq("tenant_id", profile.tenant_id).eq("is_default", true).single();
     if (!warehouse) { toast({ title: "Erro", description: "Nenhum depósito padrão encontrado.", variant: "destructive" }); return; }

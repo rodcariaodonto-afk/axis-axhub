@@ -136,7 +136,9 @@ export default function ContractDetail() {
     }
 
     // Save version
-    const { data: profile } = await supabase.from("profiles").select("id, tenant_id").single();
+    const { data: { user: u } } = await supabase.auth.getUser();
+    if (!u) return;
+    const { data: profile } = await supabase.from("profiles").select("id, tenant_id").eq("id", u.id).single();
     if (!profile) return;
 
     const nextVersion = (versions[0]?.version_number || 0) + 1;
@@ -167,7 +169,9 @@ export default function ContractDetail() {
   };
 
   const restoreVersion = async (v: any) => {
-    const { data: profile } = await supabase.from("profiles").select("id, tenant_id").single();
+    const { data: { user: u } } = await supabase.auth.getUser();
+    if (!u) return;
+    const { data: profile } = await supabase.from("profiles").select("id, tenant_id").eq("id", u.id).single();
     if (!profile) return;
 
     const nextVersion = (versions[0]?.version_number || 0) + 1;
@@ -229,7 +233,9 @@ export default function ContractDetail() {
     const dataUrl = canvasRef.current?.toDataURL("image/png");
     if (!dataUrl) return;
 
-    const { data: profile } = await supabase.from("profiles").select("id, tenant_id").single();
+    const { data: { user: u } } = await supabase.auth.getUser();
+    if (!u) return;
+    const { data: profile } = await supabase.from("profiles").select("id, tenant_id").eq("id", u.id).single();
     if (!profile) return;
 
     const token = crypto.randomUUID();

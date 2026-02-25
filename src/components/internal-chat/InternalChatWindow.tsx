@@ -97,7 +97,7 @@ export function InternalChatWindow({ conversation, onMessageSent }: Props) {
   const handleSend = async () => {
     if (!text.trim() || !conversation || !user || sending) return;
     setSending(true);
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
     if (!profile) { setSending(false); return; }
 
     await supabase.from("internal_messages").insert({

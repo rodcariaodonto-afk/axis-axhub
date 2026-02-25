@@ -34,7 +34,7 @@ export function NewConversationModal({ open, onOpenChange, onCreated }: Props) {
   useEffect(() => {
     if (!open || !user) return;
     const fetchUsers = async () => {
-      const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+      const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
       if (!profile) return;
       const { data } = await supabase
         .from("profiles")
@@ -68,7 +68,7 @@ export function NewConversationModal({ open, onOpenChange, onCreated }: Props) {
     }
     setCreating(true);
 
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
     if (!profile) { setCreating(false); return; }
 
     // For direct: check if conversation already exists

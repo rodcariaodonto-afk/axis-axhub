@@ -73,7 +73,9 @@ export default function ProductFormDynamic({ categories, customFields, onSuccess
       finalSku = generateAutoSKU(form.category, form.name);
     }
 
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setUploading(false); return; }
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
     if (!profile) { setUploading(false); return; }
 
     // Map productType to DB type field

@@ -50,7 +50,9 @@ export default function BankAccounts() {
       if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
       else { toast({ title: "Conta atualizada!" }); setDialogOpen(false); setEditAccount(null); fetchData(); }
     } else {
-      const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
       if (!profile) return;
       const { error } = await supabase.from("bank_accounts").insert({
         tenant_id: profile.tenant_id, name: form.name, bank_code: form.bank_code || null, account_number: form.account_number || null, balance: parseFloat(form.balance) || 0,

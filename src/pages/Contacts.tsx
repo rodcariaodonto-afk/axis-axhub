@@ -52,7 +52,9 @@ export default function Contacts() {
       toast({ title: "Conta obrigatória", description: "Selecione uma conta antes de criar o contato.", variant: "destructive" });
       return;
     }
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
     if (!profile) return;
     const { error } = await supabase.from("contacts").insert({
       tenant_id: profile.tenant_id,
@@ -131,7 +133,9 @@ export default function Contacts() {
   const handleConvert = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!convertingContact) return;
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: { user: u } } = await supabase.auth.getUser();
+    if (!u) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", u.id).single();
     if (!profile) return;
     const { error } = await supabase.from("customers").insert({
       tenant_id: profile.tenant_id,

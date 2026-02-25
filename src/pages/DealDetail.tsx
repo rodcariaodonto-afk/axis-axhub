@@ -56,7 +56,8 @@ export default function DealDetail() {
 
     // Auto-create ERP order from won deal
     try {
-      const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+      const { data: { user: u } } = await supabase.auth.getUser();
+      const { data: profile } = u ? await supabase.from("profiles").select("tenant_id").eq("id", u.id).single() : { data: null };
       if (profile && deal) {
         let customerId: string | null = null;
         if (deal.leads) {
@@ -85,7 +86,9 @@ export default function DealDetail() {
 
   const createActivity = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: { user: u } } = await supabase.auth.getUser();
+    if (!u) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", u.id).single();
     if (!profile) return;
     const { data: newAct } = await supabase.from("activities").insert({
       tenant_id: profile.tenant_id, deal_id: id, title: actForm.title, type: actForm.type,

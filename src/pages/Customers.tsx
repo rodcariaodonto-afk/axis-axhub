@@ -61,7 +61,9 @@ export default function Customers() {
       if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
       toast({ title: "Cliente atualizado!" });
     } else {
-      const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
       if (!profile) return;
       const { error } = await supabase.from("customers").insert({ ...payload, tenant_id: profile.tenant_id });
       if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }

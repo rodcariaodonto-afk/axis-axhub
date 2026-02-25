@@ -131,7 +131,9 @@ export default function Products() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setUploading(true);
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setUploading(false); return; }
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
     if (!profile) { setUploading(false); return; }
 
     const { data: product, error } = await supabase.from("products").insert({
@@ -186,7 +188,9 @@ export default function Products() {
 
   const addCustomField = async () => {
     if (!newFieldName.trim()) return;
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
     if (!profile) return;
     const { error } = await supabase.from("product_custom_fields").insert({
       tenant_id: profile.tenant_id,

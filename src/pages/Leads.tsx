@@ -103,7 +103,9 @@ export default function Leads() {
       if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
       else { toast({ title: "Lead atualizado!" }); setDialogOpen(false); fetchData(); }
     } else {
-      const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+      const { data: { user: u } } = await supabase.auth.getUser();
+      if (!u) return;
+      const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", u.id).single();
       if (!profile) return;
       const { data: newLead, error } = await supabase.from("leads").insert({ tenant_id: profile.tenant_id, name: form.name, email: form.email || null, phone: form.phone || null, source: form.source, score: parseInt(form.score) || 0, notes: form.notes || null }).select().single();
       if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
@@ -124,7 +126,9 @@ export default function Leads() {
 
   const handleConvert = async () => {
     if (!convertLead) return;
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: { user: u } } = await supabase.auth.getUser();
+    if (!u) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", u.id).single();
     if (!profile) return;
     const { data: pipeline } = await supabase.from("sales_pipelines").select("id").eq("is_default", true).single();
     if (!pipeline) { toast({ title: "Erro", description: "Nenhum pipeline padrão encontrado.", variant: "destructive" }); return; }
@@ -195,7 +199,9 @@ export default function Leads() {
   };
 
   const confirmCsvImport = async () => {
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: { user: u } } = await supabase.auth.getUser();
+    if (!u) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", u.id).single();
     if (!profile) return;
     const nameIdx = csvHeaders.indexOf(csvMapping.name);
     if (nameIdx === -1) { toast({ title: "Mapear coluna Nome é obrigatório", variant: "destructive" }); return; }
@@ -294,7 +300,9 @@ export default function Leads() {
 
   const addRule = async () => {
     if (!ruleForm.criteria) return;
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: { user: u } } = await supabase.auth.getUser();
+    if (!u) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", u.id).single();
     if (!profile) return;
     await supabase.from("lead_scoring_rules").insert({ tenant_id: profile.tenant_id, criteria: ruleForm.criteria, points: parseInt(ruleForm.points) || 0 });
     setRuleForm({ criteria: "", points: "10" });
@@ -344,7 +352,9 @@ export default function Leads() {
   };
 
   const seedDefaultRules = async () => {
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: { user: u } } = await supabase.auth.getUser();
+    if (!u) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", u.id).single();
     if (!profile) return;
     const defaults = [
       { criteria: "has_email", points: 10 },

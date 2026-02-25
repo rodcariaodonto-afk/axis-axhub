@@ -61,7 +61,9 @@ export default function Campanhas() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { data: profile } = await supabase.from("profiles").select("tenant_id").single();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
     if (!profile) return;
     const { data: campaign, error } = await supabase.from("campanhas").insert({
       tenant_id: profile.tenant_id, nome: form.nome, descricao: form.descricao || null,
