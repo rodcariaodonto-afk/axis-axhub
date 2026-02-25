@@ -54,6 +54,10 @@ const InternalChat = lazy(() => import("./pages/InternalChat"));
 const BusinessIntelligence = lazy(() => import("./pages/BusinessIntelligence"));
 const Opportunities = lazy(() => import("./pages/Opportunities"));
 const OpportunityDetail = lazy(() => import("./pages/OpportunityDetail"));
+const Forms = lazy(() => import("./pages/Forms"));
+const FormEditor = lazy(() => import("./pages/FormEditor"));
+const FormResponses = lazy(() => import("./pages/FormResponses"));
+const PublicForm = lazy(() => import("./pages/PublicForm"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -126,6 +130,10 @@ const App = () => (
               <Route path="/business-intelligence" element={<ProtectedRoute><BusinessIntelligence /></ProtectedRoute>} />
               <Route path="/opportunities" element={<ProtectedRoute><Opportunities /></ProtectedRoute>} />
               <Route path="/opportunities/:id" element={<ProtectedRoute><OpportunityDetail /></ProtectedRoute>} />
+              <Route path="/forms" element={<ProtectedRoute><Forms /></ProtectedRoute>} />
+              <Route path="/forms/:id/edit" element={<ProtectedRoute><FormEditor /></ProtectedRoute>} />
+              <Route path="/forms/:id/responses" element={<ProtectedRoute><FormResponses /></ProtectedRoute>} />
+              <Route path="/form/:code" element={<PublicForm />} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>

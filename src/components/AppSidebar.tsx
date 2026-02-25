@@ -8,6 +8,7 @@ import {
   GitBranch,
   BookOpen,
   ChevronRight,
+  ClipboardList,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -54,6 +55,7 @@ export function AppSidebar() {
         { title: "Contratos", url: "/contracts", icon: FileText, module: "crm" },
         { title: "Atividades", url: "/activities", icon: CalendarCheck, module: "crm" },
         { title: "Relatórios", url: "/reports", icon: FileBarChart, module: "relatorios" },
+        { title: "Formulários", url: "/forms", icon: ClipboardList, module: "crm" },
       ],
     },
     {

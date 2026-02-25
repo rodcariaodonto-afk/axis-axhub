@@ -2414,6 +2414,107 @@ export type Database = {
           },
         ]
       }
+      form_responses: {
+        Row: {
+          completed: boolean
+          created_at: string
+          form_id: string
+          id: string
+          respondent_email: string
+          respondent_name: string
+          response_data: Json
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          completed?: boolean
+          created_at?: string
+          form_id: string
+          id?: string
+          respondent_email: string
+          respondent_name: string
+          response_data?: Json
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          completed?: boolean
+          created_at?: string
+          form_id?: string
+          id?: string
+          respondent_email?: string
+          respondent_name?: string
+          response_data?: Json
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "form_responses_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "form_responses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      forms: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          form_config: Json
+          id: string
+          name: string
+          status: string
+          tenant_id: string
+          unique_code: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          form_config?: Json
+          id?: string
+          name: string
+          status?: string
+          tenant_id: string
+          unique_code?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          form_config?: Json
+          id?: string
+          name?: string
+          status?: string
+          tenant_id?: string
+          unique_code?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forms_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       funis: {
         Row: {
           created_at: string
