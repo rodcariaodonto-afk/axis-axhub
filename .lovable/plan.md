@@ -1,91 +1,79 @@
 
 
-# Corrigir Dashboards para Dados Reais (Sem Limite de 1000)
+# Integracaco Formularios com CRM, ERP e BI
 
-## Problema
+## Objetivo
+Criar uma automacao completa que, ao receber uma resposta de formulario (`form_responses`), automaticamente:
+1. Extrai e formata os dados da resposta
+2. Cria/atualiza um **Lead** no CRM
+3. Cria uma **Conta** (Account) no CRM
+4. Cria um **Contato** vinculado a conta
+5. Cria uma **Oportunidade** no ERP
+6. Cria uma **Atividade** (tarefa de follow-up)
+7. Insere dados analiticos no BI (`bi_form_data`)
+8. Envia notificacao para o responsavel
 
-O Supabase tem um limite padrao de 1000 linhas por query. O `CrmDashboard.tsx` faz `select("*")` e conta no client-side, resultando em numeros truncados (ex: mostra 1000 leads quando existem 47.326).
+## Arquitetura
 
-## Solucao
-
-Reescrever as queries do CRM Dashboard para usar **contagens server-side** (`count: "exact"` com `head: true`) e **agregacoes via RPC** ao inves de buscar todas as linhas e contar no JavaScript.
-
-## Dados Reais no Banco
-
-| Tabela | Total |
-|---|---|
-| leads | 47.326 (todos status "new") |
-| contacts | 150 |
-| whatsapp_messages | 3.876 |
-| fact_events | 3.598 |
-| receivables | 11 |
-| products | 9 |
-| customers | 1 |
-| deals | 0 |
-| orders | 0 |
-
-## Arquivo a Modificar
-
-**`src/pages/CrmDashboard.tsx`** - Reescrever completamente as queries:
-
-### Queries Atuais (Erradas)
-```typescript
-// Busca TODAS as linhas (capped em 1000) e conta no JS
-supabase.from("leads").select("*")
-supabase.from("deals").select("*, pipeline_stages(name, order)")
+```text
+form_responses INSERT
+       |
+       v
+ DB Trigger (after insert)
+       |
+       v
+ Edge Function: process-form-response
+       |
+       +---> Extrair dados do JSONB response_data
+       +---> Verificar lead existente (por email)
+       +---> INSERT/UPDATE lead
+       +---> INSERT crm_accounts
+       +---> INSERT contacts (vinculado a account)
+       +---> INSERT opportunities (com valor estimado)
+       +---> INSERT activities (tarefa para Rodrigo)
+       +---> INSERT bi_form_data
+       +---> INSERT notifications (alerta para responsavel)
 ```
 
-### Queries Novas (Corretas)
+## Etapas de Implementacao
 
-1. **Total de Leads**: `supabase.from("leads").select("id", { count: "exact", head: true })` -- retorna 47.326
-2. **Leads do Mes**: `supabase.from("leads").select("id", { count: "exact", head: true }).gte("created_at", firstDayOfMonth)` -- contagem server-side
-3. **Leads Convertidos**: `supabase.from("leads").select("id", { count: "exact", head: true }).eq("status", "converted")`
-4. **Deals por Status**: 3 queries separadas com `count: "exact", head: true` para open/won/lost
-5. **Receita (deals open)**: `supabase.from("deals").select("estimated_value").eq("status", "open")` -- soma no JS (poucas linhas)
-6. **Receita (deals won)**: `supabase.from("deals").select("estimated_value").eq("status", "won")`
-7. **Leads por Origem (grafico)**: Criar uma funcao RPC `count_leads_by_field` para agregar no banco, ou usar query com group-by via select limitado aos top 10
-8. **Leads por Status (grafico)**: Mesma abordagem - agregacao server-side
+### 1. Migracao de banco de dados
+- Criar tabela `bi_form_data` com campos para dados analiticos do formulario (institution_name, country, students counts, special_needs info, investment capacity, lead_id, account_id, opportunity_id, etc.)
+- RLS baseada em `tenant_id` usando `get_user_tenant_id()`
+- Criar trigger na tabela `form_responses` que chama a Edge Function via `pg_net` (HTTP POST) ao inserir nova resposta
 
-### Estrategia para Graficos (Leads por Origem / Status)
+### 2. Edge Function: `process-form-response`
+Funcao backend que recebe o `form_response_id` e executa toda a cadeia:
+- Busca a resposta e seu formulario pai
+- Extrai campos do JSONB `response_data` mapeando para variaveis (respondent_name, email, institution, etc.)
+- Verifica se ja existe lead com mesmo email -- se sim, atualiza; se nao, cria novo
+- Cria conta em `crm_accounts` com nome da instituicao
+- Cria contato em `contacts` vinculado a conta
+- Cria oportunidade em `opportunities` com valor estimado baseado na capacidade de investimento
+- Cria atividade em `activities` com prazo de 3 dias
+- Insere registro em `bi_form_data` para analytics
+- Cria notificacao para o usuario responsavel
+- Trata erros em cada passo com logging
 
-Como o Supabase client nao suporta `GROUP BY` nativamente, temos 2 opcoes:
+### 3. Template de Workflow no builder
+- Adicionar trigger `form.submitted` no catalogo de triggers do Workflow Builder
+- Adicionar template pre-construido "Integracao Formularios CRM/ERP/BI" na categoria "vendas"
+- Permitir que usuarios visualizem e customizem o fluxo
 
-**Opcao escolhida: Funcao RPC simples**
+### 4. Config do Supabase
+- Registrar a Edge Function em `config.toml` com `verify_jwt = false` (sera chamada internamente via trigger)
+- Usar `SUPABASE_SERVICE_ROLE_KEY` para operacoes de banco dentro da funcao
 
-Criar uma funcao SQL `count_leads_by_column(p_column text)` que faz:
-```sql
-SELECT source as label, COUNT(*) as value FROM leads 
-WHERE tenant_id = get_user_tenant_id() 
-GROUP BY source ORDER BY value DESC LIMIT 20
-```
+## Detalhes Tecnicos
 
-Duas funcoes RPC pequenas:
-- `count_leads_by_source()` -- retorna [{label, value}]
-- `count_leads_by_status()` -- retorna [{label, value}]
+**Mapeamento de campos do formulario**: A funcao extraira dados do campo `response_data` (JSONB) usando as labels das perguntas como chave, baseado no formulario modelo de Educacao Inclusiva ja criado.
 
-### Migracao SQL
+**Calculo do valor estimado**: Baseado no campo `investment_capacity`:
+- "Significativo" = R$ 5.000
+- "Moderado" = R$ 3.000
+- "Pequeno" = R$ 1.000
 
-Criar 2 funcoes RPC:
-1. `count_leads_by_source(p_tenant_id uuid)` -- GROUP BY source
-2. `count_leads_by_status(p_tenant_id uuid)` -- GROUP BY status
+**Trigger via pg_net**: O trigger no banco fara um HTTP POST para a Edge Function, passando o ID da resposta. Isso garante processamento assincrono sem bloquear a insercao.
 
-### Mudancas no Componente
-
-O componente deixa de usar `useState` com arrays gigantes de leads/deals e passa a usar:
-- `useState` apenas para os KPIs numericos (totalLeads, monthLeads, conversionRate, openDeals, forecastValue, wonValue)
-- `useState` para os dados de grafico ja agregados (sourceData, statusData)
-- Todas as queries rodam em paralelo via `Promise.all`
-- Loading state continua igual
-
-### Resultado Final
-
-Os numeros exibidos serao os reais do banco:
-- Leads (mes): contagem real filtrada por mes atual
-- Total Leads: 47.326 (real)
-- Conversao: 0% (nenhum lead com status "converted")
-- Deals Abertos: 0
-- Receita Prevista: R$ 0
-- Receita Fechada: R$ 0
-- Grafico Leads por Origem: dados reais agregados
-- Grafico Leads por Status: 47.326 como "Novo"
+**Tratamento de erros**: Cada passo sera executado em sequencia com try/catch. Erros serao registrados em log e uma notificacao de erro sera enviada se algo falhar.
 
