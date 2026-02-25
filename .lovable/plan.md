@@ -1,47 +1,45 @@
 
 
-# Workflow "Integracao Formularios com CRM" - Completo
+# Email de Confirmacao para Respondente do Formulario
 
-## O que sera feito
+## Objetivo
+Enviar automaticamente um email de confirmacao ao usuario que preencher o formulario, com a mensagem: "Seu formulario foi entregue e em breve entraremos em contato."
 
-Atualizar o template existente "Integracao Formularios CRM/ERP/BI" e adicionar novas acoes ao catalogo para refletir exatamente o fluxo descrito no PDF: 6 acoes sequenciais apos o trigger de formulario respondido.
+## Abordagem
+Adicionar o envio de email via Resend diretamente na Edge Function `process-form-response`, que ja e disparada automaticamente apos cada submissao. Isso evita criar uma nova function e aproveita o fluxo existente.
+
+## Passo 1 - Configurar a API Key do Resend
+Vou solicitar a sua API Key do Resend e armazena-la de forma segura no backend. Ela so sera acessivel pelas funcoes do servidor, nunca exposta no frontend.
+
+## Passo 2 - Atualizar a Edge Function
+Adicionar um novo passo (passo 10) na funcao `process-form-response` que envia o email de confirmacao:
+
+- **Destinatario**: email do respondente (extraido da resposta)
+- **Remetente**: `noreply@axhub.com.br` (ou outro dominio verificado no Resend)
+- **Assunto**: "Confirmacao - Recebemos seu formulario"
+- **Corpo**: Email HTML simples e profissional com a mensagem de confirmacao, logo da Axis e nome do respondente
+
+O envio sera feito via chamada HTTP direta a API do Resend (`https://api.resend.com/emails`), usando o secret `RESEND_API_KEY`.
 
 ## Alteracoes
 
-### 1. Novas acoes no catalogo (`workflowCatalog.ts`)
-
-Adicionar 4 novas acoes ao `actionsCatalog`:
-
-- **create_lead** - Criar Lead no CRM (campos: name, email, company, source, status)
-- **create_account** - Criar Conta no CRM (campos: name, industry, country)
-- **create_contact** - Criar Contato no CRM (campos: name, email, account_id)
-- **create_opportunity** - Criar Oportunidade no CRM (campos: name, account_id, contact_id, stage, estimated_value)
-- **send_email** - Enviar Email (campos: to, subject, body)
-
-### 2. Atualizar template existente (`workflowTemplates.ts`)
-
-Substituir o template `integracao-formularios` com os 7 nos corretos:
-
-1. **Trigger**: `form.submitted` - Formulario respondido
-2. **Acao 1**: `create_lead` - Criar Lead (name: respondent_name, email: respondent_email, company: institution_name, source: "Formulario Educacao Inclusiva", status: "Novo")
-3. **Acao 2**: `create_account` - Criar Conta (name: institution_name, industry: "Educacao", country: "Angola")
-4. **Acao 3**: `create_contact` - Criar Contato (name: respondent_name, email: respondent_email)
-5. **Acao 4**: `create_opportunity` - Criar Oportunidade (name: "Solucao IA para institution_name", stage: "Qualificacao", estimated_value: "3000")
-6. **Acao 5**: `send_email` - Enviar Email (to: rodcaria@axhub.com.br, subject: "Novo Lead: respondent_name", body: "Um novo lead foi gerado...")
-7. (Mantém o `create_notification` existente como alerta interno)
-
-### 3. Auto-criar o workflow ao acessar a aba Workflows (`WorkflowList.tsx`)
-
-Adicionar um botao "Criar Workflow Modelo" (similar ao botao de formularios) que:
-- Insere o workflow "Integracao Formularios com CRM" no banco ja publicado e ativo
-- Usa o template completo com todas as 6 acoes
-- Fica sempre visivel para poder ser recriado
-
-## Arquivos modificados
-
 | Arquivo | Mudanca |
 |---|---|
-| `src/components/workflows/workflowCatalog.ts` | 5 novas acoes (create_lead, create_account, create_contact, create_opportunity, send_email) |
-| `src/components/workflows/workflowTemplates.ts` | Atualizar template `integracao-formularios` com 7 nos completos |
-| `src/components/workflows/WorkflowList.tsx` | Botao "Criar Workflow Modelo" que insere o workflow ativo no banco |
+| Secret `RESEND_API_KEY` | Adicionar a API Key do Resend |
+| `supabase/functions/process-form-response/index.ts` | Novo passo 10: envio de email de confirmacao via Resend API |
+
+## Detalhes tecnicos do email
+
+```text
+De: Axis CRM <noreply@axhub.com.br>
+Para: {respondent_email}
+Assunto: Confirmacao - Recebemos seu formulario
+
+Corpo HTML:
+- Saudacao com nome do respondente
+- Mensagem: "Seu formulario foi entregue e em breve entraremos em contato."
+- Rodape com branding Axis
+```
+
+O envio e feito com try/catch para nao bloquear o restante do processamento caso o email falhe.
 
