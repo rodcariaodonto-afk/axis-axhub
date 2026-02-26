@@ -218,7 +218,7 @@ export default function Contracts() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Proprietário *</Label>
+                <Label>Responsável *</Label>
                 <Select value={form.owner_id} onValueChange={(v) => setForm({ ...form, owner_id: v })}>
                   <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                   <SelectContent>{users.map((u) => <SelectItem key={u.id} value={u.id}>{u.full_name || u.email}</SelectItem>)}</SelectContent>
@@ -254,7 +254,7 @@ export default function Contracts() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Deal</Label>
+                <Label>Negócio</Label>
                 <Select value={form.deal_id} onValueChange={(v) => setForm({ ...form, deal_id: v })}>
                   <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                   <SelectContent>{deals.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent>
