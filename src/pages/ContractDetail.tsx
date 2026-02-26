@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { replaceMacros } from "@/lib/contractMacros";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -79,6 +80,7 @@ export default function ContractDetail() {
   const [users, setUsers] = useState<any[]>([]);
   const [versions, setVersions] = useState<any[]>([]);
   const [signatures, setSignatures] = useState<any[]>([]);
+  const [templates, setTemplates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [editOpen, setEditOpen] = useState(false);
@@ -93,13 +95,14 @@ export default function ContractDetail() {
 
   const fetchAll = useCallback(async () => {
     if (!id) return;
-    const [cRes, aRes, dRes, uRes, vRes, sRes] = await Promise.all([
-      supabase.from("contracts").select("*, crm_accounts(id, name)").eq("id", id).single(),
-      supabase.from("crm_accounts").select("id, name").order("name"),
-      supabase.from("deals").select("id, name").order("name"),
+    const [cRes, aRes, dRes, uRes, vRes, sRes, tRes] = await Promise.all([
+      supabase.from("contracts").select("*, crm_accounts(id, name, cnpj, phone, email, segment, website)").eq("id", id).single(),
+      supabase.from("crm_accounts").select("id, name, cnpj, phone, email, segment, website").order("name"),
+      supabase.from("deals").select("id, name, estimated_value, status").order("name"),
       supabase.from("profiles").select("id, full_name, email"),
       supabase.from("contract_versions").select("*").eq("contract_id", id).order("version_number", { ascending: false }),
       supabase.from("contract_signatures").select("*").eq("contract_id", id).order("signed_at", { ascending: false }),
+      supabase.from("contract_templates").select("id, name, type, content").eq("is_active", true).order("name"),
     ]);
     if (cRes.error || !cRes.data) { navigate("/contracts"); return; }
     setContract(cRes.data);
@@ -108,8 +111,23 @@ export default function ContractDetail() {
     setUsers(uRes.data || []);
     setVersions(vRes.data || []);
     setSignatures(sRes.data || []);
+    setTemplates(tRes.data || []);
     setLoading(false);
   }, [id, navigate]);
+
+  const applyTemplate = (templateId: string) => {
+    const tpl = templates.find(t => t.id === templateId);
+    if (!tpl) return;
+    const account = accounts.find(a => a.id === form.account_id);
+    const deal = deals.find(d => d.id === form.deal_id);
+    const currentUser = users.find(u => u.id === form.owner_id);
+    const contractData = {
+      name: form.name, contract_type: form.contract_type, value: form.value ? parseFloat(form.value) : null,
+      currency: form.currency, start_date: form.start_date, end_date: form.end_date, renewal_date: form.renewal_date,
+    };
+    const filled = replaceMacros(tpl.content, { account, deal, contract: contractData, user: currentUser ? { full_name: currentUser.full_name, email: currentUser.email } : undefined });
+    setForm((f: any) => ({ ...f, description: filled }));
+  };
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -398,7 +416,16 @@ export default function ContractDetail() {
               </div>
             </div>
             <div className="space-y-2"><Label>Título *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
-            <div className="space-y-2"><Label>Descrição</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} /></div>
+            {templates.length > 0 && (
+              <div className="space-y-2">
+                <Label>Aplicar Template (opcional)</Label>
+                <Select onValueChange={(v) => applyTemplate(v)}>
+                  <SelectTrigger><SelectValue placeholder="Selecione um template..." /></SelectTrigger>
+                  <SelectContent>{templates.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="space-y-2"><Label>Descrição</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={5} /></div>
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Tipo</Label>

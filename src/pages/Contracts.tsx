@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { replaceMacros } from "@/lib/contractMacros";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,7 +45,7 @@ const emptyForm = {
   name: "", account_id: "", deal_id: "", status: "Em elaboracao",
   start_date: "", end_date: "", value: "", document_url: "",
   description: "", contract_type: "", currency: "BRL",
-  renewal_date: "", owner_id: "",
+  renewal_date: "", owner_id: "", template_id: "",
 };
 
 export default function Contracts() {
@@ -52,6 +53,7 @@ export default function Contracts() {
   const [accounts, setAccounts] = useState<any[]>([]);
   const [deals, setDeals] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
+  const [templates, setTemplates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -66,16 +68,18 @@ export default function Contracts() {
   const navigate = useNavigate();
 
   const fetchData = useCallback(async () => {
-    const [contractsRes, accountsRes, dealsRes, usersRes] = await Promise.all([
+    const [contractsRes, accountsRes, dealsRes, usersRes, templatesRes] = await Promise.all([
       supabase.from("contracts").select("*, crm_accounts(id, name), deals(name)").eq("is_active", true).order("created_at", { ascending: false }),
-      supabase.from("crm_accounts").select("id, name").order("name"),
-      supabase.from("deals").select("id, name").order("name"),
+      supabase.from("crm_accounts").select("id, name, cnpj, phone, email, segment, website").order("name"),
+      supabase.from("deals").select("id, name, estimated_value, status").order("name"),
       supabase.from("profiles").select("id, full_name, email"),
+      supabase.from("contract_templates").select("id, name, type, content").eq("is_active", true).order("name"),
     ]);
     setContracts(contractsRes.data || []);
     setAccounts(accountsRes.data || []);
     setDeals(dealsRes.data || []);
     setUsers(usersRes.data || []);
+    setTemplates(templatesRes.data || []);
     setLoading(false);
   }, []);
 
@@ -95,9 +99,23 @@ export default function Contracts() {
       value: c.value ? String(c.value) : "", document_url: c.document_url || "",
       description: c.description || "", contract_type: c.contract_type || "",
       currency: c.currency || "BRL", renewal_date: c.renewal_date || "",
-      owner_id: c.owner_id || "",
+      owner_id: c.owner_id || "", template_id: (c as any).template_id || "",
     });
     setDialogOpen(true);
+  };
+
+  const applyTemplate = (templateId: string) => {
+    const tpl = templates.find(t => t.id === templateId);
+    if (!tpl) return;
+    const account = accounts.find(a => a.id === form.account_id);
+    const deal = deals.find(d => d.id === form.deal_id);
+    const currentUser = users.find(u => u.id === form.owner_id);
+    const contractData = {
+      name: form.name, contract_type: form.contract_type, value: form.value ? parseFloat(form.value) : null,
+      currency: form.currency, start_date: form.start_date, end_date: form.end_date, renewal_date: form.renewal_date,
+    };
+    const filled = replaceMacros(tpl.content, { account, deal, contract: contractData, user: currentUser ? { full_name: currentUser.full_name, email: currentUser.email } : undefined });
+    setForm(f => ({ ...f, template_id: templateId, description: filled }));
   };
 
   const validate = () => {
@@ -125,6 +143,7 @@ export default function Contracts() {
       description: form.description || null, contract_type: form.contract_type || null,
       currency: form.currency, renewal_date: form.renewal_date || null,
       owner_id: form.owner_id || null,
+      template_id: form.template_id || null,
     };
 
     if (editingId) {
@@ -207,7 +226,16 @@ export default function Contracts() {
               </div>
             </div>
             <div className="space-y-2"><Label>Título do Contrato *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
-            <div className="space-y-2"><Label>Descrição</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} /></div>
+            {templates.length > 0 && (
+              <div className="space-y-2">
+                <Label>Template (opcional)</Label>
+                <Select value={form.template_id} onValueChange={(v) => applyTemplate(v)}>
+                  <SelectTrigger><SelectValue placeholder="Selecione um template..." /></SelectTrigger>
+                  <SelectContent>{templates.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="space-y-2"><Label>Descrição</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={5} /></div>
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Tipo de Contrato</Label>
