@@ -13,8 +13,10 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, MoreHorizontal, Pencil, Copy, EyeOff, Trash2, Code } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Pencil, Copy, EyeOff, Trash2, Code, PackagePlus } from "lucide-react";
 import { macroCategories, replaceMacros } from "@/lib/contractMacros";
+import { seedContractTemplates } from "@/lib/contractTemplateSeed";
+import { getUserProfile } from "@/lib/getUserTenantId";
 
 const typeOptions = [
   { value: "sales", label: "Venda" },
@@ -54,6 +56,26 @@ export default function ContractTemplates() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const seedTemplates = async () => {
+    const profile = await getUserProfile();
+    if (!profile) { toast({ title: "Erro ao obter perfil", variant: "destructive" }); return; }
+    const { data: existing } = await supabase
+      .from("contract_templates")
+      .select("name")
+      .in("name", seedContractTemplates.map(t => t.name));
+    const existingNames = new Set((existing || []).map((e: any) => e.name));
+    const toInsert = seedContractTemplates
+      .filter(t => !existingNames.has(t.name))
+      .map(t => ({ ...t, tenant_id: profile.tenant_id, created_by: profile.id }));
+    if (toInsert.length === 0) {
+      toast({ title: "Templates modelo já existem" });
+      return;
+    }
+    const { error } = await supabase.from("contract_templates").insert(toInsert as any);
+    if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
+    else { toast({ title: `${toInsert.length} templates modelo criados!` }); fetchData(); }
+  };
 
   const openCreate = () => { setEditingId(null); setForm(emptyForm); setDialogOpen(true); };
 
@@ -153,7 +175,10 @@ export default function ContractTemplates() {
           <h1 className="text-2xl font-bold tracking-tight">Templates de Contratos</h1>
           <p className="text-muted-foreground">Crie e gerencie modelos reutilizáveis com macros</p>
         </div>
-        <Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" />Novo Template</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={seedTemplates}><PackagePlus className="mr-2 h-4 w-4" />Criar Templates Modelo</Button>
+          <Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" />Novo Template</Button>
+        </div>
       </div>
 
       {/* Modal */}
