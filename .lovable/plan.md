@@ -1,65 +1,62 @@
 
-# Plano: Melhorias no Cadastro de Contas
+# Plano: Integrar Categorias Financeiras nas Contas a Pagar e a Receber
 
-## 1. Seletor CNPJ / CPF
-Substituir o campo fixo "CNPJ" por um seletor que permite escolher entre **CPF** ou **CNPJ**, com mascara e validacao adequada para cada tipo.
+## Objetivo
+As categorias financeiras (tags de receita/despesa) criadas no gerenciador de categorias precisam aparecer como campo selecionavel nos formularios de criacao e edicao de Contas a Pagar e Contas a Receber.
 
-### Mudancas em `src/pages/Accounts.tsx`:
-- Adicionar campo `doc_type` ao estado do form (`"cnpj"` ou `"cpf"`)
-- Trocar o label fixo "CNPJ" por um `Select` com opcoes "CNPJ" e "CPF"
-- Ajustar placeholder e validacao conforme o tipo selecionado:
-  - CPF: `000.000.000-00` (regex `^\d{3}\.\d{3}\.\d{3}-\d{2}$`)
-  - CNPJ: `00.000.000/0000-00` (regex existente)
-- A coluna `cnpj` do banco continua sendo usada para ambos (sem necessidade de migracao, apenas muda o label)
+## 1. Migracao de Banco de Dados
+Adicionar coluna `category_id` (UUID, nullable, com FK para `finance_categories`) em ambas as tabelas:
 
-### Mudancas em `src/pages/AccountDetail.tsx`:
-- Mesma logica de seletor CNPJ/CPF no modal de edicao
-- Na exibicao do detalhe, mostrar o label correto baseado no formato do documento armazenado
+```text
+payables    -> ADD COLUMN category_id UUID REFERENCES finance_categories(id)
+receivables -> ADD COLUMN category_id UUID REFERENCES finance_categories(id)
+```
 
-### Na listagem (tabela):
-- Renomear coluna "CNPJ" para "Documento" para acomodar ambos os tipos
+## 2. Contas a Pagar (`src/pages/Payables.tsx`)
 
-## 2. Campo Instagram
-Adicionar um campo "Instagram" ao formulario de criacao/edicao de contas.
+- Adicionar estado `categories` para armazenar categorias do tipo "despesa"
+- Carregar categorias filtradas por `type = 'despesa'` ao abrir formulario
+- Adicionar campo `category_id` ao estado do formulario
+- Adicionar um `Select` com as categorias disponiveis no formulario (com bolinha colorida ao lado do nome)
+- Incluir `category_id` no payload de insert/update
+- Exibir a categoria na tabela de listagem com badge colorido
+- Ao editar, preencher o campo com a categoria existente
 
-### Migracao de banco:
-- Adicionar coluna `instagram` (TEXT, nullable) na tabela `crm_accounts`
+## 3. Contas a Receber (`src/pages/Receivables.tsx`)
 
-### Mudancas em `src/pages/Accounts.tsx`:
-- Adicionar campo `instagram` ao estado do form
-- Adicionar input com placeholder `@perfil` abaixo do campo Website
-- Salvar no payload
+- Mesma logica, porem filtrando categorias do tipo "receita" (`type = 'receita'`)
+- Adicionar campo `category_id` ao formulario e ao payload
+- Exibir na tabela com badge colorido
+- Ao criar parcelas, propagar a mesma categoria para todas
 
-### Mudancas em `src/pages/AccountDetail.tsx`:
-- Exibir card de Instagram na area de informacoes (com icone)
-- Adicionar campo Instagram no modal de edicao
+## 4. Exibicao na Tabela
 
-## 3. Sobre o campo Proprietario
-O campo "Proprietario" indica **quem da equipe e responsavel por essa conta** (o vendedor/gerente de conta). Nao e quem criou, mas quem cuida do relacionamento com o cliente. Esse e um padrao de CRM para distribuicao de carteira. O campo continuara funcionando da mesma forma.
+Nova coluna "Categoria" nas duas tabelas, exibindo o nome da categoria com um indicador de cor (bolinha) ao lado. Query de listagem atualizada para incluir `finance_categories(name, color)` no select.
 
-## Resumo dos arquivos
+## Resumo dos Arquivos
 
 | Arquivo | Acao |
 |---------|------|
-| Migracao SQL | Criar — adicionar coluna `instagram` em `crm_accounts` |
-| `src/pages/Accounts.tsx` | Editar — seletor CPF/CNPJ + campo Instagram |
-| `src/pages/AccountDetail.tsx` | Editar — seletor CPF/CNPJ + campo Instagram + exibicao |
+| Migracao SQL | Criar — adicionar `category_id` em `payables` e `receivables` |
+| `src/pages/Payables.tsx` | Editar — campo de categoria (despesa) no form + coluna na tabela |
+| `src/pages/Receivables.tsx` | Editar — campo de categoria (receita) no form + coluna na tabela |
 
 ## Detalhes Tecnicos
 
-### Seletor de documento no formulario:
+### Select de categoria no formulario:
 ```text
-[CPF v] [___.___.___-__]     [Segmento v]
-  ou
-[CNPJ v] [__.___.___/____-__]  [Segmento v]
+[Categoria (opcional)  v]
+  - [cor] Alimentacao
+  - [cor] Salario
+  - [cor] Marketing
 ```
 
-### Deteccao automatica ao editar:
-- Se o valor armazenado em `cnpj` tiver 14 digitos (formato CNPJ), seleciona CNPJ
-- Se tiver 11 digitos (formato CPF), seleciona CPF
-- Caso contrario, padrao CNPJ
+### Query atualizada:
+```text
+payables:    select("*, suppliers(name), finance_categories(name, color)")
+receivables: select("*, customers(name), deals(name), orders(number), finance_categories(name, color)")
+```
 
-### Campo Instagram:
-- Input texto com placeholder `@perfil`
-- Armazenado como texto simples na coluna `instagram`
-- Exibido como link clicavel para `https://instagram.com/{perfil}` na pagina de detalhe
+### Carga de categorias:
+- Payables: `supabase.from("finance_categories").select("id, name, color").eq("type", "despesa")`
+- Receivables: `supabase.from("finance_categories").select("id, name, color").eq("type", "receita")`
