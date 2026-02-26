@@ -101,6 +101,9 @@ export default function UserFormModal({ open, onOpenChange, onSuccess, editUser 
     setSaving(true);
     try {
       if (isEditing && editUser) {
+        // Get current user to prevent self-role change
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+
         // Update profile
         await supabase
           .from("profiles")
@@ -114,9 +117,11 @@ export default function UserFormModal({ open, onOpenChange, onSuccess, editUser 
           })
           .eq("id", editUser.id);
 
-        // Update role
-        await supabase.from("user_roles").delete().eq("user_id", editUser.id);
-        await supabase.from("user_roles").insert({ user_id: editUser.id, role });
+        // Update role — skip if editing yourself to prevent accidental demotion
+        if (currentUser?.id !== editUser.id) {
+          await supabase.from("user_roles").delete().eq("user_id", editUser.id);
+          await supabase.from("user_roles").insert({ user_id: editUser.id, role });
+        }
 
         // Update work hours - delete old and insert new
         await supabase.from("user_work_hours").delete().eq("user_id", editUser.id);
@@ -127,12 +132,14 @@ export default function UserFormModal({ open, onOpenChange, onSuccess, editUser 
           );
         }
 
-        // Update permissions - delete old and insert new
-        await supabase.from("user_permissions").delete().eq("user_id", editUser.id);
-        if (tenantData) {
-          await supabase.from("user_permissions").insert(
-            permissions.map((p) => ({ ...p, tenant_id: tenantData, user_id: editUser.id }))
-          );
+        // Update permissions — skip own permissions to prevent lockout
+        if (currentUser?.id !== editUser.id) {
+          await supabase.from("user_permissions").delete().eq("user_id", editUser.id);
+          if (tenantData) {
+            await supabase.from("user_permissions").insert(
+              permissions.map((p) => ({ ...p, tenant_id: tenantData, user_id: editUser.id }))
+            );
+          }
         }
 
         toast({ title: "Usuário atualizado com sucesso" });
