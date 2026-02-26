@@ -4081,6 +4081,7 @@ export type Database = {
         Row: {
           amount: number
           bank_account_id: string | null
+          category_id: string | null
           created_at: string
           description: string
           due_date: string
@@ -4095,6 +4096,7 @@ export type Database = {
         Insert: {
           amount: number
           bank_account_id?: string | null
+          category_id?: string | null
           created_at?: string
           description: string
           due_date: string
@@ -4109,6 +4111,7 @@ export type Database = {
         Update: {
           amount?: number
           bank_account_id?: string | null
+          category_id?: string | null
           created_at?: string
           description?: string
           due_date?: string
@@ -4126,6 +4129,13 @@ export type Database = {
             columns: ["bank_account_id"]
             isOneToOne: false
             referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payables_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "finance_categories"
             referencedColumns: ["id"]
           },
           {
@@ -4784,6 +4794,7 @@ export type Database = {
         Row: {
           amount: number
           bank_account_id: string | null
+          category_id: string | null
           created_at: string
           customer_id: string | null
           deal_id: string | null
@@ -4799,6 +4810,7 @@ export type Database = {
         Insert: {
           amount: number
           bank_account_id?: string | null
+          category_id?: string | null
           created_at?: string
           customer_id?: string | null
           deal_id?: string | null
@@ -4814,6 +4826,7 @@ export type Database = {
         Update: {
           amount?: number
           bank_account_id?: string | null
+          category_id?: string | null
           created_at?: string
           customer_id?: string | null
           deal_id?: string | null
@@ -4832,6 +4845,13 @@ export type Database = {
             columns: ["bank_account_id"]
             isOneToOne: false
             referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receivables_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "finance_categories"
             referencedColumns: ["id"]
           },
           {

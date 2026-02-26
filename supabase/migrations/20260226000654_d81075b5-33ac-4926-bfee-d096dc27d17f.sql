@@ -1,0 +1,2 @@
+ALTER TABLE public.payables ADD COLUMN IF NOT EXISTS category_id UUID REFERENCES public.finance_categories(id);
+ALTER TABLE public.receivables ADD COLUMN IF NOT EXISTS category_id UUID REFERENCES public.finance_categories(id);

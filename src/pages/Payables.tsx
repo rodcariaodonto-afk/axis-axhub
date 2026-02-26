@@ -23,13 +23,14 @@ export default function Payables() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
-  const [form, setForm] = useState({ description: "", amount: "", due_date: "", supplier_id: "" });
+  const [form, setForm] = useState({ description: "", amount: "", due_date: "", supplier_id: "", category_id: "" });
+  const [categories, setCategories] = useState<any[]>([]);
   const [passwordDialog, setPasswordDialog] = useState<{ open: boolean; title: string; description: string; variant: "default" | "destructive"; onConfirm: () => Promise<void> }>({ open: false, title: "", description: "", variant: "default", onConfirm: async () => {} });
   const [paymentDialog, setPaymentDialog] = useState<{ open: boolean; itemId: string; amount: number; description: string }>({ open: false, itemId: "", amount: 0, description: "" });
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
-    const { data } = await supabase.from("payables").select("*, suppliers(name)").order("due_date", { ascending: true });
+    const { data } = await supabase.from("payables").select("*, suppliers(name), finance_categories(name, color)").order("due_date", { ascending: true });
     setItems(data || []);
     setLoading(false);
   }, []);
@@ -41,17 +42,22 @@ export default function Payables() {
     setSuppliers(data || []);
   };
 
+  const loadCategories = async () => {
+    const { data } = await supabase.from("finance_categories").select("id, name, color").eq("type", "despesa").order("name");
+    setCategories(data || []);
+  };
+
   const openCreate = async () => {
-    await loadSuppliers();
+    await Promise.all([loadSuppliers(), loadCategories()]);
     setEditItem(null);
-    setForm({ description: "", amount: "", due_date: "", supplier_id: "" });
+    setForm({ description: "", amount: "", due_date: "", supplier_id: "", category_id: "" });
     setDialogOpen(true);
   };
 
   const openEdit = async (item: any) => {
-    await loadSuppliers();
+    await Promise.all([loadSuppliers(), loadCategories()]);
     setEditItem(item);
-    setForm({ description: item.description, amount: String(item.amount), due_date: item.due_date, supplier_id: item.supplier_id || "" });
+    setForm({ description: item.description, amount: String(item.amount), due_date: item.due_date, supplier_id: item.supplier_id || "", category_id: item.category_id || "" });
     setPasswordDialog({
       open: true, title: "Editar Conta a Pagar", description: "Confirme sua senha para editar este lançamento.", variant: "default",
       onConfirm: async () => { setDialogOpen(true); },
@@ -82,13 +88,13 @@ export default function Payables() {
     if (!profile || !user) return;
 
     if (editItem) {
-      const updatedFields = { description: form.description, amount: parseFloat(form.amount), due_date: form.due_date, supplier_id: form.supplier_id || null };
+      const updatedFields = { description: form.description, amount: parseFloat(form.amount), due_date: form.due_date, supplier_id: form.supplier_id || null, category_id: form.category_id || null };
       await supabase.from("audit_logs").insert({ tenant_id: profile.tenant_id, entity: "payable", action: "update", entity_id: editItem.id, actor_user_id: user.id, before_json: editItem, after_json: { ...editItem, ...updatedFields } });
       const { error } = await supabase.from("payables").update(updatedFields).eq("id", editItem.id);
       if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
       else { toast({ title: "Conta atualizada!" }); setDialogOpen(false); setEditItem(null); fetchData(); }
     } else {
-      const { error } = await supabase.from("payables").insert({ tenant_id: profile.tenant_id, description: form.description, amount: parseFloat(form.amount), due_date: form.due_date, supplier_id: form.supplier_id || null });
+      const { error } = await supabase.from("payables").insert({ tenant_id: profile.tenant_id, description: form.description, amount: parseFloat(form.amount), due_date: form.due_date, supplier_id: form.supplier_id || null, category_id: form.category_id || null });
       if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
       else { toast({ title: "Conta a pagar criada!" }); setDialogOpen(false); fetchData(); }
     }
@@ -159,6 +165,22 @@ export default function Payables() {
                 <SelectContent>{suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label>Categoria (opcional)</Label>
+              <Select value={form.category_id} onValueChange={(v) => setForm({ ...form, category_id: v })}>
+                <SelectTrigger><SelectValue placeholder="Selecione uma categoria" /></SelectTrigger>
+                <SelectContent>
+                  {categories.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      <span className="flex items-center gap-2">
+                        <span className="inline-block h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: c.color || '#6B7280' }} />
+                        {c.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <Button type="submit" className="w-full">{editItem ? "Salvar" : "Criar"}</Button>
           </form>
         </DialogContent>
@@ -177,16 +199,24 @@ export default function Payables() {
           <Table>
             <TableHeader>
               <TableRow className="border-border">
-                <TableHead>Descrição</TableHead><TableHead>Fornecedor</TableHead><TableHead>Vencimento</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Valor</TableHead><TableHead className="w-28" />
+                <TableHead>Descrição</TableHead><TableHead>Fornecedor</TableHead><TableHead>Categoria</TableHead><TableHead>Vencimento</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Valor</TableHead><TableHead className="w-28" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loading ? <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow> :
-              filtered.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhuma conta encontrada</TableCell></TableRow> :
+              {loading ? <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow> :
+              filtered.length === 0 ? <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhuma conta encontrada</TableCell></TableRow> :
               filtered.map((p) => (
                 <TableRow key={p.id} className={`border-border ${isOverdue(p) ? "bg-destructive/5" : ""}`}>
                   <TableCell className="font-medium">{p.description}</TableCell>
                   <TableCell className="text-muted-foreground">{p.suppliers?.name || "—"}</TableCell>
+                  <TableCell>
+                    {(p as any).finance_categories ? (
+                      <span className="inline-flex items-center gap-1.5 text-xs">
+                        <span className="inline-block h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: (p as any).finance_categories.color || '#6B7280' }} />
+                        {(p as any).finance_categories.name}
+                      </span>
+                    ) : "—"}
+                  </TableCell>
                   <TableCell className={isOverdue(p) ? "text-destructive font-medium" : ""}>{new Date(p.due_date).toLocaleDateString("pt-BR")}</TableCell>
                   <TableCell><Badge variant={p.status === "paid" ? "default" : isOverdue(p) ? "destructive" : "secondary"}>{isOverdue(p) ? "Vencido" : statusLabels[p.status] || p.status}</Badge></TableCell>
                   <TableCell className="text-right font-medium">R$ {Number(p.amount).toFixed(2)}</TableCell>
