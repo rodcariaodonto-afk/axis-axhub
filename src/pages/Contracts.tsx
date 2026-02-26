@@ -226,15 +226,17 @@ export default function Contracts() {
               </div>
             </div>
             <div className="space-y-2"><Label>Título do Contrato *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
-            {templates.length > 0 && (
-              <div className="space-y-2">
-                <Label>Template (opcional)</Label>
+            <div className="space-y-2">
+              <Label>Template (opcional)</Label>
+              {templates.length > 0 ? (
                 <Select value={form.template_id} onValueChange={(v) => applyTemplate(v)}>
                   <SelectTrigger><SelectValue placeholder="Selecione um template..." /></SelectTrigger>
                   <SelectContent>{templates.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
                 </Select>
-              </div>
-            )}
+              ) : (
+                <p className="text-xs text-muted-foreground">Nenhum template cadastrado. <a href="/contract-templates" className="text-primary underline">Criar template</a></p>
+              )}
+            </div>
             <div className="space-y-2"><Label>Descrição</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={5} /></div>
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
