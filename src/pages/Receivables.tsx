@@ -23,13 +23,14 @@ export default function Receivables() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
-  const [form, setForm] = useState({ description: "", amount: "", due_date: "", customer_id: "", installments: "1" });
+  const [form, setForm] = useState({ description: "", amount: "", due_date: "", customer_id: "", installments: "1", category_id: "" });
+  const [categories, setCategories] = useState<any[]>([]);
   const [passwordDialog, setPasswordDialog] = useState<{ open: boolean; title: string; description: string; variant: "default" | "destructive"; onConfirm: () => Promise<void> }>({ open: false, title: "", description: "", variant: "default", onConfirm: async () => {} });
   const [paymentDialog, setPaymentDialog] = useState<{ open: boolean; itemId: string; amount: number; description: string }>({ open: false, itemId: "", amount: 0, description: "" });
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
-    const { data } = await supabase.from("receivables").select("*, customers(name), deals(name), orders(number)").order("due_date", { ascending: true });
+    const { data } = await supabase.from("receivables").select("*, customers(name), deals(name), orders(number), finance_categories(name, color)").order("due_date", { ascending: true });
     setItems(data || []);
     setLoading(false);
   }, []);
@@ -41,17 +42,22 @@ export default function Receivables() {
     setCustomers(data || []);
   };
 
+  const loadCategories = async () => {
+    const { data } = await supabase.from("finance_categories").select("id, name, color").eq("type", "receita").order("name");
+    setCategories(data || []);
+  };
+
   const openCreate = async () => {
-    await loadCustomers();
+    await Promise.all([loadCustomers(), loadCategories()]);
     setEditItem(null);
-    setForm({ description: "", amount: "", due_date: "", customer_id: "", installments: "1" });
+    setForm({ description: "", amount: "", due_date: "", customer_id: "", installments: "1", category_id: "" });
     setDialogOpen(true);
   };
 
   const openEdit = async (item: any) => {
-    await loadCustomers();
+    await Promise.all([loadCustomers(), loadCategories()]);
     setEditItem(item);
-    setForm({ description: item.description, amount: String(item.amount), due_date: item.due_date, customer_id: item.customer_id || "", installments: "1" });
+    setForm({ description: item.description, amount: String(item.amount), due_date: item.due_date, customer_id: item.customer_id || "", installments: "1", category_id: item.category_id || "" });
     setPasswordDialog({
       open: true, title: "Editar Recebível", description: "Confirme sua senha para editar este lançamento.", variant: "default",
       onConfirm: async () => { setDialogOpen(true); },
@@ -82,7 +88,7 @@ export default function Receivables() {
     if (!profile || !user) return;
 
     if (editItem) {
-      const updatedFields = { description: form.description, amount: parseFloat(form.amount), due_date: form.due_date, customer_id: form.customer_id || null };
+      const updatedFields = { description: form.description, amount: parseFloat(form.amount), due_date: form.due_date, customer_id: form.customer_id || null, category_id: form.category_id || null };
       await supabase.from("audit_logs").insert({ tenant_id: profile.tenant_id, entity: "receivable", action: "update", entity_id: editItem.id, actor_user_id: user.id, before_json: editItem, after_json: { ...editItem, ...updatedFields } });
       const { error } = await supabase.from("receivables").update(updatedFields).eq("id", editItem.id);
       if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
@@ -96,7 +102,7 @@ export default function Receivables() {
         const dueDate = new Date(baseDate);
         dueDate.setMonth(dueDate.getMonth() + i);
         const description = numInstallments > 1 ? `${form.description} (${i + 1}/${numInstallments})` : form.description;
-        records.push({ tenant_id: profile.tenant_id, description, amount, due_date: dueDate.toISOString().split("T")[0], customer_id: form.customer_id || null });
+        records.push({ tenant_id: profile.tenant_id, description, amount, due_date: dueDate.toISOString().split("T")[0], customer_id: form.customer_id || null, category_id: form.category_id || null });
       }
       const { error } = await supabase.from("receivables").insert(records);
       if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
@@ -169,6 +175,22 @@ export default function Receivables() {
                 <SelectContent>{customers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label>Categoria (opcional)</Label>
+              <Select value={form.category_id} onValueChange={(v) => setForm({ ...form, category_id: v })}>
+                <SelectTrigger><SelectValue placeholder="Selecione uma categoria" /></SelectTrigger>
+                <SelectContent>
+                  {categories.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      <span className="flex items-center gap-2">
+                        <span className="inline-block h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: c.color || '#6B7280' }} />
+                        {c.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <Button type="submit" className="w-full">{editItem ? "Salvar" : "Criar"}</Button>
           </form>
         </DialogContent>
@@ -187,18 +209,26 @@ export default function Receivables() {
           <Table>
             <TableHeader>
               <TableRow className="border-border">
-                <TableHead>Descrição</TableHead><TableHead>Cliente</TableHead><TableHead>Deal</TableHead><TableHead>Pedido</TableHead><TableHead>Vencimento</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Valor</TableHead><TableHead className="w-28" />
+                <TableHead>Descrição</TableHead><TableHead>Cliente</TableHead><TableHead>Deal</TableHead><TableHead>Pedido</TableHead><TableHead>Categoria</TableHead><TableHead>Vencimento</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Valor</TableHead><TableHead className="w-28" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loading ? <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow> :
-              filtered.length === 0 ? <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum recebível encontrado</TableCell></TableRow> :
+              {loading ? <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow> :
+              filtered.length === 0 ? <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum recebível encontrado</TableCell></TableRow> :
               filtered.map((r) => (
                 <TableRow key={r.id} className={`border-border ${isOverdue(r) ? "bg-destructive/5" : ""}`}>
                   <TableCell className="font-medium">{r.description}</TableCell>
                   <TableCell className="text-muted-foreground">{r.customers?.name || "—"}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{(r as any).deals?.name || "—"}</TableCell>
                   <TableCell className="text-sm text-muted-foreground font-mono">{(r as any).orders?.number || "—"}</TableCell>
+                  <TableCell>
+                    {(r as any).finance_categories ? (
+                      <span className="inline-flex items-center gap-1.5 text-xs">
+                        <span className="inline-block h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: (r as any).finance_categories.color || '#6B7280' }} />
+                        {(r as any).finance_categories.name}
+                      </span>
+                    ) : "—"}
+                  </TableCell>
                   <TableCell className={isOverdue(r) ? "text-destructive font-medium" : ""}>{new Date(r.due_date).toLocaleDateString("pt-BR")}</TableCell>
                   <TableCell><Badge variant={r.status === "paid" ? "default" : isOverdue(r) ? "destructive" : "secondary"}>{isOverdue(r) ? "Vencido" : statusLabels[r.status] || r.status}</Badge></TableCell>
                   <TableCell className="text-right font-medium">R$ {Number(r.amount).toFixed(2)}</TableCell>
