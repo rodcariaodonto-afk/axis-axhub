@@ -53,6 +53,7 @@ export function AppSidebar() {
         { title: "Contatos", url: "/contacts", icon: Contact, module: "contatos" },
         { title: "Oportunidades", url: "/opportunities", icon: TrendingUp, module: "crm" },
         { title: "Contratos", url: "/contracts", icon: FileText, module: "crm" },
+        { title: "Templates de Contratos", url: "/contract-templates", icon: FileText, module: "crm" },
         { title: "Atividades", url: "/activities", icon: CalendarCheck, module: "crm" },
         { title: "Relatórios", url: "/reports", icon: FileBarChart, module: "relatorios" },
         { title: "Formulários", url: "/forms", icon: ClipboardList, module: "crm" },

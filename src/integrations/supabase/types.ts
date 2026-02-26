@@ -1251,6 +1251,53 @@ export type Database = {
           },
         ]
       }
+      contract_templates: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          tenant_id: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          tenant_id: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          tenant_id?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contract_versions: {
         Row: {
           change_description: string | null
@@ -1344,6 +1391,7 @@ export type Database = {
           signed_by_id: string | null
           start_date: string | null
           status: string
+          template_id: string | null
           tenant_id: string
           updated_at: string
           value: number | null
@@ -1368,6 +1416,7 @@ export type Database = {
           signed_by_id?: string | null
           start_date?: string | null
           status?: string
+          template_id?: string | null
           tenant_id: string
           updated_at?: string
           value?: number | null
@@ -1392,6 +1441,7 @@ export type Database = {
           signed_by_id?: string | null
           start_date?: string | null
           status?: string
+          template_id?: string | null
           tenant_id?: string
           updated_at?: string
           value?: number | null
@@ -1409,6 +1459,13 @@ export type Database = {
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "contract_templates"
             referencedColumns: ["id"]
           },
           {

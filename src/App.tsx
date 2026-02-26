@@ -58,6 +58,7 @@ const Forms = lazy(() => import("./pages/Forms"));
 const FormEditor = lazy(() => import("./pages/FormEditor"));
 const FormResponses = lazy(() => import("./pages/FormResponses"));
 const PublicForm = lazy(() => import("./pages/PublicForm"));
+const ContractTemplates = lazy(() => import("./pages/ContractTemplates"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -122,6 +123,7 @@ const App = () => (
               <Route path="/campanhas" element={<ProtectedRoute><Campanhas /></ProtectedRoute>} />
               <Route path="/contracts" element={<ProtectedRoute><Contracts /></ProtectedRoute>} />
               <Route path="/contracts/:id" element={<ProtectedRoute><ContractDetail /></ProtectedRoute>} />
+              <Route path="/contract-templates" element={<ProtectedRoute><ContractTemplates /></ProtectedRoute>} />
               <Route path="/accounts" element={<ProtectedRoute><Accounts /></ProtectedRoute>} />
               <Route path="/accounts/:id" element={<ProtectedRoute><AccountDetail /></ProtectedRoute>} />
               <Route path="/funis" element={<ProtectedRoute><Funis /></ProtectedRoute>} />
