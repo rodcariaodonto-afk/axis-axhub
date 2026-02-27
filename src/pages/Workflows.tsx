@@ -12,11 +12,7 @@ export default function Workflows() {
   const [activeTab, setActiveTab] = useState("workflows");
 
   if (view.type === "builder") {
-    return (
-      <div className="p-6">
-        <WorkflowBuilder workflowId={view.workflowId} onBack={() => setView({ type: "list" })} />
-      </div>
-    );
+    return <WorkflowBuilder workflowId={view.workflowId} onBack={() => setView({ type: "list" })} />;
   }
 
   if (view.type === "execution-detail") {
