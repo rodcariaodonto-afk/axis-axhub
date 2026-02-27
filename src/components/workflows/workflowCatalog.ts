@@ -2,6 +2,7 @@ import {
   Zap, UserPlus, RefreshCw, Trophy, XCircle, GitBranch, ShoppingCart, CreditCard, Users,
   Bell, Edit, ArrowRight, CalendarPlus, Tag, Webhook, Clock, ClipboardList,
   Equal, Search, TrendingUp, HelpCircle, Play, MessageSquare, Send,
+  Image, FileText, Mic, Smartphone,
 } from "lucide-react";
 
 export interface CatalogItem {
@@ -148,6 +149,47 @@ export const actionsCatalog: CatalogItem[] = [
       { key: "to", label: "Destinatário", type: "text", required: true, placeholder: "email@exemplo.com" },
       { key: "subject", label: "Assunto", type: "text", required: true, placeholder: "Assunto do e-mail" },
       { key: "body", label: "Corpo", type: "textarea", required: true, placeholder: "Conteúdo do e-mail" },
+    ],
+  },
+  {
+    id: "send_whatsapp_text", label: "Enviar texto WhatsApp", description: "Envia uma mensagem de texto via WhatsApp", icon: MessageSquare, category: "action",
+    configFields: [
+      { key: "session_id", label: "Sessão WhatsApp", type: "text", required: true, placeholder: "ID da sessão" },
+      { key: "phone", label: "Telefone", type: "text", required: true, placeholder: "5511999999999" },
+      { key: "message", label: "Mensagem", type: "textarea", required: true, placeholder: "Texto da mensagem" },
+    ],
+  },
+  {
+    id: "send_whatsapp_image", label: "Enviar imagem WhatsApp", description: "Envia uma imagem via WhatsApp", icon: Image, category: "action",
+    configFields: [
+      { key: "session_id", label: "Sessão WhatsApp", type: "text", required: true, placeholder: "ID da sessão" },
+      { key: "phone", label: "Telefone", type: "text", required: true, placeholder: "5511999999999" },
+      { key: "image_url", label: "URL da imagem", type: "text", required: true, placeholder: "https://..." },
+      { key: "caption", label: "Legenda (opcional)", type: "text", placeholder: "Legenda da imagem" },
+    ],
+  },
+  {
+    id: "send_whatsapp_document", label: "Enviar documento WhatsApp", description: "Envia um documento/arquivo via WhatsApp", icon: FileText, category: "action",
+    configFields: [
+      { key: "session_id", label: "Sessão WhatsApp", type: "text", required: true, placeholder: "ID da sessão" },
+      { key: "phone", label: "Telefone", type: "text", required: true, placeholder: "5511999999999" },
+      { key: "document_url", label: "URL do documento", type: "text", required: true, placeholder: "https://..." },
+      { key: "filename", label: "Nome do arquivo", type: "text", required: true, placeholder: "proposta.pdf" },
+    ],
+  },
+  {
+    id: "send_whatsapp_audio", label: "Enviar áudio WhatsApp", description: "Envia um áudio via WhatsApp", icon: Mic, category: "action",
+    configFields: [
+      { key: "session_id", label: "Sessão WhatsApp", type: "text", required: true, placeholder: "ID da sessão" },
+      { key: "phone", label: "Telefone", type: "text", required: true, placeholder: "5511999999999" },
+      { key: "audio_url", label: "URL do áudio", type: "text", required: true, placeholder: "https://..." },
+    ],
+  },
+  {
+    id: "send_sms", label: "Enviar SMS", description: "Envia uma mensagem SMS", icon: Smartphone, category: "action",
+    configFields: [
+      { key: "phone", label: "Telefone", type: "text", required: true, placeholder: "5511999999999" },
+      { key: "message", label: "Mensagem", type: "textarea", required: true, placeholder: "Texto do SMS" },
     ],
   },
 ];
