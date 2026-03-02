@@ -467,6 +467,32 @@ Deno.serve(async (req) => {
             }
           }
 
+          // ── Check for paused Workflow executions (wait_for_whatsapp_reply) ──
+          const { data: waitingWorkflows } = await supabase
+            .from("workflow_waiting_states")
+            .select("id, execution_id, tenant_id")
+            .in("phone", phoneVariants)
+            .eq("status", "waiting")
+            .eq("tenant_id", tenantId);
+
+          if (waitingWorkflows && waitingWorkflows.length > 0) {
+            for (const ws of waitingWorkflows) {
+              console.log(`Resuming workflow execution ${ws.execution_id} for phone ${phone}`);
+              const runnerUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/workflow-runner`;
+              fetch(runnerUrl, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                },
+                body: JSON.stringify({
+                  resume_execution_id: ws.execution_id,
+                  whatsapp_reply: messageContent,
+                }),
+              }).catch(err => console.error("Error resuming workflow:", err));
+            }
+          }
+
           // Check campaign contact status
           const { data: campaignContact } = await supabase
             .from("campanhas_contatos")

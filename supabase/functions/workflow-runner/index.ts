@@ -34,7 +34,15 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   try {
-    const { workflow_id, trigger_data = {}, trigger_type = "manual" } = await req.json();
+    const payload = await req.json();
+
+    // ── Resume flow ──
+    if (payload.resume_execution_id) {
+      return await handleResume(supabase, payload);
+    }
+
+    // ── Normal execution flow ──
+    const { workflow_id, trigger_data = {}, trigger_type = "manual" } = payload;
     if (!workflow_id) return new Response(JSON.stringify({ error: "workflow_id required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const { data: workflow, error: wfErr } = await supabase.from("workflows").select("*").eq("id", workflow_id).single();
@@ -50,70 +58,10 @@ Deno.serve(async (req) => {
 
     const executionId = execution.id;
     const sortedNodes = [...definition.nodes].sort((a, b) => a.position - b.position);
-    const startTime = Date.now();
-    let failed = false;
-    let errorMsg = "";
 
-    for (const node of sortedNodes) {
-      if (node.type === "trigger") continue;
+    const result = await executeNodes(supabase, sortedNodes, 0, executionId, tenantId, trigger_data, workflow, workflow_id);
 
-      const stepStart = Date.now();
-      await supabase.from("workflow_execution_steps").insert({
-        execution_id: executionId, tenant_id: tenantId, node_id: node.id,
-        node_type: node.type, status: "running", input_data: { catalogId: node.catalogId, ...node.config, trigger_data },
-      });
-
-      try {
-        if (node.type === "condition") {
-          const passed = evaluateCondition(node, trigger_data);
-          if (!passed) {
-            await supabase.from("workflow_execution_steps").update({
-              status: "skipped", output_data: { result: "condition_not_met" },
-              completed_at: new Date().toISOString(), duration_ms: Date.now() - stepStart,
-            }).eq("execution_id", executionId).eq("node_id", node.id);
-            break;
-          }
-          await supabase.from("workflow_execution_steps").update({
-            status: "completed", output_data: { result: "condition_met" },
-            completed_at: new Date().toISOString(), duration_ms: Date.now() - stepStart,
-          }).eq("execution_id", executionId).eq("node_id", node.id);
-          continue;
-        }
-
-        const result = await executeAction(supabase, tenantId, node, trigger_data, workflow.created_by);
-        await supabase.from("workflow_execution_steps").update({
-          status: "completed", output_data: result,
-          completed_at: new Date().toISOString(), duration_ms: Date.now() - stepStart,
-        }).eq("execution_id", executionId).eq("node_id", node.id);
-
-      } catch (err: unknown) {
-        const errMessage = err instanceof Error ? err.message : String(err);
-        failed = true;
-        errorMsg = errMessage;
-        await supabase.from("workflow_execution_steps").update({
-          status: "failed", error_message: errMessage,
-          completed_at: new Date().toISOString(), duration_ms: Date.now() - stepStart,
-        }).eq("execution_id", executionId).eq("node_id", node.id);
-        break;
-      }
-    }
-
-    const totalMs = Date.now() - startTime;
-    const finalStatus = failed ? "failed" : "completed";
-
-    await supabase.from("workflow_executions").update({
-      status: finalStatus, completed_at: new Date().toISOString(), duration_ms: totalMs,
-      ...(failed ? { error_message: errorMsg } : { result: { steps: sortedNodes.length } }),
-    }).eq("id", executionId);
-
-    // Update workflow counters
-    const counterField = failed ? "failed_executions" : "successful_executions";
-    await supabase.from("workflows").update({
-      total_executions: (workflow.total_executions || 0) + 1,
-      [counterField]: (workflow[counterField as keyof typeof workflow] as number || 0) + 1,
-    }).eq("id", workflow_id);
-
-    return new Response(JSON.stringify({ execution_id: executionId, status: finalStatus, duration_ms: totalMs }), {
+    return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
@@ -125,10 +73,171 @@ Deno.serve(async (req) => {
   }
 });
 
+// ── Resume a paused workflow ──
+async function handleResume(supabase: ReturnType<typeof createClient>, payload: Record<string, unknown>) {
+  const { resume_execution_id, whatsapp_reply } = payload;
+
+  const { data: waitState, error: wsErr } = await supabase
+    .from("workflow_waiting_states")
+    .select("*")
+    .eq("execution_id", resume_execution_id)
+    .eq("status", "waiting")
+    .single();
+
+  if (wsErr || !waitState) {
+    return new Response(JSON.stringify({ error: "No waiting state found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  // Mark as resumed
+  await supabase.from("workflow_waiting_states").update({ status: "resumed" }).eq("id", waitState.id);
+
+  // Update execution back to running
+  await supabase.from("workflow_executions").update({ status: "running" }).eq("id", resume_execution_id);
+
+  // Load workflow
+  const { data: workflow } = await supabase.from("workflows").select("*").eq("id", waitState.workflow_id).single();
+  if (!workflow) {
+    return new Response(JSON.stringify({ error: "Workflow not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  // Load existing trigger_data and inject reply
+  const { data: exec } = await supabase.from("workflow_executions").select("trigger_data").eq("id", resume_execution_id).single();
+  const triggerData = { ...(exec?.trigger_data as Record<string, unknown> || {}), whatsapp_reply: String(whatsapp_reply || "") };
+
+  // Update trigger_data with reply
+  await supabase.from("workflow_executions").update({ trigger_data: triggerData }).eq("id", resume_execution_id);
+
+  const remainingNodes = waitState.remaining_nodes as WorkflowNode[];
+
+  const result = await executeNodes(supabase, remainingNodes, 0, resume_execution_id as string, waitState.tenant_id, triggerData, workflow, waitState.workflow_id);
+
+  return new Response(JSON.stringify(result), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+// ── Core execution loop ──
+async function executeNodes(
+  supabase: ReturnType<typeof createClient>,
+  nodes: WorkflowNode[],
+  startIndex: number,
+  executionId: string,
+  tenantId: string,
+  triggerData: Record<string, unknown>,
+  workflow: Record<string, unknown>,
+  workflowId: string,
+) {
+  const startTime = Date.now();
+  let failed = false;
+  let errorMsg = "";
+
+  for (let i = startIndex; i < nodes.length; i++) {
+    const node = nodes[i];
+    if (node.type === "trigger") continue;
+
+    const stepStart = Date.now();
+    await supabase.from("workflow_execution_steps").insert({
+      execution_id: executionId, tenant_id: tenantId, node_id: node.id,
+      node_type: node.type, status: "running", input_data: { catalogId: node.catalogId, ...node.config, trigger_data: triggerData },
+    });
+
+    try {
+      // ── Wait for WhatsApp reply (pause execution) ──
+      if (node.catalogId === "wait_for_whatsapp_reply") {
+        const r = (val: unknown) => resolveTemplate(val, triggerData);
+        const phone = r(node.config.phone);
+        const sessionId = r(node.config.session_id) || null;
+        const timeoutMin = Number(node.config.timeout_minutes) || 0;
+
+        const remainingNodes = nodes.slice(i + 1);
+
+        await supabase.from("workflow_waiting_states").insert({
+          tenant_id: tenantId,
+          execution_id: executionId,
+          workflow_id: workflowId,
+          node_id: node.id,
+          session_id: sessionId || null,
+          phone,
+          remaining_nodes: remainingNodes,
+          expires_at: timeoutMin > 0 ? new Date(Date.now() + timeoutMin * 60000).toISOString() : null,
+        });
+
+        await supabase.from("workflow_execution_steps").update({
+          status: "waiting", output_data: { action: "waiting_for_reply", phone },
+          completed_at: new Date().toISOString(), duration_ms: Date.now() - stepStart,
+        }).eq("execution_id", executionId).eq("node_id", node.id);
+
+        await supabase.from("workflow_executions").update({ status: "waiting" }).eq("id", executionId);
+
+        return { execution_id: executionId, status: "waiting", waiting_for: phone, duration_ms: Date.now() - startTime };
+      }
+
+      if (node.type === "condition") {
+        const passed = evaluateCondition(node, triggerData);
+        if (!passed) {
+          await supabase.from("workflow_execution_steps").update({
+            status: "skipped", output_data: { result: "condition_not_met" },
+            completed_at: new Date().toISOString(), duration_ms: Date.now() - stepStart,
+          }).eq("execution_id", executionId).eq("node_id", node.id);
+          break;
+        }
+        await supabase.from("workflow_execution_steps").update({
+          status: "completed", output_data: { result: "condition_met" },
+          completed_at: new Date().toISOString(), duration_ms: Date.now() - stepStart,
+        }).eq("execution_id", executionId).eq("node_id", node.id);
+        continue;
+      }
+
+      const result = await executeAction(supabase, tenantId, node, triggerData, workflow.created_by as string);
+      await supabase.from("workflow_execution_steps").update({
+        status: "completed", output_data: result,
+        completed_at: new Date().toISOString(), duration_ms: Date.now() - stepStart,
+      }).eq("execution_id", executionId).eq("node_id", node.id);
+
+    } catch (err: unknown) {
+      const errMessage = err instanceof Error ? err.message : String(err);
+      failed = true;
+      errorMsg = errMessage;
+      await supabase.from("workflow_execution_steps").update({
+        status: "failed", error_message: errMessage,
+        completed_at: new Date().toISOString(), duration_ms: Date.now() - stepStart,
+      }).eq("execution_id", executionId).eq("node_id", node.id);
+      break;
+    }
+  }
+
+  const totalMs = Date.now() - startTime;
+  const finalStatus = failed ? "failed" : "completed";
+
+  await supabase.from("workflow_executions").update({
+    status: finalStatus, completed_at: new Date().toISOString(), duration_ms: totalMs,
+    ...(failed ? { error_message: errorMsg } : { result: { steps: nodes.length } }),
+  }).eq("id", executionId);
+
+  // Update workflow counters
+  const counterField = failed ? "failed_executions" : "successful_executions";
+  await supabase.from("workflows").update({
+    total_executions: ((workflow.total_executions as number) || 0) + 1,
+    [counterField]: ((workflow[counterField] as number) || 0) + 1,
+  }).eq("id", workflowId);
+
+  return { execution_id: executionId, status: finalStatus, duration_ms: totalMs };
+}
+
 function evaluateCondition(node: WorkflowNode, triggerData: Record<string, unknown>): boolean {
   const field = String(node.config.field || "");
   const value = node.config.value;
   const operator = String(node.config.operator || node.catalogId);
+
+  // Special: whatsapp_reply_contains checks the whatsapp_reply field
+  if (node.catalogId === "whatsapp_reply_contains") {
+    const reply = String(triggerData.whatsapp_reply || "");
+    const searchVal = String(value || "");
+    const caseSensitive = String(node.config.case_sensitive) === "true";
+    if (caseSensitive) return reply.includes(searchVal);
+    return reply.toLowerCase().includes(searchVal.toLowerCase());
+  }
+
   const fieldValue = triggerData[field];
 
   switch (operator) {
@@ -153,6 +262,72 @@ async function executeAction(
   const r = (val: unknown) => resolveTemplate(val, triggerData);
 
   switch (node.catalogId) {
+    // ──── WhatsApp Send Actions ────
+
+    case "send_whatsapp_message":
+    case "send_whatsapp_text": {
+      const sessionId = r(config.session_id);
+      const phone = r(config.phone);
+      const message = r(config.message);
+      if (!sessionId || !phone || !message) return { action: "skipped", reason: "missing_fields" };
+
+      const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-whatsapp-message`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+        body: JSON.stringify({ session_id: sessionId, phone, message, tenant_id: tenantId }),
+      });
+      const resBody = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error("WhatsApp send error: " + JSON.stringify(resBody));
+      return { action: "whatsapp_text_sent", phone, status: res.status };
+    }
+
+    case "send_whatsapp_image": {
+      const sessionId = r(config.session_id);
+      const phone = r(config.phone);
+      const imageUrl = r(config.image_url);
+      const caption = r(config.caption) || "";
+      if (!sessionId || !phone || !imageUrl) return { action: "skipped", reason: "missing_fields" };
+
+      const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-whatsapp-message`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+        body: JSON.stringify({ session_id: sessionId, phone, media_url: imageUrl, media_type: "image", caption, tenant_id: tenantId }),
+      });
+      if (!res.ok) throw new Error("WhatsApp image error: " + (await res.text()));
+      return { action: "whatsapp_image_sent", phone };
+    }
+
+    case "send_whatsapp_document": {
+      const sessionId = r(config.session_id);
+      const phone = r(config.phone);
+      const docUrl = r(config.document_url);
+      const filename = r(config.filename) || "document";
+      if (!sessionId || !phone || !docUrl) return { action: "skipped", reason: "missing_fields" };
+
+      const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-whatsapp-message`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+        body: JSON.stringify({ session_id: sessionId, phone, media_url: docUrl, media_type: "document", filename, tenant_id: tenantId }),
+      });
+      if (!res.ok) throw new Error("WhatsApp doc error: " + (await res.text()));
+      return { action: "whatsapp_document_sent", phone };
+    }
+
+    case "send_whatsapp_audio": {
+      const sessionId = r(config.session_id);
+      const phone = r(config.phone);
+      const audioUrl = r(config.audio_url);
+      if (!sessionId || !phone || !audioUrl) return { action: "skipped", reason: "missing_fields" };
+
+      const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-whatsapp-message`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+        body: JSON.stringify({ session_id: sessionId, phone, media_url: audioUrl, media_type: "audio", tenant_id: tenantId }),
+      });
+      if (!res.ok) throw new Error("WhatsApp audio error: " + (await res.text()));
+      return { action: "whatsapp_audio_sent", phone };
+    }
+
     // ──── CRM Actions ────
 
     case "create_lead": {
@@ -197,7 +372,6 @@ async function executeAction(
     case "create_opportunity": {
       const name = r(config.name) || r(config.opportunity_name) || "Oportunidade do Workflow";
       const amount = Number(r(config.amount) || triggerData.estimated_value || 0);
-      // Find first opportunity stage name
       const { data: stageData } = await supabase.from("opportunity_stages")
         .select("name").eq("tenant_id", tenantId).order("order_index", { ascending: true }).limit(1).single();
       const stageName = stageData?.name || "Prospecting";

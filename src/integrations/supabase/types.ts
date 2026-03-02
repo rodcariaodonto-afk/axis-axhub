@@ -5931,6 +5931,77 @@ export type Database = {
           },
         ]
       }
+      workflow_waiting_states: {
+        Row: {
+          created_at: string
+          execution_id: string
+          expires_at: string | null
+          id: string
+          node_id: string
+          phone: string
+          remaining_nodes: Json
+          session_id: string | null
+          status: string
+          tenant_id: string
+          workflow_id: string
+        }
+        Insert: {
+          created_at?: string
+          execution_id: string
+          expires_at?: string | null
+          id?: string
+          node_id: string
+          phone: string
+          remaining_nodes?: Json
+          session_id?: string | null
+          status?: string
+          tenant_id: string
+          workflow_id: string
+        }
+        Update: {
+          created_at?: string
+          execution_id?: string
+          expires_at?: string | null
+          id?: string
+          node_id?: string
+          phone?: string
+          remaining_nodes?: Json
+          session_id?: string | null
+          status?: string
+          tenant_id?: string
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_waiting_states_execution_id_fkey"
+            columns: ["execution_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_executions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_waiting_states_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_waiting_states_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_waiting_states_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workflows: {
         Row: {
           created_at: string

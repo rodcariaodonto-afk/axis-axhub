@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.process-form-response]
 verify_jwt = false
+
+[functions.workflow-runner]
+verify_jwt = false
