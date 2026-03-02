@@ -2,7 +2,7 @@ import {
   Zap, UserPlus, RefreshCw, Trophy, XCircle, GitBranch, ShoppingCart, CreditCard, Users,
   Bell, Edit, ArrowRight, CalendarPlus, Tag, Webhook, Clock, ClipboardList,
   Equal, Search, TrendingUp, HelpCircle, Play, MessageSquare, Send,
-  Image, FileText, Mic, Smartphone,
+  Image, FileText, Mic, Smartphone, MessageCircle, Timer,
 } from "lucide-react";
 
 export interface CatalogItem {
@@ -192,6 +192,14 @@ export const actionsCatalog: CatalogItem[] = [
       { key: "message", label: "Mensagem", type: "textarea", required: true, placeholder: "Texto do SMS" },
     ],
   },
+  {
+    id: "wait_for_whatsapp_reply", label: "Aguardar resposta WhatsApp", description: "Pausa o workflow até receber uma resposta via WhatsApp", icon: Timer, category: "action",
+    configFields: [
+      { key: "session_id", label: "Sessão WhatsApp", type: "text", required: true, placeholder: "ID da sessão" },
+      { key: "phone", label: "Telefone", type: "text", required: true, placeholder: "5511999999999 ou {{phone}}" },
+      { key: "timeout_minutes", label: "Timeout (minutos, opcional)", type: "number", placeholder: "60" },
+    ],
+  },
 ];
 
 // ── Conditions ──
@@ -222,6 +230,13 @@ export const conditionsCatalog: CatalogItem[] = [
     configFields: [
       { key: "field", label: "Campo", type: "text", required: true, placeholder: "Ex: email, phone" },
       { key: "operator", label: "Condição", type: "select", options: [{ value: "empty", label: "Está vazio" }, { value: "not_empty", label: "Não está vazio" }], required: true },
+    ],
+  },
+  {
+    id: "whatsapp_reply_contains", label: "Resposta WhatsApp contém", description: "Verifica se a resposta recebida contém um texto específico", icon: MessageCircle, category: "condition",
+    configFields: [
+      { key: "value", label: "Texto a verificar", type: "text", required: true, placeholder: "Ex: sim, não, preço" },
+      { key: "case_sensitive", label: "Sensível a maiúsculas", type: "select", options: [{ value: "false", label: "Não" }, { value: "true", label: "Sim" }] },
     ],
   },
 ];
