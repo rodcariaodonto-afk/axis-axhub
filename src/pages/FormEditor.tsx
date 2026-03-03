@@ -15,6 +15,7 @@ import { toast } from "@/hooks/use-toast";
 import { ArrowLeft, Plus, Pencil, Trash2, Save, GripVertical } from "lucide-react";
 import type { FormQuestion } from "@/components/forms/formSeedData";
 
+
 export default function FormEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -27,6 +28,14 @@ export default function FormEditor() {
     queryFn: async () => {
       const { data } = await supabase.from("forms").select("*").eq("id", id!).single();
       return data as any;
+    },
+  });
+
+  const { data: funis } = useQuery({
+    queryKey: ["funis-for-form"],
+    queryFn: async () => {
+      const { data } = await supabase.from("funis" as any).select("id, nome").eq("ativo", true);
+      return (data || []) as unknown as { id: string; nome: string }[];
     },
   });
 
@@ -94,7 +103,7 @@ export default function FormEditor() {
       {/* Form metadata */}
       <Card className="border-border bg-card">
         <CardContent className="pt-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Nome do Formulário</Label>
               <Input defaultValue={form.name} onBlur={(e) => updateForm({ name: e.target.value })} />
@@ -102,6 +111,22 @@ export default function FormEditor() {
             <div className="space-y-2">
               <Label>Descrição</Label>
               <Input defaultValue={form.description || ""} onBlur={(e) => updateForm({ description: e.target.value || null })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Funil de Venda (opcional)</Label>
+              <Select
+                value={form.funil_id || "none"}
+                onValueChange={(v) => updateForm({ funil_id: v === "none" ? null : v })}
+              >
+                <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {(funis || []).map((f) => (
+                    <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Ao receber resposta, o funil será iniciado automaticamente</p>
             </div>
           </div>
         </CardContent>

@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
     // 1. Fetch the response + parent form (column is "name", not "title")
     const { data: response, error: respErr } = await supabase
       .from("form_responses")
-      .select("*, forms!inner(id, tenant_id, user_id, name, form_config)")
+      .select("*, forms!inner(id, tenant_id, user_id, name, form_config, funil_id)")
       .eq("id", form_response_id)
       .single();
 
@@ -354,7 +354,38 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 11. Dispatch workflows triggered by form.submitted
+    // 11. Start linked funnel if form has funil_id
+    try {
+      const formData = response.forms as any;
+      if (formData.funil_id) {
+        const phone = findValue(["telefone", "phone", "whatsapp"]);
+        if (phone) {
+          const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+          const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+          const funnelRes = await fetch(`${supabaseUrl}/functions/v1/start-funnel-execution`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${serviceKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              funil_id: formData.funil_id,
+              contato_telefone: phone,
+              contato_nome: respondent_name,
+              tenant_id,
+            }),
+          });
+          const funnelResult = await funnelRes.json();
+          console.log("[process-form-response] Funnel started:", funnelResult);
+        } else {
+          console.warn("[process-form-response] Form has funil_id but no phone found, skipping funnel start");
+        }
+      }
+    } catch (e) {
+      console.error("[process-form-response] Funnel start error:", e.message);
+    }
+
+    // 12. Dispatch workflows triggered by form.submitted
     try {
       const { data: workflows } = await supabase
         .from("workflows")
