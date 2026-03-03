@@ -391,19 +391,41 @@ async function executeAction(
       const resendKey = Deno.env.get("RESEND_API_KEY");
       if (!resendKey) return { action: "skipped", reason: "RESEND_API_KEY_not_configured" };
 
-      const res = await fetch("https://api.resend.com/emails", {
+      // Try with configured from address, fallback to onboarding@resend.dev if domain not verified
+      const fromAddress = r(config.from) || "Axis CRM <noreply@axhub.com.br>";
+      
+      let res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { "Authorization": `Bearer ${resendKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          from: r(config.from) || "Axis CRM <noreply@axhub.com.br>",
+          from: fromAddress,
           to: [String(to)],
           subject,
           html: `<div style="font-family:Arial,sans-serif;padding:20px;">${body.replace(/\n/g, "<br>")}</div>`,
         }),
       });
+      
+      // If domain not verified (403/422), retry with Resend default sender
       if (!res.ok) {
         const errBody = await res.text();
-        throw new Error("Resend error: " + errBody);
+        console.warn(`Resend error with ${fromAddress}: ${errBody}. Retrying with default sender...`);
+        
+        res = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${resendKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            from: "Axis CRM <onboarding@resend.dev>",
+            to: [String(to)],
+            subject,
+            html: `<div style="font-family:Arial,sans-serif;padding:20px;">${body.replace(/\n/g, "<br>")}</div>`,
+          }),
+        });
+        
+        if (!res.ok) {
+          const retryErr = await res.text();
+          throw new Error("Resend error (fallback): " + retryErr);
+        }
+        return { action: "email_sent", to, subject, fallback_sender: true };
       }
       return { action: "email_sent", to, subject };
     }
