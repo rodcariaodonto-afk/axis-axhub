@@ -96,6 +96,7 @@ export function AppSidebar() {
       icon: Zap,
       children: [
         { title: "Workflows", url: "/workflows", icon: GitBranch, module: "workflows" },
+        { title: "Funis de Venda", url: "/funis", icon: GitBranch, module: "automacao" },
         { title: "Cadências", url: "/cadences", icon: Zap, module: "automacao" },
       ],
     },
