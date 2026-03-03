@@ -34,8 +34,25 @@ Deno.serve(async (req) => {
       case "enviar_mensagem": {
         // Send WhatsApp message
         const message = config.mensagem || config.message || "";
-        // session_id: try block config first, then fall back to execution-level session_id
-        const sessionId = config.session_id || execucao.session_id;
+        // session_id: try block config first, then execution-level, then fallback to first connected session
+        let sessionId = config.session_id || execucao.session_id;
+        
+        // Fallback: if no session_id, pick first connected session for this tenant
+        if (!sessionId) {
+          console.log(`[enviar_texto] No session_id found, looking for first connected session for tenant ${tenant_id}`);
+          const { data: fallbackSession } = await supabase
+            .from("whatsapp_sessions")
+            .select("id")
+            .eq("tenant_id", tenant_id)
+            .eq("status", "connected")
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (fallbackSession) {
+            sessionId = fallbackSession.id;
+            console.log(`[enviar_texto] Using fallback session: ${sessionId}`);
+          }
+        }
         
         console.log(`[enviar_texto] sessionId=${sessionId}, message_len=${message.length}, phone=${execucao.contato_telefone}`);
         
