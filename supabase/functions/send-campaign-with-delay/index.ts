@@ -49,15 +49,16 @@ async function processContacts(
         break;
       }
 
-      // Check time restrictions
+      // Check time restrictions using Brazil timezone (UTC-3)
       const now = new Date();
-      const day = now.getDay();
-      if (naoSabados && day === 6) { console.log("Saturday, skipping"); break; }
-      if (naoDomingos && day === 0) { console.log("Sunday, skipping"); break; }
+      const brazilTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+      const day = brazilTime.getDay();
+      if (naoSabados && day === 6) { console.log("Saturday (BRT), skipping"); break; }
+      if (naoDomingos && day === 0) { console.log("Sunday (BRT), skipping"); break; }
 
-      const currentTime = now.toTimeString().substring(0, 5);
+      const currentTime = brazilTime.toTimeString().substring(0, 5);
       if (currentTime < horaInicio || currentTime > horaFim) {
-        console.log(`Outside hours ${currentTime} not in ${horaInicio}-${horaFim}`);
+        console.log(`Outside hours ${currentTime} (BRT) not in ${horaInicio}-${horaFim}`);
         break;
       }
 
