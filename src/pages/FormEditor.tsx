@@ -50,9 +50,10 @@ export default function FormEditor() {
 
   const saveQuestion = () => {
     if (!editQ) return;
-    const updated = questions.map((q) => q.id === editQ.id ? editQ : q);
-    const isNew = !questions.find((q) => q.id === editQ.id);
-    const config = isNew ? [...questions, editQ] : updated;
+    const cleaned = { ...editQ, options: editQ.options?.filter(Boolean) };
+    const updated = questions.map((q) => q.id === cleaned.id ? cleaned : q);
+    const isNew = !questions.find((q) => q.id === cleaned.id);
+    const config = isNew ? [...questions, cleaned] : updated;
     updateForm({ form_config: config });
     setEditOpen(false);
     toast({ title: "Pergunta salva!" });
@@ -207,7 +208,7 @@ export default function FormEditor() {
                   <Label>Opções (uma por linha)</Label>
                   <Textarea
                     value={(editQ.options || []).join("\n")}
-                    onChange={(e) => setEditQ({ ...editQ, options: e.target.value.split("\n").filter(Boolean) })}
+                    onChange={(e) => setEditQ({ ...editQ, options: e.target.value.split("\n") })}
                     rows={5}
                     placeholder={"Opção 1\nOpção 2\nOpção 3"}
                   />
