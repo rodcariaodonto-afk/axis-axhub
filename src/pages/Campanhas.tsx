@@ -38,7 +38,7 @@ export default function Campanhas() {
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
-  const [form, setForm] = useState({ nome: "", descricao: "", mensagem_template: "", session_id: "", funil_id: "" });
+  const [form, setForm] = useState({ nome: "", descricao: "", mensagem_template: "", session_id: "", funil_id: "none" });
   const [funis, setFunis] = useState<{ id: string; nome: string }[]>([]);
   const [templates, setTemplates] = useState<{ id: string; name: string; body: string }[]>([]);
   const { toast } = useToast();
@@ -67,7 +67,7 @@ export default function Campanhas() {
     if (!profile) return;
     const { data: campaign, error } = await supabase.from("campanhas").insert({
       tenant_id: profile.tenant_id, nome: form.nome, descricao: form.descricao || null,
-      mensagem_template: form.mensagem_template, session_id: form.session_id || null, funil_id: form.funil_id || null,
+      mensagem_template: form.mensagem_template, session_id: form.session_id || null, funil_id: form.funil_id === "none" || !form.funil_id ? null : form.funil_id,
     }).select().single();
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     // Create default config
@@ -155,7 +155,7 @@ export default function Campanhas() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div><h1 className="text-2xl font-bold tracking-tight">Campanhas WhatsApp</h1><p className="text-muted-foreground">Gerencie campanhas de envio em massa</p></div>
-        <Button onClick={() => { setForm({ nome: "", descricao: "", mensagem_template: "", session_id: sessions[0]?.id || "", funil_id: "" }); setCreateOpen(true); }}>
+        <Button onClick={() => { setForm({ nome: "", descricao: "", mensagem_template: "", session_id: sessions[0]?.id || "", funil_id: "none" }); setCreateOpen(true); }}>
           <Plus className="mr-2 h-4 w-4" />Nova Campanha
         </Button>
       </div>
