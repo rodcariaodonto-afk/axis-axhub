@@ -34,7 +34,7 @@ export default function FormEditor() {
   const { data: funis } = useQuery({
     queryKey: ["funis-for-form"],
     queryFn: async () => {
-      const { data } = await supabase.from("funis" as any).select("id, nome").eq("ativo", true);
+      const { data } = await supabase.from("funis" as any).select("id, nome").eq("status", "ativo");
       return (data || []) as unknown as { id: string; nome: string }[];
     },
   });
