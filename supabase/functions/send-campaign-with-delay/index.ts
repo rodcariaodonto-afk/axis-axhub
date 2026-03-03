@@ -57,8 +57,14 @@ async function processContacts(
       if (naoDomingos && day === 0) { console.log("Sunday (BRT), skipping"); break; }
 
       const currentTime = brazilTime.toTimeString().substring(0, 5);
-      if (currentTime < horaInicio || currentTime > horaFim) {
-        console.log(`Outside hours ${currentTime} (BRT) not in ${horaInicio}-${horaFim}`);
+      const startH = horaInicio.substring(0, 5);
+      const endH = horaFim.substring(0, 5);
+      // Handle overnight windows (e.g., 05:00 to 00:00)
+      const isInWindow = endH <= startH
+        ? (currentTime >= startH || currentTime < endH)
+        : (currentTime >= startH && currentTime < endH);
+      if (!isInWindow) {
+        console.log(`Outside hours ${currentTime} (BRT) not in ${startH}-${endH}`);
         break;
       }
 
