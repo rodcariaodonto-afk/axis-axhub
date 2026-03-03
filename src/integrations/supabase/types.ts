@@ -2684,6 +2684,7 @@ export type Database = {
           created_at: string
           description: string | null
           form_config: Json
+          funil_id: string | null
           id: string
           name: string
           status: string
@@ -2697,6 +2698,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           form_config?: Json
+          funil_id?: string | null
           id?: string
           name: string
           status?: string
@@ -2710,6 +2712,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           form_config?: Json
+          funil_id?: string | null
           id?: string
           name?: string
           status?: string
@@ -2719,6 +2722,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "forms_funil_id_fkey"
+            columns: ["funil_id"]
+            isOneToOne: false
+            referencedRelation: "funis"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "forms_tenant_id_fkey"
             columns: ["tenant_id"]
