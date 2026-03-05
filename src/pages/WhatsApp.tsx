@@ -78,25 +78,38 @@ export default function WhatsApp() {
     });
   }, [user]);
 
-  // Load sessions (filtered by ownership for admins)
+  // Load sessions (filtered by ownership for admins, but include sessions with assigned contacts)
   const loadSessions = useCallback(async () => {
-    if (!tenantId) return;
-    const { data } = await supabase
-      .from("whatsapp_sessions")
-      .select("*")
-      .eq("tenant_id", tenantId)
-      .order("created_at", { ascending: false });
+    if (!tenantId || !user) return;
+    const [{ data }, { data: assignedContacts }] = await Promise.all([
+      supabase
+        .from("whatsapp_sessions")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .order("created_at", { ascending: false }),
+      // Find sessions where current user has contacts assigned to them
+      supabase
+        .from("whatsapp_contact_status")
+        .select("contact_id, whatsapp_contacts!inner(session_id)")
+        .eq("tenant_id", tenantId)
+        .eq("assigned_to", user.id),
+    ]);
     if (data) {
-      // Filter: admin sees only own sessions + non-admin sessions + unowned
+      // Session IDs where user has assigned contacts (via transfer)
+      const assignedSessionIds = new Set(
+        (assignedContacts || []).map((ac: any) => ac.whatsapp_contacts?.session_id).filter(Boolean)
+      );
+      // Filter: admin sees own sessions + non-admin sessions + unowned + sessions with assigned contacts
       const visible = data.filter((s: any) => {
+        if (assignedSessionIds.has(s.id)) return true; // has contacts assigned to me
         const owner = s.owner_user_id;
-        if (!owner || owner === user?.id) return true;
+        if (!owner || owner === user.id) return true;
         if (isAdmin && adminUserIds.includes(owner)) return false; // another admin's session
         return true; // non-admin's session = visible
       });
       setSessions(visible);
     }
-  }, [tenantId, user?.id, isAdmin, adminUserIds]);
+  }, [tenantId, user, isAdmin, adminUserIds]);
 
   useEffect(() => { loadSessions(); }, [loadSessions]);
 
