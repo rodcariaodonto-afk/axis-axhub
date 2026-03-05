@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { useToast } from "@/hooks/use-toast";
 import { WhatsAppSessionList } from "@/components/whatsapp/WhatsAppSessionList";
 import { WhatsAppContactList } from "@/components/whatsapp/WhatsAppContactList";
@@ -18,6 +19,10 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/componen
 export default function WhatsApp() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { isAdmin } = useUserPermissions();
+
+  const [adminUserIds, setAdminUserIds] = useState<string[]>([]);
+  const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
 
   const [sessions, setSessions] = useState<any[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string>();
@@ -42,11 +47,32 @@ export default function WhatsApp() {
   const [tenantId, setTenantId] = useState<string>();
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load tenant
+  // Load tenant + admin IDs + profiles map
   useEffect(() => {
     if (!user) return;
-    supabase.from("profiles").select("tenant_id").eq("id", user.id).single().then(({ data }) => {
-      if (data) setTenantId(data.tenant_id);
+    supabase.from("profiles").select("tenant_id").eq("id", user.id).single().then(async ({ data }) => {
+      if (!data) return;
+      setTenantId(data.tenant_id);
+
+      // Load all admin user IDs for this tenant
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("tenant_id", data.tenant_id);
+
+      if (profiles) {
+        const pMap: Record<string, string> = {};
+        profiles.forEach((p: any) => { pMap[p.id] = p.full_name || "Sem nome"; });
+        setProfilesMap(pMap);
+
+        // Check which of these are admins
+        const { data: roles } = await supabase
+          .from("user_roles")
+          .select("user_id")
+          .eq("role", "admin")
+          .in("user_id", profiles.map((p: any) => p.id));
+        if (roles) setAdminUserIds(roles.map((r: any) => r.user_id));
+      }
     });
   }, [user]);
 
@@ -87,8 +113,17 @@ export default function WhatsApp() {
       contact_status: (statusData || []).find((s: any) => s.contact_id === c.id) || null,
     }));
 
-    setContacts(enriched);
-  }, [selectedSessionId]);
+    // Visibility filter: admins can't see conversations assigned to other admins
+    const visible = enriched.filter((c: any) => {
+      const assignedTo = c.contact_status?.assigned_to;
+      if (!assignedTo) return true; // unassigned = visible
+      if (assignedTo === user?.id) return true; // mine = visible
+      if (isAdmin && adminUserIds.includes(assignedTo)) return false; // other admin's = hidden
+      return true; // non-admin's = visible
+    });
+
+    setContacts(visible);
+  }, [selectedSessionId, user?.id, isAdmin, adminUserIds]);
 
   const loadContacts = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -268,10 +303,10 @@ export default function WhatsApp() {
       });
       if (error) throw error;
 
-      // Auto-status: when sending a message, change status to "attending"
-      if (!selectedContact.is_group && tenantId) {
+      // Auto-status + auto-assign: when sending a message, change status to "attending" and assign to current user
+      if (!selectedContact.is_group && tenantId && user) {
         const currentStatus = selectedContact.contact_status?.status;
-        if (currentStatus === "waiting" || currentStatus === "open") {
+        if (currentStatus === "waiting" || currentStatus === "open" || !selectedContact.contact_status?.assigned_to) {
           const { data: statusRow } = await supabase
             .from("whatsapp_contact_status")
             .select("id")
@@ -279,18 +314,19 @@ export default function WhatsApp() {
             .single();
           if (statusRow) {
             await supabase.from("whatsapp_contact_status")
-              .update({ status: "attending", last_status_change: new Date().toISOString() })
+              .update({ status: "attending", assigned_to: user.id, last_status_change: new Date().toISOString() })
               .eq("id", statusRow.id);
           } else {
             await supabase.from("whatsapp_contact_status").insert({
               tenant_id: tenantId,
               contact_id: selectedContact.id,
               status: "attending",
+              assigned_to: user.id,
             });
           }
           setSelectedContact((prev: any) => ({
             ...prev,
-            contact_status: { ...(prev?.contact_status || {}), status: "attending" },
+            contact_status: { ...(prev?.contact_status || {}), status: "attending", assigned_to: user.id },
           }));
           loadContacts();
         }
@@ -406,6 +442,7 @@ export default function WhatsApp() {
             contacts={contacts}
             selectedId={selectedContact?.id}
             onSelect={(c) => setSelectedContact(c)}
+            profilesMap={profilesMap}
           />
         </ResizablePanel>
 
