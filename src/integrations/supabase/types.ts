@@ -5727,6 +5727,77 @@ export type Database = {
           },
         ]
       }
+      whatsapp_queue_members: {
+        Row: {
+          created_at: string
+          id: string
+          queue_id: string
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          queue_id: string
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          queue_id?: string
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_queue_members_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_queues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_queue_members_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_queues: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_queues_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_sessions: {
         Row: {
           created_at: string
@@ -5823,6 +5894,57 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: true
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_transfer_logs: {
+        Row: {
+          contact_id: string
+          created_at: string
+          from_user_id: string | null
+          id: string
+          reason: string | null
+          tenant_id: string
+          to_queue_id: string | null
+          to_user_id: string | null
+          transferred_by: string
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string
+          from_user_id?: string | null
+          id?: string
+          reason?: string | null
+          tenant_id: string
+          to_queue_id?: string | null
+          to_user_id?: string | null
+          transferred_by: string
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string
+          from_user_id?: string | null
+          id?: string
+          reason?: string | null
+          tenant_id?: string
+          to_queue_id?: string | null
+          to_user_id?: string | null
+          transferred_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_transfer_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_transfer_logs_to_queue_id_fkey"
+            columns: ["to_queue_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_queues"
             referencedColumns: ["id"]
           },
         ]
