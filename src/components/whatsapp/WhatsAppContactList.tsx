@@ -37,6 +37,7 @@ interface Props {
   contacts: Contact[];
   selectedId?: string;
   onSelect: (contact: Contact) => void;
+  profilesMap?: Record<string, string>;
 }
 
 const STATUS_ICON: Record<string, React.ReactNode> = {
@@ -54,7 +55,7 @@ const TABS: { key: SegmentTab; label: string; shortLabel: string }[] = [
   { key: "group", label: "Grupos", shortLabel: "Grp" },
 ];
 
-export function WhatsAppContactList({ contacts, selectedId, onSelect }: Props) {
+export function WhatsAppContactList({ contacts, selectedId, onSelect, profilesMap = {} }: Props) {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<SegmentTab>("all");
 
@@ -153,6 +154,11 @@ export function WhatsAppContactList({ contacts, selectedId, onSelect }: Props) {
                     </span>
                   )}
                 </div>
+                {c.contact_status?.assigned_to && profilesMap[c.contact_status.assigned_to] && (
+                  <p className="text-[9px] text-muted-foreground truncate">
+                    Atendente: {profilesMap[c.contact_status.assigned_to]}
+                  </p>
+                )}
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-muted-foreground truncate">{c.phone_number}</p>
                   {c.unread_count > 0 && (
