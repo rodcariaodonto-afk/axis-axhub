@@ -9,6 +9,7 @@ import { WhatsAppChat } from "@/components/whatsapp/WhatsAppChat";
 import { WhatsAppQRDialog } from "@/components/whatsapp/WhatsAppQRDialog";
 import { WhatsAppSettingsDialog } from "@/components/whatsapp/WhatsAppSettingsDialog";
 import { WhatsAppTagManager } from "@/components/whatsapp/WhatsAppTagManager";
+import { TransferConversationModal } from "@/components/whatsapp/TransferConversationModal";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,7 @@ export default function WhatsApp() {
   const [savingSettings, setSavingSettings] = useState(false);
 
   const [showTagManager, setShowTagManager] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
 
   const [tenantId, setTenantId] = useState<string>();
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -469,6 +471,7 @@ export default function WhatsApp() {
             onStatusChange={handleStatusChange}
             onOpenTags={() => setShowTagManager(true)}
             onDeleteChat={handleDeleteChat}
+            onTransfer={() => setShowTransfer(true)}
             sending={sending}
           />
         </ResizablePanel>
@@ -533,6 +536,23 @@ export default function WhatsApp() {
               .then(({ data }) => {
                 if (data) setSelectedContact((prev: any) => ({ ...prev, tags: data }));
               });
+          }}
+        />
+      )}
+
+      {/* Transfer Modal */}
+      {selectedContact && tenantId && user && (
+        <TransferConversationModal
+          open={showTransfer}
+          onOpenChange={setShowTransfer}
+          contactId={selectedContact.id}
+          contactName={selectedContact.display_name}
+          tenantId={tenantId}
+          currentUserId={user.id}
+          onTransferred={() => {
+            loadContacts();
+            setSelectedContact(null);
+            setMessages([]);
           }}
         />
       )}

@@ -1,4 +1,4 @@
-import { Send, MessageCircle, Tag, ChevronDown, Trash2, Image, FileText, Video, Mic } from "lucide-react";
+import { Send, MessageCircle, Tag, ChevronDown, Trash2, Image, FileText, Video, Mic, ArrowRightLeft } from "lucide-react";
 import { EmojiPicker } from "./EmojiPicker";
 import { TemplatePicker } from "./TemplatePicker";
 import { Button } from "@/components/ui/button";
@@ -52,6 +52,7 @@ interface Props {
   onStatusChange?: (status: string) => void;
   onOpenTags?: () => void;
   onDeleteChat?: () => void;
+  onTransfer?: () => void;
   sending?: boolean;
 }
 
@@ -108,7 +109,7 @@ function ImageWithFallback({ url }: { url: string }) {
 
 export function WhatsAppChat({
   messages, contactName, contactPhone, contactStatus, contactTags, isGroup,
-  onSend, onStatusChange, onOpenTags, onDeleteChat, sending
+  onSend, onStatusChange, onOpenTags, onDeleteChat, onTransfer, sending
 }: Props) {
   const [text, setText] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -180,6 +181,9 @@ export function WhatsAppChat({
             )}
           </div>
         </div>
+        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" title="Transferir conversa" onClick={onTransfer}>
+          <ArrowRightLeft className="h-4 w-4" />
+        </Button>
         <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={onOpenTags}>
           <Tag className="h-4 w-4" />
         </Button>

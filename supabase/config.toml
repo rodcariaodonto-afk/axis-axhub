@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.workflow-runner]
 verify_jwt = false
+
+[functions.transfer-whatsapp-conversation]
+verify_jwt = false
