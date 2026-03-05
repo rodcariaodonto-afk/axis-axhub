@@ -1,0 +1,1 @@
+ALTER TABLE public.whatsapp_sessions ADD COLUMN owner_user_id uuid REFERENCES auth.users(id);
