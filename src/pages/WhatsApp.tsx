@@ -76,7 +76,7 @@ export default function WhatsApp() {
     });
   }, [user]);
 
-  // Load sessions
+  // Load sessions (filtered by ownership for admins)
   const loadSessions = useCallback(async () => {
     if (!tenantId) return;
     const { data } = await supabase
@@ -84,8 +84,17 @@ export default function WhatsApp() {
       .select("*")
       .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false });
-    if (data) setSessions(data);
-  }, [tenantId]);
+    if (data) {
+      // Filter: admin sees only own sessions + non-admin sessions + unowned
+      const visible = data.filter((s: any) => {
+        const owner = s.owner_user_id;
+        if (!owner || owner === user?.id) return true;
+        if (isAdmin && adminUserIds.includes(owner)) return false; // another admin's session
+        return true; // non-admin's session = visible
+      });
+      setSessions(visible);
+    }
+  }, [tenantId, user?.id, isAdmin, adminUserIds]);
 
   useEffect(() => { loadSessions(); }, [loadSessions]);
 

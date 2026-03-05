@@ -123,6 +123,7 @@ Deno.serve(async (req) => {
         status: "qr_pending",
         evolution_instance_id: instanceName,
         qr_code: evolutionData?.qrcode?.base64 || null,
+        owner_user_id: userId,
       })
       .select()
       .single();

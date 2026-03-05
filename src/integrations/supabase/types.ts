@@ -5734,6 +5734,7 @@ export type Database = {
           evolution_instance_id: string | null
           id: string
           last_connected_at: string | null
+          owner_user_id: string | null
           phone_number: string | null
           qr_code: string | null
           session_name: string
@@ -5747,6 +5748,7 @@ export type Database = {
           evolution_instance_id?: string | null
           id?: string
           last_connected_at?: string | null
+          owner_user_id?: string | null
           phone_number?: string | null
           qr_code?: string | null
           session_name: string
@@ -5760,6 +5762,7 @@ export type Database = {
           evolution_instance_id?: string | null
           id?: string
           last_connected_at?: string | null
+          owner_user_id?: string | null
           phone_number?: string | null
           qr_code?: string | null
           session_name?: string
