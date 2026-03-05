@@ -137,12 +137,17 @@ export default function WhatsApp() {
       contact_status: (statusData || []).find((s: any) => s.contact_id === c.id) || null,
     }));
 
-    // Visibility filter: admins can't see conversations assigned to other admins
+    // Visibility filter: consider session ownership + assignment
+    const selectedSession = sessions.find((s: any) => s.id === selectedSessionId);
+    const sessionOwner = selectedSession?.owner_user_id;
+    const isOtherAdminSession = sessionOwner && sessionOwner !== user?.id && adminUserIds.includes(sessionOwner);
+
     const visible = enriched.filter((c: any) => {
       const assignedTo = c.contact_status?.assigned_to;
-      if (!assignedTo) return true; // unassigned = visible
-      if (assignedTo === user?.id) return true; // mine = visible
-      if (isAdmin && adminUserIds.includes(assignedTo)) return false; // other admin's = hidden
+      if (assignedTo === user?.id) return true; // assigned to me = always visible
+      if (isAdmin && assignedTo && adminUserIds.includes(assignedTo)) return false; // other admin's = hidden
+      if (!assignedTo && isOtherAdminSession) return false; // unassigned in another admin's session = hidden
+      if (!assignedTo) return true; // unassigned in my/unowned session = visible
       return true; // non-admin's = visible
     });
 
