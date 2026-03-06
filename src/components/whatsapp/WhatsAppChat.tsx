@@ -1,4 +1,4 @@
-import { Send, MessageCircle, Tag, ChevronDown, Trash2, Image, FileText, Video, Mic, ArrowRightLeft } from "lucide-react";
+import { Send, MessageCircle, Tag, ChevronDown, Trash2, Image, FileText, Video, Mic, ArrowRightLeft, Paperclip, Camera, File, Contact } from "lucide-react";
 import { EmojiPicker } from "./EmojiPicker";
 import { TemplatePicker } from "./TemplatePicker";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -50,6 +51,7 @@ interface Props {
   contactTags?: TagItem[];
   isGroup?: boolean;
   onSend: (text: string) => void;
+  onSendMedia?: (file: File, mediaType: string, caption?: string) => void;
   onStatusChange?: (status: string) => void;
   onOpenTags?: () => void;
   onDeleteChat?: () => void;
@@ -142,11 +144,14 @@ function AudioWithFallback({ url }: { url: string }) {
 
 export function WhatsAppChat({
   messages, contactName, contactPhone, contactStatus, contactTags, isGroup,
-  onSend, onStatusChange, onOpenTags, onDeleteChat, onTransfer, sending
+  onSend, onSendMedia, onStatusChange, onOpenTags, onDeleteChat, onTransfer, sending
 }: Props) {
   const [text, setText] = useState("");
   const [lightbox, setLightbox] = useState<{ url: string; type: "image" | "video" } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [fileAccept, setFileAccept] = useState<string>("");
+  const [fileMediaType, setFileMediaType] = useState<string>("");
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -158,6 +163,21 @@ export function WhatsAppChat({
     if (!text.trim() || sending) return;
     onSend(text.trim());
     setText("");
+  };
+
+  const openFilePicker = (accept: string, mediaType: string) => {
+    setFileAccept(accept);
+    setFileMediaType(mediaType);
+    setTimeout(() => fileInputRef.current?.click(), 50);
+  };
+
+  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !onSendMedia) return;
+    onSendMedia(file, fileMediaType, text.trim() || undefined);
+    setText("");
+    // Reset the input so the same file can be picked again
+    e.target.value = "";
   };
 
   if (!contactPhone) {
@@ -297,7 +317,42 @@ export function WhatsAppChat({
       </div>
 
       {/* Input */}
-      <div className="p-3 border-t border-border flex gap-2">
+      <div className="p-3 border-t border-border flex gap-2 items-end">
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={fileAccept}
+          className="hidden"
+          onChange={handleFileSelected}
+        />
+        {/* Attachment dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="shrink-0 h-9 w-9" disabled={sending}>
+              <Paperclip className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" side="top" className="min-w-[180px]">
+            <DropdownMenuItem onClick={() => openFilePicker("image/*", "image")} className="gap-2">
+              <Camera className="h-4 w-4 text-blue-500" />
+              Imagem
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openFilePicker("video/*", "video")} className="gap-2">
+              <Video className="h-4 w-4 text-purple-500" />
+              Vídeo
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openFilePicker("audio/*", "audio")} className="gap-2">
+              <Mic className="h-4 w-4 text-green-500" />
+              Áudio
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => openFilePicker(".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar", "document")} className="gap-2">
+              <File className="h-4 w-4 text-orange-500" />
+              Documento
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <EmojiPicker onEmojiSelect={(emoji) => setText((prev) => prev + emoji)} />
         <TemplatePicker onSelect={(body) => setText(body)} contactName={contactName} />
         <Textarea
