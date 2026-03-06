@@ -250,6 +250,10 @@ Deno.serve(async (req) => {
 
         const mediaUrl = imgMsg?.url || audioMsg?.url || videoMsg?.url || docMsg?.url || stickerMsg?.url || null;
         const caption = imgMsg?.caption || videoMsg?.caption || docMsg?.caption || null;
+        const mediaMimetype = imgMsg?.mimetype || audioMsg?.mimetype || videoMsg?.mimetype || docMsg?.mimetype || stickerMsg?.mimetype || null;
+        
+        // Try to get base64 from the message payload (Evolution API sometimes includes it)
+        const mediaBase64 = msg?.message?.base64 || data?.base64 || null;
 
         const textContent = msg?.message?.conversation ||
           msg?.message?.extendedTextMessage?.text ||
@@ -266,12 +270,14 @@ Deno.serve(async (req) => {
 
         // Build content
         let messageContent: string;
-        if (mediaUrl && messageType !== "text") {
-          const permanentUrl = await downloadAndUploadMedia(supabase, mediaUrl, tenantId, msgId, messageType);
+        if ((mediaUrl || mediaBase64) && messageType !== "text") {
+          const permanentUrl = await downloadAndUploadMedia(supabase, mediaUrl || "", tenantId, msgId, messageType, mediaBase64, mediaMimetype);
           if (permanentUrl) {
             messageContent = JSON.stringify({ url: permanentUrl, caption: caption || null });
-          } else {
+          } else if (mediaUrl) {
             messageContent = JSON.stringify({ url: mediaUrl, caption: caption || null });
+          } else {
+            messageContent = caption || "[media]";
           }
         } else {
           messageContent = textContent || "[media]";
