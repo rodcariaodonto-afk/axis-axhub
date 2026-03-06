@@ -10,28 +10,47 @@ async function downloadAndUploadMedia(
   mediaUrl: string,
   tenantId: string,
   messageId: string,
-  messageType: string
+  messageType: string,
+  base64Data?: string | null,
+  mimetype?: string | null
 ): Promise<string | null> {
   try {
-    console.log("Downloading media from:", mediaUrl.substring(0, 100));
-    const response = await fetch(mediaUrl);
-    if (!response.ok) {
-      console.error("Failed to download media:", response.status);
-      return null;
-    }
+    let uint8Array: Uint8Array;
+    let contentType: string;
 
-    const contentType = response.headers.get("content-type") || "application/octet-stream";
-    const blob = await response.blob();
-    const arrayBuffer = await blob.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
+    // Try base64 first if available (more reliable than URL)
+    if (base64Data) {
+      console.log("Using base64 data for media upload, type:", mimetype);
+      // Remove data URI prefix if present
+      const cleanBase64 = base64Data.replace(/^data:[^;]+;base64,/, "");
+      const binaryStr = atob(cleanBase64);
+      const bytes = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+      }
+      uint8Array = bytes;
+      contentType = mimetype || "application/octet-stream";
+    } else {
+      // Fall back to URL download
+      console.log("Downloading media from:", mediaUrl.substring(0, 100));
+      const response = await fetch(mediaUrl);
+      if (!response.ok) {
+        console.error("Failed to download media:", response.status);
+        return null;
+      }
+      contentType = response.headers.get("content-type") || "application/octet-stream";
+      const blob = await response.blob();
+      const arrayBuffer = await blob.arrayBuffer();
+      uint8Array = new Uint8Array(arrayBuffer);
+    }
 
     const extMap: Record<string, string> = {
       "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif",
-      "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a",
+      "audio/ogg": "ogg", "audio/ogg; codecs=opus": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a",
       "video/mp4": "mp4", "video/3gpp": "3gp",
       "application/pdf": "pdf",
     };
-    const ext = extMap[contentType] || messageType === "image" ? "jpg" : messageType === "audio" ? "ogg" : messageType === "video" ? "mp4" : "bin";
+    const ext = extMap[contentType] || (messageType === "image" ? "jpg" : messageType === "audio" ? "ogg" : messageType === "video" ? "mp4" : "bin");
 
     const filePath = `${tenantId}/${messageId}.${ext}`;
     console.log("Uploading to storage:", filePath, "size:", uint8Array.length);
@@ -39,7 +58,7 @@ async function downloadAndUploadMedia(
     const { error: uploadError } = await supabase.storage
       .from("whatsapp-media")
       .upload(filePath, uint8Array, {
-        contentType,
+        contentType: contentType.split(";")[0].trim(),
         upsert: true,
       });
 
