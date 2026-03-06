@@ -113,6 +113,7 @@ export function WhatsAppChat({
   onSend, onStatusChange, onOpenTags, onDeleteChat, onTransfer, sending
 }: Props) {
   const [text, setText] = useState("");
+  const [lightbox, setLightbox] = useState<{ url: string; type: "image" | "video" } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
