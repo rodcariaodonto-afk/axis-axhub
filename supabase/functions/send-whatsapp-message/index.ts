@@ -33,9 +33,16 @@ Deno.serve(async (req) => {
     }
     const tenantId = profile.tenant_id;
 
-    const { session_id, phone, message, contact_id } = await req.json();
-    if (!session_id || !phone || !message) {
-      return new Response(JSON.stringify({ error: "session_id, phone, message required" }), { status: 400, headers: corsHeaders });
+    const body = await req.json();
+    const { session_id, phone, message, contact_id, media_url, media_type, file_name, caption } = body;
+
+    if (!session_id || !phone) {
+      return new Response(JSON.stringify({ error: "session_id, phone required" }), { status: 400, headers: corsHeaders });
+    }
+
+    // At least message or media_url must be present
+    if (!message && !media_url) {
+      return new Response(JSON.stringify({ error: "message or media_url required" }), { status: 400, headers: corsHeaders });
     }
 
     // Get session
@@ -59,24 +66,99 @@ Deno.serve(async (req) => {
 
     const evolutionUrl = settings?.evolution_api_url || Deno.env.get("EVOLUTION_API_URL");
     const evolutionKey = settings?.evolution_api_key || Deno.env.get("EVOLUTION_API_KEY");
-
-    // Send via Evolution API
     const formattedPhone = phone.replace(/\D/g, "");
-    const evolutionRes = await fetch(
-      `${evolutionUrl}/message/sendText/${session.evolution_instance_id}`,
-      {
+    const instanceId = session.evolution_instance_id;
+
+    let evolutionData: any;
+    let messageType = "text";
+    let contentToStore = message || "";
+
+    if (media_url && media_type) {
+      // Send media message
+      messageType = media_type; // image, video, audio, document
+      
+      let endpoint = "";
+      let mediaBody: any = {};
+
+      switch (media_type) {
+        case "image":
+          endpoint = `/message/sendMedia/${instanceId}`;
+          mediaBody = {
+            number: formattedPhone,
+            mediatype: "image",
+            media: media_url,
+            caption: caption || "",
+            fileName: file_name || "image.jpg",
+          };
+          break;
+        case "video":
+          endpoint = `/message/sendMedia/${instanceId}`;
+          mediaBody = {
+            number: formattedPhone,
+            mediatype: "video",
+            media: media_url,
+            caption: caption || "",
+            fileName: file_name || "video.mp4",
+          };
+          break;
+        case "audio":
+          endpoint = `/message/sendWhatsAppAudio/${instanceId}`;
+          mediaBody = {
+            number: formattedPhone,
+            audio: media_url,
+          };
+          break;
+        case "document":
+          endpoint = `/message/sendMedia/${instanceId}`;
+          mediaBody = {
+            number: formattedPhone,
+            mediatype: "document",
+            media: media_url,
+            caption: caption || "",
+            fileName: file_name || "document",
+          };
+          break;
+        default:
+          endpoint = `/message/sendMedia/${instanceId}`;
+          mediaBody = {
+            number: formattedPhone,
+            mediatype: "document",
+            media: media_url,
+            fileName: file_name || "file",
+          };
+      }
+
+      const evolutionRes = await fetch(`${evolutionUrl}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json", apikey: evolutionKey! },
-        body: JSON.stringify({
-          number: formattedPhone,
-          text: message,
-        }),
-      }
-    );
+        body: JSON.stringify(mediaBody),
+      });
 
-    const evolutionData = await evolutionRes.json();
-    if (!evolutionRes.ok) {
-      return new Response(JSON.stringify({ error: "Failed to send", details: evolutionData }), { status: 502, headers: corsHeaders });
+      evolutionData = await evolutionRes.json();
+      if (!evolutionRes.ok) {
+        return new Response(JSON.stringify({ error: "Failed to send media", details: evolutionData }), { status: 502, headers: corsHeaders });
+      }
+
+      // Store content as JSON with url and caption
+      contentToStore = JSON.stringify({ url: media_url, caption: caption || "" });
+    } else {
+      // Send text message
+      const evolutionRes = await fetch(
+        `${evolutionUrl}/message/sendText/${instanceId}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", apikey: evolutionKey! },
+          body: JSON.stringify({
+            number: formattedPhone,
+            text: message,
+          }),
+        }
+      );
+
+      evolutionData = await evolutionRes.json();
+      if (!evolutionRes.ok) {
+        return new Response(JSON.stringify({ error: "Failed to send", details: evolutionData }), { status: 502, headers: corsHeaders });
+      }
     }
 
     // Save message
@@ -92,8 +174,8 @@ Deno.serve(async (req) => {
         session_id,
         contact_id: contact_id || null,
         contact_phone: formattedPhone,
-        message_type: "text",
-        content: message,
+        message_type: messageType,
+        content: contentToStore,
         direction: "outbound",
         status: "sent",
         whatsapp_message_id: evolutionData?.key?.id || null,

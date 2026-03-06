@@ -331,39 +331,77 @@ export default function WhatsApp() {
         },
       });
       if (error) throw error;
-
-      // Auto-status + auto-assign: when sending a message, change status to "attending" and assign to current user
-      if (!selectedContact.is_group && tenantId && user) {
-        const currentStatus = selectedContact.contact_status?.status;
-        if (currentStatus === "waiting" || currentStatus === "open" || !selectedContact.contact_status?.assigned_to) {
-          const { data: statusRow } = await supabase
-            .from("whatsapp_contact_status")
-            .select("id")
-            .eq("contact_id", selectedContact.id)
-            .single();
-          if (statusRow) {
-            await supabase.from("whatsapp_contact_status")
-              .update({ status: "attending", assigned_to: user.id, last_status_change: new Date().toISOString() })
-              .eq("id", statusRow.id);
-          } else {
-            await supabase.from("whatsapp_contact_status").insert({
-              tenant_id: tenantId,
-              contact_id: selectedContact.id,
-              status: "attending",
-              assigned_to: user.id,
-            });
-          }
-          setSelectedContact((prev: any) => ({
-            ...prev,
-            contact_status: { ...(prev?.contact_status || {}), status: "attending", assigned_to: user.id },
-          }));
-          loadContacts();
-        }
-      }
+      await autoAssignOnSend();
     } catch (err: any) {
       toast({ title: "Erro ao enviar", description: err.message, variant: "destructive" });
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleSendMedia = async (file: File, mediaType: string, caption?: string) => {
+    if (!selectedContact || !selectedSessionId || !tenantId) return;
+    setSending(true);
+    try {
+      // Upload file to whatsapp-media bucket
+      const ext = file.name.split(".").pop() || "bin";
+      const filePath = `${tenantId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("whatsapp-media")
+        .upload(filePath, file, { contentType: file.type });
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage
+        .from("whatsapp-media")
+        .getPublicUrl(filePath);
+      const mediaUrl = publicUrlData.publicUrl;
+
+      const { error } = await supabase.functions.invoke("send-whatsapp-message", {
+        body: {
+          session_id: selectedSessionId,
+          phone: selectedContact.phone_number,
+          contact_id: selectedContact.id,
+          media_url: mediaUrl,
+          media_type: mediaType,
+          file_name: file.name,
+          caption: caption || "",
+        },
+      });
+      if (error) throw error;
+      await autoAssignOnSend();
+    } catch (err: any) {
+      toast({ title: "Erro ao enviar mídia", description: err.message, variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const autoAssignOnSend = async () => {
+    if (!selectedContact || selectedContact.is_group || !tenantId || !user) return;
+    const currentStatus = selectedContact.contact_status?.status;
+    if (currentStatus === "waiting" || currentStatus === "open" || !selectedContact.contact_status?.assigned_to) {
+      const { data: statusRow } = await supabase
+        .from("whatsapp_contact_status")
+        .select("id")
+        .eq("contact_id", selectedContact.id)
+        .single();
+      if (statusRow) {
+        await supabase.from("whatsapp_contact_status")
+          .update({ status: "attending", assigned_to: user.id, last_status_change: new Date().toISOString() })
+          .eq("id", statusRow.id);
+      } else {
+        await supabase.from("whatsapp_contact_status").insert({
+          tenant_id: tenantId,
+          contact_id: selectedContact.id,
+          status: "attending",
+          assigned_to: user.id,
+        });
+      }
+      setSelectedContact((prev: any) => ({
+        ...prev,
+        contact_status: { ...(prev?.contact_status || {}), status: "attending", assigned_to: user.id },
+      }));
+      loadContacts();
     }
   };
 
@@ -486,6 +524,7 @@ export default function WhatsApp() {
             contactTags={selectedContact?.tags || []}
             isGroup={selectedContact?.is_group === true}
             onSend={handleSend}
+            onSendMedia={handleSendMedia}
             onStatusChange={handleStatusChange}
             onOpenTags={() => setShowTagManager(true)}
             onDeleteChat={handleDeleteChat}
