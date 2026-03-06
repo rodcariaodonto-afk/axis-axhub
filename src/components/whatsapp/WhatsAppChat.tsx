@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useRef, useEffect, useState } from "react";
 import { format } from "date-fns";
+import { MediaLightbox } from "./MediaLightbox";
 
 interface Message {
   id: string;
@@ -86,7 +87,7 @@ const MEDIA_ICONS: Record<string, React.ReactNode> = {
   sticker: <Image className="h-5 w-5" />,
 };
 
-function ImageWithFallback({ url }: { url: string }) {
+function ImageWithFallback({ url, onClick }: { url: string; onClick: () => void }) {
   const [failed, setFailed] = useState(false);
   if (failed) {
     return (
@@ -101,7 +102,7 @@ function ImageWithFallback({ url }: { url: string }) {
       src={url}
       alt="Imagem"
       className="rounded max-w-full max-h-64 mb-1 cursor-pointer"
-      onClick={() => window.open(url, "_blank")}
+      onClick={onClick}
       onError={() => setFailed(true)}
     />
   );
@@ -112,6 +113,7 @@ export function WhatsAppChat({
   onSend, onStatusChange, onOpenTags, onDeleteChat, onTransfer, sending
 }: Props) {
   const [text, setText] = useState("");
+  const [lightbox, setLightbox] = useState<{ url: string; type: "image" | "video" } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -232,12 +234,23 @@ export function WhatsAppChat({
                 )}
                 {/* Render media */}
                 {url && msg.message_type === "image" && (
-                  <ImageWithFallback url={url} />
+                  <ImageWithFallback url={url} onClick={() => setLightbox({ url, type: "image" })} />
                 )}
-                {url && msg.message_type !== "image" && (
+                {url && msg.message_type === "video" && (
+                  <video
+                    src={url}
+                    controls
+                    className="rounded max-w-full max-h-64 mb-1 cursor-pointer"
+                    onClick={(e) => { e.preventDefault(); setLightbox({ url, type: "video" }); }}
+                  />
+                )}
+                {url && msg.message_type === "audio" && (
+                  <audio src={url} controls className="max-w-full mb-1" />
+                )}
+                {url && msg.message_type !== "image" && msg.message_type !== "video" && msg.message_type !== "audio" && (
                   <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 py-1 underline">
                     {MEDIA_ICONS[msg.message_type] || <FileText className="h-5 w-5" />}
-                    <span className="text-xs">{msg.message_type === "audio" ? "Áudio" : msg.message_type === "video" ? "Vídeo" : msg.message_type === "document" ? "Documento" : "Sticker"}</span>
+                    <span className="text-xs">{msg.message_type === "document" ? "Documento" : "Sticker"}</span>
                   </a>
                 )}
                 {/* Caption or text */}
@@ -277,6 +290,14 @@ export function WhatsAppChat({
           <Send className="h-4 w-4" />
         </Button>
       </div>
+      {lightbox && (
+        <MediaLightbox
+          open={!!lightbox}
+          onOpenChange={(open) => { if (!open) setLightbox(null); }}
+          url={lightbox.url}
+          type={lightbox.type}
+        />
+      )}
     </div>
   );
 }

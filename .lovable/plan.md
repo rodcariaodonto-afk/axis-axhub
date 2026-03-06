@@ -2,29 +2,28 @@
 
 ## Problema
 
-Imagens e vídeos do WhatsApp não abrem dentro da plataforma por dois motivos:
-
-1. **Imagens**: Clicam e abrem em nova aba (`window.open(url, "_blank")`) em vez de abrir num lightbox/modal dentro da plataforma.
-2. **Vídeos**: São renderizados apenas como um link de texto ("Vídeo") — não há player de vídeo embutido, nem preview.
-3. **Áudios**: Também são apenas links — sem player inline.
+Quando uma sessão pertence a outro admin (ex: "RICO"), mas tem contatos transferidos para você, o sistema mostra **todos** os contatos dessa sessão — incluindo os que não foram atribuídos a você. Isso acontece porque o filtro de contatos (linha 141-147) permite contatos sem `assigned_to` (NULL = visível para todos), e a maioria dos contatos não tem atribuição.
 
 ## Solução
 
-Criar um componente **MediaLightbox** (modal fullscreen) e renderizar mídias inline no chat:
+Adicionar ao filtro de contatos uma verificação do **dono da sessão**. Quando o admin está vendo uma sessão que pertence a **outro admin**, ele só deve ver contatos explicitamente atribuídos a ele — não os sem atribuição.
 
-### 1. Imagens — Abrir em lightbox interno
-- Ao clicar na imagem, abrir um `Dialog` fullscreen com a imagem em tamanho grande (em vez de `window.open`).
-- Manter botão para abrir em nova aba como opção secundária.
+### Mudança no filtro de contatos (`loadContactsImmediate`)
 
-### 2. Vídeos — Player inline + lightbox
-- Renderizar um `<video>` com controles diretamente na bolha da mensagem (poster/thumbnail).
-- Ao clicar, abrir no lightbox em tela cheia.
+Lógica atualizada:
 
-### 3. Áudios — Player inline
-- Renderizar um `<audio controls>` na bolha da mensagem em vez de link.
+```text
+Para cada contato na sessão selecionada:
+  1. Se assigned_to = meu ID → visível (transferido para mim)
+  2. Se assigned_to = outro admin → oculto
+  3. Se assigned_to = não-admin → visível
+  4. Se assigned_to = NULL:
+     a. Se a sessão pertence a OUTRO ADMIN → oculto (não é meu)
+     b. Senão → visível (sessão minha ou sem dono)
+```
 
-### Arquivos modificados
-- **`src/components/whatsapp/WhatsAppChat.tsx`** — Substituir `window.open` por lightbox, adicionar players de vídeo/áudio inline, adicionar estado do lightbox com `Dialog`.
+### Arquivo modificado
+- `src/pages/WhatsApp.tsx` — ajustar o filtro de visibilidade de contatos para considerar o `owner_user_id` da sessão selecionada.
 
-Nenhuma tabela ou edge function precisa ser alterada — é uma mudança puramente de UI.
+A mudança é de ~5 linhas no filtro existente, sem impacto em outras funcionalidades.
 
