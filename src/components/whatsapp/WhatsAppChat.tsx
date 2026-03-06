@@ -87,16 +87,23 @@ const MEDIA_ICONS: Record<string, React.ReactNode> = {
   sticker: <Image className="h-5 w-5" />,
 };
 
+function MediaUnavailable({ type }: { type: string }) {
+  const labels: Record<string, string> = {
+    image: "Imagem indisponível",
+    video: "Vídeo indisponível",
+    audio: "Áudio indisponível",
+  };
+  return (
+    <div className="flex items-center gap-2 py-2 text-muted-foreground">
+      {type === "video" ? <Video className="h-5 w-5" /> : type === "audio" ? <Mic className="h-5 w-5" /> : <Image className="h-5 w-5" />}
+      <span className="text-xs">{labels[type] || "Mídia indisponível"}</span>
+    </div>
+  );
+}
+
 function ImageWithFallback({ url, onClick }: { url: string; onClick: () => void }) {
   const [failed, setFailed] = useState(false);
-  if (failed) {
-    return (
-      <div className="flex items-center gap-2 py-2 text-muted-foreground">
-        <Image className="h-5 w-5" />
-        <span className="text-xs">Imagem indisponível</span>
-      </div>
-    );
-  }
+  if (failed) return <MediaUnavailable type="image" />;
   return (
     <img
       src={url}
@@ -105,6 +112,31 @@ function ImageWithFallback({ url, onClick }: { url: string; onClick: () => void 
       onClick={onClick}
       onError={() => setFailed(true)}
     />
+  );
+}
+
+function VideoWithFallback({ url, onClick }: { url: string; onClick: () => void }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <MediaUnavailable type="video" />;
+  return (
+    <video
+      src={url}
+      controls
+      playsInline
+      muted
+      preload="metadata"
+      className="rounded max-w-full max-h-64 mb-1 cursor-pointer"
+      onClick={(e) => { e.preventDefault(); onClick(); }}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+function AudioWithFallback({ url }: { url: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <MediaUnavailable type="audio" />;
+  return (
+    <audio src={url} controls preload="metadata" className="max-w-full mb-1" onError={() => setFailed(true)} />
   );
 }
 
