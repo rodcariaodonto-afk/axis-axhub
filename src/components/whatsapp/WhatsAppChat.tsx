@@ -290,6 +290,14 @@ export function WhatsAppChat({
           <Send className="h-4 w-4" />
         </Button>
       </div>
+      {lightbox && (
+        <MediaLightbox
+          open={!!lightbox}
+          onOpenChange={(open) => { if (!open) setLightbox(null); }}
+          url={lightbox.url}
+          type={lightbox.type}
+        />
+      )}
     </div>
   );
 }
