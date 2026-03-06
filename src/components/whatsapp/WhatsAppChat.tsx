@@ -87,7 +87,7 @@ const MEDIA_ICONS: Record<string, React.ReactNode> = {
   sticker: <Image className="h-5 w-5" />,
 };
 
-function ImageWithFallback({ url }: { url: string }) {
+function ImageWithFallback({ url, onClick }: { url: string; onClick: () => void }) {
   const [failed, setFailed] = useState(false);
   if (failed) {
     return (
@@ -102,7 +102,7 @@ function ImageWithFallback({ url }: { url: string }) {
       src={url}
       alt="Imagem"
       className="rounded max-w-full max-h-64 mb-1 cursor-pointer"
-      onClick={() => window.open(url, "_blank")}
+      onClick={onClick}
       onError={() => setFailed(true)}
     />
   );
