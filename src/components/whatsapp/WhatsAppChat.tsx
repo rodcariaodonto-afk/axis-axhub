@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useRef, useEffect, useState } from "react";
 import { format } from "date-fns";
+import { MediaLightbox } from "./MediaLightbox";
 
 interface Message {
   id: string;
