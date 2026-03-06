@@ -524,6 +524,7 @@ export default function WhatsApp() {
             contactTags={selectedContact?.tags || []}
             isGroup={selectedContact?.is_group === true}
             onSend={handleSend}
+            onSendMedia={handleSendMedia}
             onStatusChange={handleStatusChange}
             onOpenTags={() => setShowTagManager(true)}
             onDeleteChat={handleDeleteChat}
