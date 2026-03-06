@@ -234,12 +234,23 @@ export function WhatsAppChat({
                 )}
                 {/* Render media */}
                 {url && msg.message_type === "image" && (
-                  <ImageWithFallback url={url} />
+                  <ImageWithFallback url={url} onClick={() => setLightbox({ url, type: "image" })} />
                 )}
-                {url && msg.message_type !== "image" && (
+                {url && msg.message_type === "video" && (
+                  <video
+                    src={url}
+                    controls
+                    className="rounded max-w-full max-h-64 mb-1 cursor-pointer"
+                    onClick={(e) => { e.preventDefault(); setLightbox({ url, type: "video" }); }}
+                  />
+                )}
+                {url && msg.message_type === "audio" && (
+                  <audio src={url} controls className="max-w-full mb-1" />
+                )}
+                {url && msg.message_type !== "image" && msg.message_type !== "video" && msg.message_type !== "audio" && (
                   <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 py-1 underline">
                     {MEDIA_ICONS[msg.message_type] || <FileText className="h-5 w-5" />}
-                    <span className="text-xs">{msg.message_type === "audio" ? "Áudio" : msg.message_type === "video" ? "Vídeo" : msg.message_type === "document" ? "Documento" : "Sticker"}</span>
+                    <span className="text-xs">{msg.message_type === "document" ? "Documento" : "Sticker"}</span>
                   </a>
                 )}
                 {/* Caption or text */}
