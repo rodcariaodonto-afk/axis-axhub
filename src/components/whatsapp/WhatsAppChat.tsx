@@ -269,15 +269,10 @@ export function WhatsAppChat({
                   <ImageWithFallback url={url} onClick={() => setLightbox({ url, type: "image" })} />
                 )}
                 {url && msg.message_type === "video" && (
-                  <video
-                    src={url}
-                    controls
-                    className="rounded max-w-full max-h-64 mb-1 cursor-pointer"
-                    onClick={(e) => { e.preventDefault(); setLightbox({ url, type: "video" }); }}
-                  />
+                  <VideoWithFallback url={url} onClick={() => setLightbox({ url, type: "video" })} />
                 )}
                 {url && msg.message_type === "audio" && (
-                  <audio src={url} controls className="max-w-full mb-1" />
+                  <AudioWithFallback url={url} />
                 )}
                 {url && msg.message_type !== "image" && msg.message_type !== "video" && msg.message_type !== "audio" && (
                   <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 py-1 underline">
