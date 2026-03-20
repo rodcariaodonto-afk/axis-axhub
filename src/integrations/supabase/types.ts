@@ -359,6 +359,61 @@ export type Database = {
           },
         ]
       }
+      bank_transfers: {
+        Row: {
+          amount: number
+          created_at: string
+          from_account_id: string
+          id: string
+          notes: string | null
+          tenant_id: string
+          to_account_id: string
+          transfer_date: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          from_account_id: string
+          id?: string
+          notes?: string | null
+          tenant_id: string
+          to_account_id: string
+          transfer_date?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          from_account_id?: string
+          id?: string
+          notes?: string | null
+          tenant_id?: string
+          to_account_id?: string
+          transfer_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_transfers_from_account_id_fkey"
+            columns: ["from_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transfers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transfers_to_account_id_fkey"
+            columns: ["to_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bi_alert_logs: {
         Row: {
           alert_id: string
