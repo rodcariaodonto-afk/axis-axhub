@@ -1,40 +1,45 @@
 
 
-## Transferência entre Contas Bancárias
+## Melhorar Sistema de Logs de Auditoria
 
-### O que será feito
-
-Adicionar funcionalidade de transferência de valores entre contas bancárias com baixa automática nos saldos. A transferência cria 2 transações (débito na origem, crédito no destino) e atualiza os saldos de ambas as contas.
+### Situação atual
+- Tabela `audit_logs` existe com: `id`, `tenant_id`, `actor_user_id`, `action`, `entity`, `entity_id`, `before_json`, `after_json`, `created_at`
+- Interface básica com filtro por entidade e ação, exportação CSV simples
+- Falta: nome do usuário, IP, filtro por data, filtro por usuário, exportação JSON, diff visual destacado, mais entidades
 
 ### Mudanças
 
-**1. Migração SQL — Tabela `bank_transfers`**
-- Campos: `id`, `tenant_id`, `from_account_id`, `to_account_id`, `amount`, `transfer_date`, `notes`, `created_at`
-- RLS com `get_user_tenant_id()`
-- Essa tabela serve como log/histórico de transferências
+**1. Migração SQL — Adicionar colunas à tabela `audit_logs`**
+- `ip_address` (text, nullable) — endereço IP da ação
+- `user_agent` (text, nullable) — navegador/dispositivo
+- Criar índices para performance em consultas filtradas (`entity`, `action`, `created_at`, `actor_user_id`)
 
-**2. Frontend — `src/pages/BankAccounts.tsx`**
+**2. Interface completa — `src/pages/settings/AuditLogsView.tsx`** (reescrever)
 
-- **Botão "Transferência"** ao lado de "Nova Conta" na listagem principal
-- **Botão "Transferir"** ao lado do saldo no extrato de cada conta (pré-seleciona a conta de origem)
-- **Modal de transferência** com:
-  - Dropdown "Conta de Origem" (pré-selecionada quando aberto do extrato)
-  - Dropdown "Conta de Destino" (filtra para não mostrar a mesma conta)
-  - Campo "Valor" (numérico)
-  - Campo "Data" (date picker)
-  - Campo "Motivo / Observações" (textarea)
-- **Ao confirmar**:
-  1. Insere registro em `bank_transfers`
-  2. Insere transação de **débito** na conta de origem (`bank_transactions`)
-  3. Insere transação de **crédito** na conta de destino (`bank_transactions`)
-  4. Atualiza `balance` de ambas as contas (`bank_accounts`)
-  5. Recarrega dados
+Filtros avançados:
+- **Período de data** — date range picker (de/até)
+- **Usuário específico** — dropdown com usuários do tenant (busca de `profiles`)
+- **Tipo de ação** — dropdown: CREATE, UPDATE, DELETE, LOGIN, all
+- **Entidade afetada** — dropdown com todas as entidades
 
-**3. Extrato — Identificação visual**
-- Transações de transferência terão descrição como "Transferência para [conta]" / "Transferência de [conta]"
-- No extrato, transferências aparecerão normalmente como crédito/débito
+Tabela rica:
+- Colunas: Data/Hora, Usuário (nome completo, não UUID truncado), Entidade, Ação (com badge colorido), Detalhes
+- Ao expandir: **diff visual** destacando campos alterados (verde = adicionado, vermelho = removido, amarelo = modificado) em vez de JSON bruto
 
-### Arquivos
-- Migração SQL (tabela nova + RLS)
-- `src/pages/BankAccounts.tsx` (modal + lógica de transferência)
+Exportação:
+- **CSV** com todos os campos incluindo before/after
+- **JSON** com dados completos
+
+Estatísticas resumidas no topo:
+- Total de eventos no período
+- Ações por tipo (badges com contagem)
+
+**3. Interceptação automática de ações** — Melhorar o registro de logs nos pontos existentes do código, garantindo que as seguintes ações sejam capturadas:
+- Login/logout (via `useAuth`)
+- CRUD em tabelas principais (já parcialmente implementado via edge functions e código existente)
+
+### Arquivos modificados
+- Migração SQL (colunas + índices)
+- `src/pages/settings/AuditLogsView.tsx` — reescrita completa
+- `src/hooks/useAuth.tsx` — adicionar log de login/logout
 
