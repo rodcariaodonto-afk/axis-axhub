@@ -120,9 +120,18 @@ export default function UsersManagement() {
     }
     if (!confirm("Tem certeza que deseja desativar este usuário?")) return;
 
-    await supabase.from("profiles").update({ status: "inactive", is_active: false } as any).eq("id", profileId);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ status: "inactive", is_active: false } as any)
+      .eq("id", profileId);
+
+    if (error) {
+      toast({ title: "Erro ao desativar usuário", description: error.message, variant: "destructive" });
+      return;
+    }
+
     toast({ title: "Usuário desativado" });
-    invalidate();
+    await qc.invalidateQueries({ queryKey: ["tenant-profiles", tenantId] });
   };
 
   const invalidate = () => {
