@@ -216,7 +216,9 @@ export type Database = {
           entity: string
           entity_id: string | null
           id: string
+          ip_address: string | null
           tenant_id: string
+          user_agent: string | null
         }
         Insert: {
           action: string
@@ -227,7 +229,9 @@ export type Database = {
           entity: string
           entity_id?: string | null
           id?: string
+          ip_address?: string | null
           tenant_id: string
+          user_agent?: string | null
         }
         Update: {
           action?: string
@@ -238,7 +242,9 @@ export type Database = {
           entity?: string
           entity_id?: string | null
           id?: string
+          ip_address?: string | null
           tenant_id?: string
+          user_agent?: string | null
         }
         Relationships: [
           {
