@@ -120,23 +120,34 @@ export default function UsersManagement() {
     }
     if (!confirm("Tem certeza que deseja desativar este usuário?")) return;
 
-    const { error } = await supabase
-      .from("profiles")
-      .update({ status: "inactive", is_active: false } as any)
-      .eq("id", profileId);
+    try {
+      const { data, error } = await supabase.functions.invoke("deactivate-user", {
+        body: { user_id: profileId },
+      });
 
-    if (error) {
-      toast({ title: "Erro ao desativar usuário", description: error.message, variant: "destructive" });
-      return;
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      qc.setQueryData(["tenant-profiles", tenantId], (current: any[] | undefined) =>
+        current?.map((profile) =>
+          profile.id === profileId
+            ? { ...profile, status: "inactive", is_active: false }
+            : profile,
+        ) ?? current,
+      );
+
+      toast({ title: "Usuário desativado" });
+      await invalidate();
+    } catch (err: any) {
+      toast({ title: "Erro ao desativar usuário", description: err.message, variant: "destructive" });
     }
-
-    toast({ title: "Usuário desativado" });
-    await qc.invalidateQueries({ queryKey: ["tenant-profiles", tenantId] });
   };
 
-  const invalidate = () => {
-    qc.invalidateQueries({ queryKey: ["tenant-profiles"] });
-    qc.invalidateQueries({ queryKey: ["all-user-roles"] });
+  const invalidate = async () => {
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["tenant-profiles", tenantId] }),
+      qc.invalidateQueries({ queryKey: ["all-user-roles", tenantId] }),
+    ]);
   };
 
   const handleNewUser = () => {
