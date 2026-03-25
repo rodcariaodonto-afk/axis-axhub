@@ -1,37 +1,24 @@
 
 
-## Etapa 2 — Contratos com Assinatura + Motor de Billing
+## Etapa 3 — Dashboard SaaS + Métricas de Assinatura
 
 ### O que será feito
 
-**1. Contrato tipo "Assinatura" (`src/pages/Contracts.tsx`)**
-- Adicionar "Assinatura" ao array `typeOptions`
-- Quando `contract_type === "Assinatura"`, mostrar seção condicional "Itens da Assinatura":
-  - Dropdown de Produto SaaS (filtrar `products` onde `is_parent = true`)
-  - Dropdown de Plano/SKU (filtrar `products` onde `parent_id = produto selecionado`)
-  - Auto-preencher: ciclo, valor, setup fee a partir do plano selecionado
-  - Campos: auto_renew (switch), trial_days (herdado do plano)
-- Ao salvar contrato tipo Assinatura:
-  - Salvar contrato com `contract_type_extended = 'subscription'`, `auto_renew`, `next_billing_date`, `mrr`
-  - Criar registro em `subscriptions` vinculado ao contrato
-- Coluna MRR na listagem de contratos
-- Badge "Assinatura" diferenciado
+**1. Seção "Métricas SaaS" no Dashboard (`src/pages/Dashboard.tsx`)**
+- Adicionar nova seção abaixo dos cards existentes (antes do gráfico de receitas)
+- Consultar tabela `subscriptions` para calcular:
+  - **MRR** (soma de `mrr` onde `status = 'active'`)
+  - **ARR** (MRR × 12)
+  - **Assinaturas Ativas** (count onde `status = 'active'`)
+  - **Churn Rate** (count `canceled` no mês / total início do mês × 100)
+- 4 KPI cards em linha com ícones diferenciados (Repeat, TrendingUp, CreditCard, UserMinus)
+- Seção só aparece se houver pelo menos 1 subscription no banco
 
-**2. Edge Function `generate-recurring-invoices`**
-- Nova edge function que:
-  - Consulta `subscriptions` com status `active` e `next_billing_date <= hoje + 5 dias`
-  - Para cada, verifica duplicata em `receivables` (mesmo `subscription_id` + `billing_period_start`)
-  - Gera `receivable` com `is_recurring = true`, `subscription_id`, `billing_period_start/end`
-  - Atualiza `next_billing_date` na subscription (avança 1 ciclo)
-- `verify_jwt = false` no config.toml
-
-**3. Botão "Gerar Faturas Recorrentes" (`src/pages/Receivables.tsx`)**
-- Adicionar botão ao lado de "Nova Conta" que invoca a edge function
-- Mostrar toast com resultado (quantas faturas geradas)
+**2. Nenhuma alteração de banco** — todos os dados já existem na tabela `subscriptions` criada na Etapa 1
 
 ### Arquivos modificados
-- `src/pages/Contracts.tsx` — tipo Assinatura + seção condicional + salvar subscription + coluna MRR
-- `src/pages/Receivables.tsx` — botão gerar faturas recorrentes
-- `supabase/functions/generate-recurring-invoices/index.ts` — nova edge function
-- `supabase/config.toml` — entrada para a nova function
+- `src/pages/Dashboard.tsx` — adicionar seção SaaS com 4 KPIs
+
+### Nota
+A página de detalhes do Produto Pai (`/products/:id`) mencionada no plano original pode ser implementada futuramente se necessário — por ora os planos já são visíveis via expansão na listagem de produtos.
 
