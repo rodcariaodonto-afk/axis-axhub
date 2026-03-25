@@ -149,6 +149,30 @@ export default function ProductFormDynamic({ categories, customFields, onSuccess
       await supabase.from("product_channels" as any).insert(channelsToInsert);
     }
 
+    // Save SaaS child plans
+    if (isSaas && saasPlans.length > 0) {
+      for (const plan of saasPlans) {
+        if (!plan.tier) continue;
+        await supabase.from("products").insert({
+          tenant_id: profile.tenant_id,
+          sku: plan.sku,
+          name: `${form.name} - ${plan.tier}`,
+          type: "product",
+          category: form.category || null,
+          price: plan.price,
+          cost: plan.cost,
+          parent_id: product.id,
+          is_parent: false,
+          is_subscription: true,
+          billing_cycle: plan.billing_cycle,
+          plan_tier: plan.tier,
+          setup_fee: plan.setup_fee,
+          trial_days: plan.trial_days,
+          annual_discount_percent: plan.annual_discount_percent,
+        } as any);
+      }
+    }
+
     toast({ title: "Produto criado!" });
     setUploading(false);
     onSuccess();
