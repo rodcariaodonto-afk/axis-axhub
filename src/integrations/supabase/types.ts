@@ -1434,7 +1434,9 @@ export type Database = {
       contracts: {
         Row: {
           account_id: string | null
+          auto_renew: boolean | null
           contract_type: string | null
+          contract_type_extended: string | null
           created_at: string
           currency: string
           deal_id: string | null
@@ -1443,7 +1445,9 @@ export type Database = {
           end_date: string | null
           id: string
           is_active: boolean
+          mrr: number | null
           name: string
+          next_billing_date: string | null
           owner_id: string | null
           renewal_date: string | null
           signature_status: string
@@ -1459,7 +1463,9 @@ export type Database = {
         }
         Insert: {
           account_id?: string | null
+          auto_renew?: boolean | null
           contract_type?: string | null
+          contract_type_extended?: string | null
           created_at?: string
           currency?: string
           deal_id?: string | null
@@ -1468,7 +1474,9 @@ export type Database = {
           end_date?: string | null
           id?: string
           is_active?: boolean
+          mrr?: number | null
           name: string
+          next_billing_date?: string | null
           owner_id?: string | null
           renewal_date?: string | null
           signature_status?: string
@@ -1484,7 +1492,9 @@ export type Database = {
         }
         Update: {
           account_id?: string | null
+          auto_renew?: boolean | null
           contract_type?: string | null
+          contract_type_extended?: string | null
           created_at?: string
           currency?: string
           deal_id?: string | null
@@ -1493,7 +1503,9 @@ export type Database = {
           end_date?: string | null
           id?: string
           is_active?: boolean
+          mrr?: number | null
           name?: string
+          next_billing_date?: string | null
           owner_id?: string | null
           renewal_date?: string | null
           signature_status?: string
@@ -4706,6 +4718,8 @@ export type Database = {
       }
       products: {
         Row: {
+          annual_discount_percent: number | null
+          billing_cycle: string | null
           category: string | null
           cost: number | null
           created_at: string
@@ -4713,13 +4727,21 @@ export type Database = {
           id: string
           image_url: string | null
           is_active: boolean
+          is_parent: boolean
+          is_subscription: boolean
           name: string
+          parent_id: string | null
+          plan_tier: string | null
           price: number
+          setup_fee: number | null
           sku: string
           tenant_id: string
+          trial_days: number | null
           type: string
         }
         Insert: {
+          annual_discount_percent?: number | null
+          billing_cycle?: string | null
           category?: string | null
           cost?: number | null
           created_at?: string
@@ -4727,13 +4749,21 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          is_parent?: boolean
+          is_subscription?: boolean
           name: string
+          parent_id?: string | null
+          plan_tier?: string | null
           price?: number
+          setup_fee?: number | null
           sku: string
           tenant_id: string
+          trial_days?: number | null
           type?: string
         }
         Update: {
+          annual_discount_percent?: number | null
+          billing_cycle?: string | null
           category?: string | null
           cost?: number | null
           created_at?: string
@@ -4741,13 +4771,26 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          is_parent?: boolean
+          is_subscription?: boolean
           name?: string
+          parent_id?: string | null
+          plan_tier?: string | null
           price?: number
+          setup_fee?: number | null
           sku?: string
           tenant_id?: string
+          trial_days?: number | null
           type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "products_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "products_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -4922,6 +4965,8 @@ export type Database = {
         Row: {
           amount: number
           bank_account_id: string | null
+          billing_period_end: string | null
+          billing_period_start: string | null
           category_id: string | null
           created_at: string
           customer_id: string | null
@@ -4929,15 +4974,19 @@ export type Database = {
           description: string
           due_date: string
           id: string
+          is_recurring: boolean | null
           order_id: string | null
           paid_at: string | null
           payment_method: string | null
           status: string
+          subscription_id: string | null
           tenant_id: string
         }
         Insert: {
           amount: number
           bank_account_id?: string | null
+          billing_period_end?: string | null
+          billing_period_start?: string | null
           category_id?: string | null
           created_at?: string
           customer_id?: string | null
@@ -4945,15 +4994,19 @@ export type Database = {
           description: string
           due_date: string
           id?: string
+          is_recurring?: boolean | null
           order_id?: string | null
           paid_at?: string | null
           payment_method?: string | null
           status?: string
+          subscription_id?: string | null
           tenant_id: string
         }
         Update: {
           amount?: number
           bank_account_id?: string | null
+          billing_period_end?: string | null
+          billing_period_start?: string | null
           category_id?: string | null
           created_at?: string
           customer_id?: string | null
@@ -4961,10 +5014,12 @@ export type Database = {
           description?: string
           due_date?: string
           id?: string
+          is_recurring?: boolean | null
           order_id?: string | null
           paid_at?: string | null
           payment_method?: string | null
           status?: string
+          subscription_id?: string | null
           tenant_id?: string
         }
         Relationships: [
@@ -5001,6 +5056,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receivables_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
             referencedColumns: ["id"]
           },
           {
@@ -5327,6 +5389,99 @@ export type Database = {
             columns: ["warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscriptions: {
+        Row: {
+          billing_cycle: string
+          cancelled_at: string | null
+          contract_id: string | null
+          created_at: string
+          customer_id: string | null
+          id: string
+          mrr: number
+          next_billing_date: string | null
+          plan_sku_id: string
+          price: number
+          product_id: string
+          start_date: string
+          status: string
+          tenant_id: string
+          trial_ends_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          billing_cycle?: string
+          cancelled_at?: string | null
+          contract_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          mrr?: number
+          next_billing_date?: string | null
+          plan_sku_id: string
+          price?: number
+          product_id: string
+          start_date?: string
+          status?: string
+          tenant_id: string
+          trial_ends_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          billing_cycle?: string
+          cancelled_at?: string | null
+          contract_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          mrr?: number
+          next_billing_date?: string | null
+          plan_sku_id?: string
+          price?: number
+          product_id?: string
+          start_date?: string
+          status?: string
+          tenant_id?: string
+          trial_ends_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_plan_sku_id_fkey"
+            columns: ["plan_sku_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
