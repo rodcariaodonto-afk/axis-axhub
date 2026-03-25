@@ -272,9 +272,36 @@ export default function Products() {
     setDeleteProduct(null);
   };
 
-  const filtered = products.filter(
-    (p) => p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase())
-  );
+  const toggleParent = (id: string) => {
+    setExpandedParents((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // Separate parents from children; only show top-level (no parent_id) and expanded children
+  const topLevel = filtered.filter((p) => !p.parent_id);
+  const childrenMap: Record<string, Product[]> = {};
+  filtered.forEach((p) => {
+    if (p.parent_id) {
+      if (!childrenMap[p.parent_id]) childrenMap[p.parent_id] = [];
+      childrenMap[p.parent_id].push(p);
+    }
+  });
+
+  const getMinPrice = (parentId: string) => {
+    const children = childrenMap[parentId];
+    if (!children || children.length === 0) return null;
+    return Math.min(...children.map((c) => c.price));
+  };
+
+  const getTypeBadge = (p: Product) => {
+    if (p.is_parent && p.is_subscription) return <Badge className="bg-primary/20 text-primary border-primary/30">SaaS</Badge>;
+    if (p.is_subscription && p.plan_tier) return <Badge variant="outline" className="text-xs">{p.plan_tier}</Badge>;
+    return <Badge variant="secondary">{p.type === "product" ? "Produto" : "Serviço"}</Badge>;
+  };
 
   return (
     <div className="space-y-6">
