@@ -3,10 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Package, ShoppingCart, ArrowUpCircle, AlertTriangle, Users, Truck } from "lucide-react";
+import { Package, ShoppingCart, ArrowUpCircle, AlertTriangle, Users, Truck, Repeat, TrendingUp, CreditCard, UserMinus } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 interface Metrics { activeProducts: number; pendingOrders: number; totalReceivable: number; lowStock: number; totalCustomers: number; totalSuppliers: number; }
+interface SaaSMetrics { mrr: number; arr: number; activeSubscriptions: number; churnRate: number; hasSubs: boolean; }
 
 const statusLabels: Record<string, string> = { draft: "Rascunho", pending_approval: "Aguardando", approved: "Aprovado", shipped: "Enviado", completed: "Concluído", canceled: "Cancelado" };
 
@@ -14,6 +15,7 @@ export default function Dashboard() {
   const [metrics, setMetrics] = useState<Metrics>({ activeProducts: 0, pendingOrders: 0, totalReceivable: 0, lowStock: 0, totalCustomers: 0, totalSuppliers: 0 });
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [chartData, setChartData] = useState<any[]>([]);
+  const [saas, setSaas] = useState<SaaSMetrics>({ mrr: 0, arr: 0, activeSubscriptions: 0, churnRate: 0, hasSubs: false });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,6 +41,20 @@ export default function Dashboard() {
       for (let i = 5; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); months[`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`] = 0; }
       (receivables.data || []).forEach((r) => { const k = r.due_date?.substring(0, 7); if (k && months[k] !== undefined) months[k] += Number(r.amount); });
       setChartData(Object.entries(months).map(([m, v]) => ({ month: m.substring(5) + "/" + m.substring(2, 4), valor: v })));
+
+      // SaaS metrics
+      const { data: allSubs } = await supabase.from("subscriptions").select("mrr, status, canceled_at");
+      if (allSubs && allSubs.length > 0) {
+        const activeSubs = allSubs.filter((s: any) => s.status === "active");
+        const mrr = activeSubs.reduce((sum: number, s: any) => sum + Number(s.mrr || 0), 0);
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+        const canceledThisMonth = allSubs.filter((s: any) => s.status === "canceled" && s.canceled_at && s.canceled_at >= monthStart).length;
+        const totalAtStart = allSubs.length - canceledThisMonth + canceledThisMonth; // approximate
+        const churnRate = totalAtStart > 0 ? (canceledThisMonth / totalAtStart) * 100 : 0;
+        setSaas({ mrr, arr: mrr * 12, activeSubscriptions: activeSubs.length, churnRate: Math.round(churnRate * 10) / 10, hasSubs: true });
+      }
+
       setLoading(false);
     };
     fetchAll();
@@ -64,6 +80,25 @@ export default function Dashboard() {
           </Card>
         ))}
       </div>
+
+      {saas.hasSubs && (
+        <>
+          <div><h2 className="text-lg font-semibold tracking-tight">Métricas SaaS</h2></div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {[
+              { label: "MRR", value: `R$ ${saas.mrr.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, icon: Repeat, color: "text-primary" },
+              { label: "ARR", value: `R$ ${saas.arr.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, icon: TrendingUp, color: "text-success" },
+              { label: "Assinaturas Ativas", value: saas.activeSubscriptions.toString(), icon: CreditCard, color: "text-primary" },
+              { label: "Churn Rate", value: `${saas.churnRate}%`, icon: UserMinus, color: "text-destructive" },
+            ].map((c) => (
+              <Card key={c.label} className="border-border bg-card">
+                <CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{c.label}</CardTitle><c.icon className={`h-4 w-4 ${c.color}`} /></CardHeader>
+                <CardContent><div className="text-2xl font-bold">{loading ? "..." : c.value}</div></CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="border-border bg-card">
