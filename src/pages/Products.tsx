@@ -272,6 +272,10 @@ export default function Products() {
     setDeleteProduct(null);
   };
 
+  const filtered = products.filter(
+    (p) => p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase())
+  );
+
   const toggleParent = (id: string) => {
     setExpandedParents((prev) => {
       const next = new Set(prev);
