@@ -41,6 +41,20 @@ export default function Dashboard() {
       for (let i = 5; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); months[`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`] = 0; }
       (receivables.data || []).forEach((r) => { const k = r.due_date?.substring(0, 7); if (k && months[k] !== undefined) months[k] += Number(r.amount); });
       setChartData(Object.entries(months).map(([m, v]) => ({ month: m.substring(5) + "/" + m.substring(2, 4), valor: v })));
+
+      // SaaS metrics
+      const { data: allSubs } = await supabase.from("subscriptions").select("mrr, status, canceled_at");
+      if (allSubs && allSubs.length > 0) {
+        const activeSubs = allSubs.filter((s: any) => s.status === "active");
+        const mrr = activeSubs.reduce((sum: number, s: any) => sum + Number(s.mrr || 0), 0);
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+        const canceledThisMonth = allSubs.filter((s: any) => s.status === "canceled" && s.canceled_at && s.canceled_at >= monthStart).length;
+        const totalAtStart = allSubs.length - canceledThisMonth + canceledThisMonth; // approximate
+        const churnRate = totalAtStart > 0 ? (canceledThisMonth / totalAtStart) * 100 : 0;
+        setSaas({ mrr, arr: mrr * 12, activeSubscriptions: activeSubs.length, churnRate: Math.round(churnRate * 10) / 10, hasSubs: true });
+      }
+
       setLoading(false);
     };
     fetchAll();
