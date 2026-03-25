@@ -60,6 +60,7 @@ export default function Products() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteProduct, setDeleteProduct] = useState<Product | null>(null);
   const [editForm, setEditForm] = useState({ sku: "", name: "", description: "", type: "product", category: "", price: "", cost: "" });
+  const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
   const [editUploading, setEditUploading] = useState(false);
   // Field management
   const [newFieldName, setNewFieldName] = useState("");
