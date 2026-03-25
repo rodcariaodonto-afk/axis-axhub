@@ -81,6 +81,25 @@ export default function Dashboard() {
         ))}
       </div>
 
+      {saas.hasSubs && (
+        <>
+          <div><h2 className="text-lg font-semibold tracking-tight">Métricas SaaS</h2></div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {[
+              { label: "MRR", value: `R$ ${saas.mrr.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, icon: Repeat, color: "text-primary" },
+              { label: "ARR", value: `R$ ${saas.arr.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, icon: TrendingUp, color: "text-success" },
+              { label: "Assinaturas Ativas", value: saas.activeSubscriptions.toString(), icon: CreditCard, color: "text-primary" },
+              { label: "Churn Rate", value: `${saas.churnRate}%`, icon: UserMinus, color: "text-destructive" },
+            ].map((c) => (
+              <Card key={c.label} className="border-border bg-card">
+                <CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{c.label}</CardTitle><c.icon className={`h-4 w-4 ${c.color}`} /></CardHeader>
+                <CardContent><div className="text-2xl font-bold">{loading ? "..." : c.value}</div></CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="border-border bg-card">
           <CardHeader><CardTitle className="text-lg">Receitas — Últimos 6 meses</CardTitle></CardHeader>
