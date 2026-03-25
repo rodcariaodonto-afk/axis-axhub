@@ -1,45 +1,76 @@
 
 
-## Melhorar Sistema de Logs de Auditoria
+## Implementação de Product Family + Billing SaaS no ERP AXIS
 
-### Situação atual
-- Tabela `audit_logs` existe com: `id`, `tenant_id`, `actor_user_id`, `action`, `entity`, `entity_id`, `before_json`, `after_json`, `created_at`
-- Interface básica com filtro por entidade e ação, exportação CSV simples
-- Falta: nome do usuário, IP, filtro por data, filtro por usuário, exportação JSON, diff visual destacado, mais entidades
+Este é um projeto grande. Para economizar créditos, vamos dividir em **3 etapas sequenciais**, cada uma aprovada separadamente.
 
-### Mudanças
+---
 
-**1. Migração SQL — Adicionar colunas à tabela `audit_logs`**
-- `ip_address` (text, nullable) — endereço IP da ação
-- `user_agent` (text, nullable) — navegador/dispositivo
-- Criar índices para performance em consultas filtradas (`entity`, `action`, `created_at`, `actor_user_id`)
+### ETAPA 1 — Banco de Dados + Tipo SaaS no Cadastro de Produtos
 
-**2. Interface completa — `src/pages/settings/AuditLogsView.tsx`** (reescrever)
+**Migração SQL (1 migration):**
+- `products`: ADD COLUMN `parent_id`, `is_parent`, `is_subscription`, `billing_cycle`, `plan_tier`, `setup_fee`, `trial_days`, `annual_discount_percent`, `gross_margin` (generated)
+- `contracts`: ADD COLUMN `contract_type_extended`, `auto_renew`, `next_billing_date`, `mrr`
+- `receivables`: ADD COLUMN `subscription_id`, `is_recurring`, `billing_period_start`, `billing_period_end`
+- CREATE TABLE `subscriptions` (com RLS tenant-based)
+- Índices para hierarquia de produtos
 
-Filtros avançados:
-- **Período de data** — date range picker (de/até)
-- **Usuário específico** — dropdown com usuários do tenant (busca de `profiles`)
-- **Tipo de ação** — dropdown: CREATE, UPDATE, DELETE, LOGIN, all
-- **Entidade afetada** — dropdown com todas as entidades
+**UI — Formulário de Produto (ProductFormDynamic.tsx + productUtils.ts):**
+- Adicionar 7o tipo "SaaS / Assinatura" com ícone 🔄
+- Quando selecionado: formulário em 2 seções (Produto Pai + Planos/SKUs Filhos)
+- Cada plano: Nome do Tier, SKU auto-gerado, Ciclo, Preço, Custo, Margem (calculada), Setup Fee, Desconto Anual, Trial
+- Salvar: Produto Pai (is_parent=true, sem preço) + N SKUs Filhos (parent_id apontando pro pai)
 
-Tabela rica:
-- Colunas: Data/Hora, Usuário (nome completo, não UUID truncado), Entidade, Ação (com badge colorido), Detalhes
-- Ao expandir: **diff visual** destacando campos alterados (verde = adicionado, vermelho = removido, amarelo = modificado) em vez de JSON bruto
+**UI — Listagem de Produtos (Products.tsx):**
+- Produtos Pai com chevron expansível, sub-linhas indentadas para SKUs filhos
+- Coluna Preço do Pai: "A partir de R$ X"
+- Badge "SaaS" diferenciado
 
-Exportação:
-- **CSV** com todos os campos incluindo before/after
-- **JSON** com dados completos
+### ETAPA 2 — Contratos com Assinatura + Motor de Billing
 
-Estatísticas resumidas no topo:
-- Total de eventos no período
-- Ações por tipo (badges com contagem)
+**UI — Contratos (Contracts.tsx):**
+- Novo tipo "Assinatura" no dropdown
+- Seção condicional "Itens da Assinatura": selecionar produto SaaS → selecionar plano → auto-preencher ciclo/valor/setup
+- Criar registro em `subscriptions` ao salvar
+- Badge e coluna MRR na listagem
 
-**3. Interceptação automática de ações** — Melhorar o registro de logs nos pontos existentes do código, garantindo que as seguintes ações sejam capturadas:
-- Login/logout (via `useAuth`)
-- CRUD em tabelas principais (já parcialmente implementado via edge functions e código existente)
+**Edge Function — `generate-recurring-invoices`:**
+- Consulta subscriptions ativas com next_billing_date <= hoje + 5 dias
+- Gera receivables evitando duplicatas
+- Atualiza next_billing_date
 
-### Arquivos modificados
-- Migração SQL (colunas + índices)
-- `src/pages/settings/AuditLogsView.tsx` — reescrita completa
-- `src/hooks/useAuth.tsx` — adicionar log de login/logout
+**UI — Receivables.tsx:**
+- Botão "Gerar Faturas Recorrentes" invocando a edge function
+
+### ETAPA 3 — Dashboard SaaS + Detalhes do Produto Pai
+
+**Dashboard (Dashboard.tsx):**
+- Seção "Métricas SaaS": MRR, ARR, Assinaturas Ativas, Churn Rate, Margem Bruta Média
+
+**Página de Detalhes do Produto Pai (/products/:id):**
+- Info geral + tabela de planos + KPIs (Total Planos, Assinaturas Ativas, MRR)
+- Botões Adicionar/Editar plano
+
+---
+
+### Regras de Negócio (aplicadas ao longo das etapas)
+- Produto Pai não pode ser vendido diretamente
+- Exclusão de Pai bloqueada se houver assinaturas ativas
+- Produtos SaaS ocultos do módulo de Estoque
+- SKU único no padrão PREFIXO-TIER-CICLO
+
+### Arquivos modificados (total)
+- 1 migração SQL (todas as tabelas de uma vez)
+- `src/lib/productUtils.ts` — novo tipo SaaS + campos visíveis
+- `src/components/products/ProductFormDynamic.tsx` — formulário SaaS
+- `src/pages/Products.tsx` — listagem com accordion + detalhes
+- `src/pages/Contracts.tsx` — tipo Assinatura + seção itens
+- `src/pages/Receivables.tsx` — botão gerar faturas
+- `src/pages/Dashboard.tsx` — seção métricas SaaS
+- `supabase/functions/generate-recurring-invoices/index.ts` — edge function
+
+### Estratégia para economizar créditos
+Implementaremos tudo na **Etapa 1** primeiro (DB + formulário + listagem), que é a base. Depois Etapa 2 e 3 em mensagens seguintes. Nenhuma funcionalidade existente será alterada — tudo é extensão aditiva.
+
+Deseja aprovar para começarmos pela Etapa 1?
 
