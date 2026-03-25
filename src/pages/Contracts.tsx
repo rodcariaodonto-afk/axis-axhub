@@ -12,10 +12,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, MoreHorizontal, Pencil, EyeOff, AlertTriangle } from "lucide-react";
-import { differenceInDays, parseISO } from "date-fns";
+import { differenceInDays, parseISO, addMonths, addYears } from "date-fns";
 
 const statusOptions = ["Em elaboracao", "Ativo", "Expirado", "Cancelado", "Renovado"];
 const statusColors: Record<string, string> = {
@@ -25,7 +26,7 @@ const statusColors: Record<string, string> = {
   "Cancelado": "bg-foreground/20 text-foreground",
   "Renovado": "bg-blue-500/20 text-blue-400",
 };
-const typeOptions = ["Servico", "Venda", "Parceria", "Licenca", "Outro"];
+const typeOptions = ["Servico", "Venda", "Parceria", "Licenca", "Assinatura", "Outro"];
 const currencyOptions = ["BRL", "USD", "EUR"];
 const PER_PAGE = 10;
 
@@ -39,6 +40,16 @@ function ExpiryBadge({ days }: { days: number | null }) {
   if (days < 0) return <Badge className="bg-destructive/20 text-destructive">Vencido</Badge>;
   if (days <= 30) return <Badge className="bg-yellow-500/20 text-yellow-400">{days}d</Badge>;
   return <Badge className="bg-green-500/20 text-green-400">{days}d</Badge>;
+}
+
+function computeNextBillingDate(startDate: string, cycle: string): string {
+  const base = new Date(startDate + "T12:00:00");
+  const now = new Date();
+  let next = base;
+  while (next <= now) {
+    next = cycle === "anual" ? addYears(next, 1) : addMonths(next, 1);
+  }
+  return next.toISOString().split("T")[0];
 }
 
 const emptyForm = {
@@ -67,6 +78,16 @@ export default function Contracts() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  // Subscription-specific state
+  const [saasParents, setSaasParents] = useState<any[]>([]);
+  const [saasPlans, setSaasPlans] = useState<any[]>([]);
+  const [selectedParentId, setSelectedParentId] = useState("");
+  const [selectedPlanId, setSelectedPlanId] = useState("");
+  const [autoRenew, setAutoRenew] = useState(true);
+  const [selectedPlan, setSelectedPlan] = useState<any>(null);
+
+  const isSubscription = form.contract_type === "Assinatura";
+
   const fetchData = useCallback(async () => {
     const [contractsRes, accountsRes, dealsRes, usersRes, templatesRes] = await Promise.all([
       supabase.from("contracts").select("*, crm_accounts(id, name), deals(name)").eq("is_active", true).order("created_at", { ascending: false }),
@@ -85,9 +106,39 @@ export default function Contracts() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Load SaaS parent products when type is Assinatura
+  useEffect(() => {
+    if (!isSubscription) return;
+    supabase.from("products").select("id, name").eq("is_parent", true).eq("is_subscription", true).order("name")
+      .then(({ data }) => setSaasParents(data || []));
+  }, [isSubscription]);
+
+  // Load child plans when parent selected
+  useEffect(() => {
+    if (!selectedParentId) { setSaasPlans([]); return; }
+    supabase.from("products").select("id, name, price, cost, billing_cycle, setup_fee, trial_days, plan_tier, annual_discount_percent")
+      .eq("parent_id", selectedParentId).order("price")
+      .then(({ data }) => setSaasPlans(data || []));
+  }, [selectedParentId]);
+
+  // Auto-fill form when plan selected
+  useEffect(() => {
+    if (!selectedPlanId) { setSelectedPlan(null); return; }
+    const plan = saasPlans.find(p => p.id === selectedPlanId);
+    if (plan) {
+      setSelectedPlan(plan);
+      const mrr = plan.billing_cycle === "anual" ? (plan.price || 0) / 12 : (plan.price || 0);
+      setForm(f => ({ ...f, value: String(plan.price || 0) }));
+    }
+  }, [selectedPlanId, saasPlans]);
+
   const openCreate = () => {
     setEditingId(null);
     setForm(emptyForm);
+    setSelectedParentId("");
+    setSelectedPlanId("");
+    setAutoRenew(true);
+    setSelectedPlan(null);
     setDialogOpen(true);
   };
 
@@ -101,6 +152,7 @@ export default function Contracts() {
       currency: c.currency || "BRL", renewal_date: c.renewal_date || "",
       owner_id: c.owner_id || "", template_id: (c as any).template_id || "",
     });
+    setAutoRenew(c.auto_renew ?? true);
     setDialogOpen(true);
   };
 
@@ -128,22 +180,42 @@ export default function Contracts() {
     if (form.value && parseFloat(form.value) < 0) {
       toast({ title: "Valor deve ser positivo", variant: "destructive" }); return false;
     }
+    if (isSubscription && !editingId && !selectedPlanId) {
+      toast({ title: "Selecione um plano SaaS", variant: "destructive" }); return false;
+    }
     return true;
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
+    if (!profile) return;
+
+    const price = form.value ? parseFloat(form.value) : null;
+    const mrr = isSubscription && price ? (selectedPlan?.billing_cycle === "anual" ? price / 12 : price) : null;
+    const nextBilling = isSubscription && form.start_date && selectedPlan
+      ? computeNextBillingDate(form.start_date, selectedPlan.billing_cycle || "mensal")
+      : null;
+
     const payload: any = {
       name: form.name, account_id: form.account_id || null,
       deal_id: form.deal_id || null, status: form.status,
       start_date: form.start_date || null, end_date: form.end_date || null,
-      value: form.value ? parseFloat(form.value) : null,
-      document_url: form.document_url || null, updated_at: new Date().toISOString(),
+      value: price, document_url: form.document_url || null,
+      updated_at: new Date().toISOString(),
       description: form.description || null, contract_type: form.contract_type || null,
       currency: form.currency, renewal_date: form.renewal_date || null,
-      owner_id: form.owner_id || null,
-      template_id: form.template_id || null,
+      owner_id: form.owner_id || null, template_id: form.template_id || null,
+      ...(isSubscription ? {
+        contract_type_extended: "subscription",
+        auto_renew: autoRenew,
+        next_billing_date: nextBilling,
+        mrr: mrr,
+      } : {}),
     };
 
     if (editingId) {
@@ -151,13 +223,24 @@ export default function Contracts() {
       if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
       else { toast({ title: "Contrato atualizado!" }); setDialogOpen(false); fetchData(); }
     } else {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
-      if (!profile) return;
-      const { error } = await supabase.from("contracts").insert({ ...payload, tenant_id: profile.tenant_id });
-      if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
-      else { toast({ title: "Contrato criado!" }); setDialogOpen(false); fetchData(); }
+      const { data: contractData, error } = await supabase.from("contracts").insert({ ...payload, tenant_id: profile.tenant_id }).select("id").single();
+      if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+      
+      // Create subscription record if type is Assinatura
+      if (isSubscription && contractData && selectedPlanId) {
+        await supabase.from("subscriptions").insert({
+          tenant_id: profile.tenant_id,
+          contract_id: contractData.id,
+          product_id: selectedPlanId,
+          status: "active",
+          billing_cycle: selectedPlan?.billing_cycle || "mensal",
+          price: price || 0,
+          start_date: form.start_date || new Date().toISOString().split("T")[0],
+          next_billing_date: nextBilling || form.start_date || new Date().toISOString().split("T")[0],
+        });
+      }
+
+      toast({ title: "Contrato criado!" }); setDialogOpen(false); fetchData();
     }
   };
 
@@ -261,6 +344,52 @@ export default function Contracts() {
                 </Select>
               </div>
             </div>
+
+            {/* Subscription section */}
+            {isSubscription && !editingId && (
+              <Card className="border-primary/30 bg-primary/5">
+                <CardContent className="pt-4 space-y-4">
+                  <h3 className="text-sm font-semibold text-primary">Itens da Assinatura</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Produto SaaS</Label>
+                      <Select value={selectedParentId} onValueChange={(v) => { setSelectedParentId(v); setSelectedPlanId(""); }}>
+                        <SelectTrigger><SelectValue placeholder="Selecione o produto..." /></SelectTrigger>
+                        <SelectContent>
+                          {saasParents.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Plano / SKU</Label>
+                      <Select value={selectedPlanId} onValueChange={setSelectedPlanId} disabled={!selectedParentId}>
+                        <SelectTrigger><SelectValue placeholder="Selecione o plano..." /></SelectTrigger>
+                        <SelectContent>
+                          {saasPlans.map(p => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.name} — R$ {Number(p.price || 0).toFixed(2)} / {p.billing_cycle || "mensal"}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  {selectedPlan && (
+                    <div className="grid grid-cols-4 gap-3 text-sm">
+                      <div><span className="text-muted-foreground">Ciclo:</span> <span className="font-medium">{selectedPlan.billing_cycle || "mensal"}</span></div>
+                      <div><span className="text-muted-foreground">Setup:</span> <span className="font-medium">R$ {Number(selectedPlan.setup_fee || 0).toFixed(2)}</span></div>
+                      <div><span className="text-muted-foreground">Trial:</span> <span className="font-medium">{selectedPlan.trial_days || 0} dias</span></div>
+                      <div><span className="text-muted-foreground">Desc. Anual:</span> <span className="font-medium">{selectedPlan.annual_discount_percent || 0}%</span></div>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3">
+                    <Switch checked={autoRenew} onCheckedChange={setAutoRenew} />
+                    <Label className="cursor-pointer">Renovação automática</Label>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2"><Label>Valor</Label><Input type="number" step="0.01" min="0" value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} /></div>
               <div className="space-y-2">
@@ -307,6 +436,7 @@ export default function Contracts() {
                     <TableHead>Status</TableHead>
                     <TableHead>Tipo</TableHead>
                     <TableHead>Valor</TableHead>
+                    <TableHead>MRR</TableHead>
                     <TableHead>Início</TableHead>
                     <TableHead>Término</TableHead>
                     <TableHead>Vencimento</TableHead>
@@ -315,7 +445,7 @@ export default function Contracts() {
                 </TableHeader>
                 <TableBody>
                   {paginated.length === 0 ? (
-                    <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Nenhum contrato encontrado</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Nenhum contrato encontrado</TableCell></TableRow>
                   ) : paginated.map((c) => (
                     <TableRow key={c.id}>
                       <TableCell className="font-medium">
@@ -327,8 +457,13 @@ export default function Contracts() {
                         ) : <span className="text-destructive">Sem Conta</span>}
                       </TableCell>
                       <TableCell><Badge className={statusColors[c.status] || ""}>{c.status}</Badge></TableCell>
-                      <TableCell>{c.contract_type || "—"}</TableCell>
+                      <TableCell>
+                        {c.contract_type === "Assinatura" ? (
+                          <Badge className="bg-primary/20 text-primary">Assinatura</Badge>
+                        ) : (c.contract_type || "—")}
+                      </TableCell>
                       <TableCell>{formatCurrency(c.value, c.currency)}</TableCell>
+                      <TableCell>{c.mrr ? formatCurrency(c.mrr, c.currency) : "—"}</TableCell>
                       <TableCell>{c.start_date ? new Date(c.start_date).toLocaleDateString("pt-BR") : "—"}</TableCell>
                       <TableCell>{c.end_date ? new Date(c.end_date).toLocaleDateString("pt-BR") : "—"}</TableCell>
                       <TableCell><ExpiryBadge days={getDaysUntilExpiry(c.end_date)} /></TableCell>
