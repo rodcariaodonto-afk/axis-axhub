@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, CheckCircle, Pencil, Trash2 } from "lucide-react";
+import { Plus, CheckCircle, Pencil, Trash2, RefreshCw } from "lucide-react";
 import PasswordConfirmDialog from "@/components/finance/PasswordConfirmDialog";
 import PaymentConfirmDialog from "@/components/finance/PaymentConfirmDialog";
 
@@ -151,7 +151,19 @@ export default function Receivables() {
           <h1 className="text-2xl font-bold tracking-tight">Contas a Receber</h1>
           <p className="text-muted-foreground">Acompanhe seus recebíveis</p>
         </div>
-        <Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" />Nova Conta</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={async () => {
+            try {
+              const { data, error } = await supabase.functions.invoke("generate-recurring-invoices");
+              if (error) throw error;
+              toast({ title: "Faturas geradas!", description: `${data?.generated || 0} fatura(s) recorrente(s) criada(s).` });
+              fetchData();
+            } catch (err: any) {
+              toast({ title: "Erro", description: err.message, variant: "destructive" });
+            }
+          }}><RefreshCw className="mr-2 h-4 w-4" />Gerar Faturas Recorrentes</Button>
+          <Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" />Nova Conta</Button>
+        </div>
       </div>
 
       <PasswordConfirmDialog open={passwordDialog.open} onOpenChange={(v) => setPasswordDialog((p) => ({ ...p, open: v }))} title={passwordDialog.title} description={passwordDialog.description} onConfirm={passwordDialog.onConfirm} variant={passwordDialog.variant} />
