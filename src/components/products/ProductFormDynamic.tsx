@@ -82,6 +82,7 @@ export default function ProductFormDynamic({ categories, customFields, onSuccess
 
     // Map productType to DB type field
     const dbType = productType === "service" ? "service" : "product";
+    const isSaas = productType === "saas";
 
     const { data: product, error } = await supabase.from("products").insert({
       tenant_id: profile.tenant_id,
@@ -89,9 +90,11 @@ export default function ProductFormDynamic({ categories, customFields, onSuccess
       name: form.name,
       type: dbType,
       category: form.category || null,
-      price: parseFloat(form.price) || 0,
-      cost: parseFloat(form.cost) || 0,
-    }).select().single();
+      price: isSaas ? 0 : (parseFloat(form.price) || 0),
+      cost: isSaas ? 0 : (parseFloat(form.cost) || 0),
+      is_parent: isSaas,
+      is_subscription: isSaas,
+    } as any).select().single();
 
     if (error || !product) {
       toast({ title: "Erro", description: error?.message, variant: "destructive" });
