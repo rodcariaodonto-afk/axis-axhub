@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Settings2, Trash2, ImageIcon, Pencil } from "lucide-react";
+import { Plus, Search, Settings2, Trash2, ImageIcon, Pencil, ChevronRight, ChevronDown } from "lucide-react";
 import ProductFormDynamic from "@/components/products/ProductFormDynamic";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
@@ -25,6 +25,11 @@ interface Product {
   cost: number | null;
   is_active: boolean;
   image_url: string | null;
+  parent_id: string | null;
+  is_parent: boolean;
+  is_subscription: boolean;
+  billing_cycle: string | null;
+  plan_tier: string | null;
 }
 
 interface CustomField {
@@ -55,6 +60,7 @@ export default function Products() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteProduct, setDeleteProduct] = useState<Product | null>(null);
   const [editForm, setEditForm] = useState({ sku: "", name: "", description: "", type: "product", category: "", price: "", cost: "" });
+  const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
   const [editUploading, setEditUploading] = useState(false);
   // Field management
   const [newFieldName, setNewFieldName] = useState("");
@@ -270,6 +276,37 @@ export default function Products() {
     (p) => p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase())
   );
 
+  const toggleParent = (id: string) => {
+    setExpandedParents((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // Separate parents from children; only show top-level (no parent_id) and expanded children
+  const topLevel = filtered.filter((p) => !p.parent_id);
+  const childrenMap: Record<string, Product[]> = {};
+  filtered.forEach((p) => {
+    if (p.parent_id) {
+      if (!childrenMap[p.parent_id]) childrenMap[p.parent_id] = [];
+      childrenMap[p.parent_id].push(p);
+    }
+  });
+
+  const getMinPrice = (parentId: string) => {
+    const children = childrenMap[parentId];
+    if (!children || children.length === 0) return null;
+    return Math.min(...children.map((c) => c.price));
+  };
+
+  const getTypeBadge = (p: Product) => {
+    if (p.is_parent && p.is_subscription) return <Badge className="bg-primary/20 text-primary border-primary/30">SaaS</Badge>;
+    if (p.is_subscription && p.plan_tier) return <Badge variant="outline" className="text-xs">{p.plan_tier}</Badge>;
+    return <Badge variant="secondary">{p.type === "product" ? "Produto" : "Serviço"}</Badge>;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -389,50 +426,107 @@ export default function Products() {
             <TableBody>
               {loading ? (
                 <TableRow><TableCell colSpan={9 + customFields.length} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
-              ) : filtered.length === 0 ? (
+              ) : topLevel.length === 0 ? (
                 <TableRow><TableCell colSpan={9 + customFields.length} className="text-center py-8 text-muted-foreground">Nenhum produto encontrado</TableCell></TableRow>
               ) : (
-                filtered.map((p) => (
-                  <TableRow key={p.id} className="border-border">
-                    <TableCell>
-                      {p.image_url ? (
-                        <img src={p.image_url} alt={p.name} className="h-8 w-8 rounded object-cover" />
-                      ) : (
-                        <div className="h-8 w-8 rounded bg-muted flex items-center justify-center">
-                          <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">{p.sku}</TableCell>
-                    <TableCell className="font-medium">{p.name}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{p.type === "product" ? "Produto" : "Serviço"}</Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{p.category || "—"}</TableCell>
-                    <TableCell className="text-right">R$ {Number(p.price).toFixed(2)}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">R$ {Number(p.cost || 0).toFixed(2)}</TableCell>
-                    {customFields.map((f) => (
-                      <TableCell key={f.id} className="text-muted-foreground">
-                        {productCustomValues[p.id]?.[f.id] || "—"}
+                topLevel.flatMap((p) => {
+                  const hasChildren = !!childrenMap[p.id]?.length;
+                  const isExpanded = expandedParents.has(p.id);
+                  const minPrice = getMinPrice(p.id);
+                  const rows = [
+                    <TableRow key={p.id} className={`border-border ${hasChildren ? "cursor-pointer" : ""}`} onClick={hasChildren ? () => toggleParent(p.id) : undefined}>
+                      <TableCell>
+                        {hasChildren ? (
+                          <div className="flex items-center gap-1">
+                            {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                            {p.image_url ? (
+                              <img src={p.image_url} alt={p.name} className="h-8 w-8 rounded object-cover" />
+                            ) : (
+                              <div className="h-8 w-8 rounded bg-muted flex items-center justify-center">
+                                <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          p.image_url ? (
+                            <img src={p.image_url} alt={p.name} className="h-8 w-8 rounded object-cover" />
+                          ) : (
+                            <div className="h-8 w-8 rounded bg-muted flex items-center justify-center">
+                              <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          )
+                        )}
                       </TableCell>
-                    ))}
-                    <TableCell>
-                      <Badge variant={p.is_active ? "default" : "secondary"}>
-                        {p.is_active ? "Ativo" : "Inativo"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(p)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteProduct(p)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                      <TableCell className="font-mono text-xs">{p.sku}</TableCell>
+                      <TableCell className="font-medium">{p.name}</TableCell>
+                      <TableCell>{getTypeBadge(p)}</TableCell>
+                      <TableCell className="text-muted-foreground">{p.category || "—"}</TableCell>
+                      <TableCell className="text-right">
+                        {p.is_parent && minPrice != null
+                          ? <span className="text-xs text-muted-foreground">A partir de R$ {minPrice.toFixed(2)}</span>
+                          : `R$ ${Number(p.price).toFixed(2)}`}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {p.is_parent ? "—" : `R$ ${Number(p.cost || 0).toFixed(2)}`}
+                      </TableCell>
+                      {customFields.map((f) => (
+                        <TableCell key={f.id} className="text-muted-foreground">
+                          {productCustomValues[p.id]?.[f.id] || "—"}
+                        </TableCell>
+                      ))}
+                      <TableCell>
+                        <Badge variant={p.is_active ? "default" : "secondary"}>
+                          {p.is_active ? "Ativo" : "Inativo"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); handleEdit(p); }}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setDeleteProduct(p); }}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ];
+                  // Render children if expanded
+                  if (isExpanded && childrenMap[p.id]) {
+                    childrenMap[p.id].forEach((child) => {
+                      rows.push(
+                        <TableRow key={child.id} className="border-border bg-muted/30">
+                          <TableCell><div className="ml-6 h-8 w-8" /></TableCell>
+                          <TableCell className="font-mono text-xs text-muted-foreground">{child.sku}</TableCell>
+                          <TableCell className="text-muted-foreground pl-6">{child.plan_tier || child.name}</TableCell>
+                          <TableCell>{getTypeBadge(child)}</TableCell>
+                          <TableCell className="text-muted-foreground">{child.billing_cycle || "—"}</TableCell>
+                          <TableCell className="text-right">R$ {Number(child.price).toFixed(2)}</TableCell>
+                          <TableCell className="text-right text-muted-foreground">R$ {Number(child.cost || 0).toFixed(2)}</TableCell>
+                          {customFields.map((f) => (
+                            <TableCell key={f.id} className="text-muted-foreground">—</TableCell>
+                          ))}
+                          <TableCell>
+                            <Badge variant={child.is_active ? "default" : "secondary"}>
+                              {child.is_active ? "Ativo" : "Inativo"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(child)}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteProduct(child)}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    });
+                  }
+                  return rows;
+                })
               )}
             </TableBody>
           </Table>

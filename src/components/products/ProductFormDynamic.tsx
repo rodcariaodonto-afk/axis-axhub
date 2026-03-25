@@ -9,7 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Upload } from "lucide-react";
-import { PRODUCT_TYPES, ProductType, getVisibleFields, generateVariations, VariationConfig, GeneratedVariation, isSKURequired, generateAutoSKU } from "@/lib/productUtils";
+import { PRODUCT_TYPES, ProductType, getVisibleFields, generateVariations, VariationConfig, GeneratedVariation, isSKURequired, generateAutoSKU, SaaSPlan } from "@/lib/productUtils";
+import SaaSPlanEditor from "./SaaSPlanEditor";
 import VariationSelector from "./VariationSelector";
 import VariationPreview from "./VariationPreview";
 import ChannelSelector, { ChannelConfig } from "./ChannelSelector";
@@ -28,6 +29,7 @@ export default function ProductFormDynamic({ categories, customFields, onSuccess
   const [variationConfigs, setVariationConfigs] = useState<VariationConfig[]>([]);
   const [generatedVariations, setGeneratedVariations] = useState<GeneratedVariation[]>([]);
   const [channels, setChannels] = useState<ChannelConfig[]>([]);
+  const [saasPlans, setSaasPlans] = useState<SaaSPlan[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -80,6 +82,7 @@ export default function ProductFormDynamic({ categories, customFields, onSuccess
 
     // Map productType to DB type field
     const dbType = productType === "service" ? "service" : "product";
+    const isSaas = productType === "saas";
 
     const { data: product, error } = await supabase.from("products").insert({
       tenant_id: profile.tenant_id,
@@ -87,9 +90,11 @@ export default function ProductFormDynamic({ categories, customFields, onSuccess
       name: form.name,
       type: dbType,
       category: form.category || null,
-      price: parseFloat(form.price) || 0,
-      cost: parseFloat(form.cost) || 0,
-    }).select().single();
+      price: isSaas ? 0 : (parseFloat(form.price) || 0),
+      cost: isSaas ? 0 : (parseFloat(form.cost) || 0),
+      is_parent: isSaas,
+      is_subscription: isSaas,
+    } as any).select().single();
 
     if (error || !product) {
       toast({ title: "Erro", description: error?.message, variant: "destructive" });
@@ -142,6 +147,30 @@ export default function ProductFormDynamic({ categories, customFields, onSuccess
         sync_enabled: ch.sync_enabled,
       }));
       await supabase.from("product_channels" as any).insert(channelsToInsert);
+    }
+
+    // Save SaaS child plans
+    if (isSaas && saasPlans.length > 0) {
+      for (const plan of saasPlans) {
+        if (!plan.tier) continue;
+        await supabase.from("products").insert({
+          tenant_id: profile.tenant_id,
+          sku: plan.sku,
+          name: `${form.name} - ${plan.tier}`,
+          type: "product",
+          category: form.category || null,
+          price: plan.price,
+          cost: plan.cost,
+          parent_id: product.id,
+          is_parent: false,
+          is_subscription: true,
+          billing_cycle: plan.billing_cycle,
+          plan_tier: plan.tier,
+          setup_fee: plan.setup_fee,
+          trial_days: plan.trial_days,
+          annual_discount_percent: plan.annual_discount_percent,
+        } as any);
+      }
     }
 
     toast({ title: "Produto criado!" });
@@ -269,6 +298,17 @@ export default function ProductFormDynamic({ categories, customFields, onSuccess
         <div className="space-y-2 border-t border-border pt-3">
           <Label className="text-base font-semibold">Canais de Venda</Label>
           <ChannelSelector channels={channels} onChange={setChannels} />
+        </div>
+      )}
+
+      {/* SaaS Plans */}
+      {visibleFields.includes("saas_plans") && (
+        <div className="space-y-2 border-t border-border pt-3">
+          <Label className="text-base font-semibold">Planos / SKUs Filhos</Label>
+          <p className="text-xs text-muted-foreground">
+            O produto pai funciona como container. Cada plano gera um SKU filho com preço e ciclo próprios.
+          </p>
+          <SaaSPlanEditor plans={saasPlans} onChange={setSaasPlans} baseSku={form.sku || "SAAS"} />
         </div>
       )}
 

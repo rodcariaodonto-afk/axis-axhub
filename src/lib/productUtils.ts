@@ -1,5 +1,5 @@
 
-export type ProductType = "service" | "simple_product" | "variable_product" | "ecommerce" | "physical_store" | "multi_channel";
+export type ProductType = "service" | "simple_product" | "variable_product" | "ecommerce" | "physical_store" | "multi_channel" | "saas";
 
 export const PRODUCT_TYPES: { value: ProductType; label: string; description: string }[] = [
   { value: "service", label: "Serviço", description: "Serviço sem estoque físico" },
@@ -8,6 +8,7 @@ export const PRODUCT_TYPES: { value: ProductType; label: string; description: st
   { value: "ecommerce", label: "E-commerce", description: "Venda exclusiva online" },
   { value: "physical_store", label: "Loja Física", description: "Venda em ponto de venda" },
   { value: "multi_channel", label: "Multi-canal", description: "Venda em múltiplos canais" },
+  { value: "saas", label: "SaaS / Assinatura", description: "Produto recorrente com planos" },
 ];
 
 export const VARIATION_TYPES = [
@@ -99,9 +100,35 @@ export function getVisibleFields(type: ProductType) {
       return [...base, "cost", "stock", "category", "barcode"];
     case "multi_channel":
       return [...base, "cost", "stock", "category", "variations", "channels"];
+    case "saas":
+      return [...base, "category", "description", "saas_plans"];
     default:
       return base;
   }
+}
+
+export const BILLING_CYCLES = [
+  { value: "monthly", label: "Mensal" },
+  { value: "quarterly", label: "Trimestral" },
+  { value: "semiannual", label: "Semestral" },
+  { value: "annual", label: "Anual" },
+];
+
+export interface SaaSPlan {
+  tier: string;
+  sku: string;
+  billing_cycle: string;
+  price: number;
+  cost: number;
+  setup_fee: number;
+  trial_days: number;
+  annual_discount_percent: number;
+}
+
+export function generatePlanSKU(baseSku: string, tier: string, cycle: string): string {
+  const t = tier.substring(0, 4).toUpperCase().replace(/\s/g, "");
+  const c = cycle.substring(0, 3).toUpperCase();
+  return `${baseSku}-${t}-${c}`;
 }
 
 // Categories/types where SKU is optional
