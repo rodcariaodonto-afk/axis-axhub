@@ -274,6 +274,17 @@ export default function ProductFormDynamic({ categories, customFields, onSuccess
         </div>
       )}
 
+      {/* SaaS Plans */}
+      {visibleFields.includes("saas_plans") && (
+        <div className="space-y-2 border-t border-border pt-3">
+          <Label className="text-base font-semibold">Planos / SKUs Filhos</Label>
+          <p className="text-xs text-muted-foreground">
+            O produto pai funciona como container. Cada plano gera um SKU filho com preço e ciclo próprios.
+          </p>
+          <SaaSPlanEditor plans={saasPlans} onChange={setSaasPlans} baseSku={form.sku || "SAAS"} />
+        </div>
+      )}
+
       {/* Custom Fields */}
       {customFields.length > 0 && (
         <div className="space-y-3 pt-2 border-t border-border">
