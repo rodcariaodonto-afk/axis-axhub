@@ -228,13 +228,16 @@ export default function Contracts() {
       
       // Create subscription record if type is Assinatura
       if (isSubscription && contractData && selectedPlanId) {
+        const subMrr = selectedPlan?.billing_cycle === "anual" ? (price || 0) / 12 : (price || 0);
         await supabase.from("subscriptions").insert({
           tenant_id: profile.tenant_id,
           contract_id: contractData.id,
-          product_id: selectedPlanId,
+          product_id: selectedParentId,
+          plan_sku_id: selectedPlanId,
           status: "active",
           billing_cycle: selectedPlan?.billing_cycle || "mensal",
           price: price || 0,
+          mrr: subMrr,
           start_date: form.start_date || new Date().toISOString().split("T")[0],
           next_billing_date: nextBilling || form.start_date || new Date().toISOString().split("T")[0],
         });
