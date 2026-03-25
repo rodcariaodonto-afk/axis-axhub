@@ -9,7 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Upload } from "lucide-react";
-import { PRODUCT_TYPES, ProductType, getVisibleFields, generateVariations, VariationConfig, GeneratedVariation, isSKURequired, generateAutoSKU } from "@/lib/productUtils";
+import { PRODUCT_TYPES, ProductType, getVisibleFields, generateVariations, VariationConfig, GeneratedVariation, isSKURequired, generateAutoSKU, SaaSPlan } from "@/lib/productUtils";
+import SaaSPlanEditor from "./SaaSPlanEditor";
 import VariationSelector from "./VariationSelector";
 import VariationPreview from "./VariationPreview";
 import ChannelSelector, { ChannelConfig } from "./ChannelSelector";
@@ -28,6 +29,7 @@ export default function ProductFormDynamic({ categories, customFields, onSuccess
   const [variationConfigs, setVariationConfigs] = useState<VariationConfig[]>([]);
   const [generatedVariations, setGeneratedVariations] = useState<GeneratedVariation[]>([]);
   const [channels, setChannels] = useState<ChannelConfig[]>([]);
+  const [saasPlans, setSaasPlans] = useState<SaaSPlan[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
