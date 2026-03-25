@@ -15,6 +15,7 @@ export default function Dashboard() {
   const [metrics, setMetrics] = useState<Metrics>({ activeProducts: 0, pendingOrders: 0, totalReceivable: 0, lowStock: 0, totalCustomers: 0, totalSuppliers: 0 });
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [chartData, setChartData] = useState<any[]>([]);
+  const [saas, setSaas] = useState<SaaSMetrics>({ mrr: 0, arr: 0, activeSubscriptions: 0, churnRate: 0, hasSubs: false });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
