@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Settings2, Trash2, ImageIcon, Pencil } from "lucide-react";
+import { Plus, Search, Settings2, Trash2, ImageIcon, Pencil, ChevronRight, ChevronDown } from "lucide-react";
 import ProductFormDynamic from "@/components/products/ProductFormDynamic";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
@@ -25,6 +25,11 @@ interface Product {
   cost: number | null;
   is_active: boolean;
   image_url: string | null;
+  parent_id: string | null;
+  is_parent: boolean;
+  is_subscription: boolean;
+  billing_cycle: string | null;
+  plan_tier: string | null;
 }
 
 interface CustomField {
