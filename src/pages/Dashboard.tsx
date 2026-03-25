@@ -3,10 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Package, ShoppingCart, ArrowUpCircle, AlertTriangle, Users, Truck } from "lucide-react";
+import { Package, ShoppingCart, ArrowUpCircle, AlertTriangle, Users, Truck, Repeat, TrendingUp, CreditCard, UserMinus } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 interface Metrics { activeProducts: number; pendingOrders: number; totalReceivable: number; lowStock: number; totalCustomers: number; totalSuppliers: number; }
+interface SaaSMetrics { mrr: number; arr: number; activeSubscriptions: number; churnRate: number; hasSubs: boolean; }
 
 const statusLabels: Record<string, string> = { draft: "Rascunho", pending_approval: "Aguardando", approved: "Aprovado", shipped: "Enviado", completed: "Concluído", canceled: "Cancelado" };
 
