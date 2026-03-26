@@ -128,7 +128,8 @@ export interface SaaSPlan {
 export function generatePlanSKU(baseSku: string, tier: string, cycle: string): string {
   const t = tier.substring(0, 4).toUpperCase().replace(/\s/g, "");
   const c = cycle.substring(0, 3).toUpperCase();
-  return `${baseSku}-${t}-${c}`;
+  const ts = Date.now().toString(36).slice(-4).toUpperCase();
+  return `${baseSku}-${t}-${c}-${ts}`;
 }
 
 // Categories/types where SKU is optional
