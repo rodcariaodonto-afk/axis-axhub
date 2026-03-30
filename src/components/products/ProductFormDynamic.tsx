@@ -22,6 +22,14 @@ interface ProductFormDynamicProps {
   onClose: () => void;
 }
 
+const parseBRCurrency = (v: string): number => {
+  if (!v) return 0;
+  // If has comma, treat as BR format: "20.000,50" → "20000.50"
+  if (v.includes(",")) return parseFloat(v.replace(/\./g, "").replace(",", ".")) || 0;
+  // Otherwise plain number: "20000" or "20000.50"
+  return parseFloat(v) || 0;
+};
+
 export default function ProductFormDynamic({ categories, customFields, onSuccess, onClose }: ProductFormDynamicProps) {
   const [productType, setProductType] = useState<ProductType>("simple_product");
   const [form, setForm] = useState({ sku: "", name: "", price: "", cost: "", category: "", description: "" });
