@@ -1,24 +1,47 @@
 
 
-## Etapa 3 — Dashboard SaaS + Métricas de Assinatura
+## Melhorias no Cadastro de Contas: CEP Automático, Dropdowns de Cidade/Estado e Exclusão de Duplicata
 
-### O que será feito
+### 1. Excluir conta duplicada "Cleide"
 
-**1. Seção "Métricas SaaS" no Dashboard (`src/pages/Dashboard.tsx`)**
-- Adicionar nova seção abaixo dos cards existentes (antes do gráfico de receitas)
-- Consultar tabela `subscriptions` para calcular:
-  - **MRR** (soma de `mrr` onde `status = 'active'`)
-  - **ARR** (MRR × 12)
-  - **Assinaturas Ativas** (count onde `status = 'active'`)
-  - **Churn Rate** (count `canceled` no mês / total início do mês × 100)
-- 4 KPI cards em linha com ícones diferenciados (Repeat, TrendingUp, CreditCard, UserMinus)
-- Seção só aparece se houver pelo menos 1 subscription no banco
+Usar o insert tool para soft-delete (is_active = false) na conta duplicada `9cbd1ad8-8fc8-453d-8a8c-53f4cce12d39` (a mais recente das duas).
 
-**2. Nenhuma alteração de banco** — todos os dados já existem na tabela `subscriptions` criada na Etapa 1
+### 2. Busca automática por CEP (ViaCEP API)
+
+Nos dois arquivos de formulário (`Accounts.tsx` e `AccountDetail.tsx`):
+- Ao digitar/colar CEP com 8 dígitos (ou formato 00000-000), chamar `https://viacep.com.br/ws/{cep}/json/`
+- Auto-preencher: Endereço (logradouro + bairro), Cidade, Estado, País ("Brasil")
+- Mostrar loading spinner no campo CEP durante a busca
+- Mover o campo CEP para **antes** dos campos de Endereço, Cidade e Estado na ordem do formulário
+
+### 3. Dropdown de Estado com todos os 27 UFs brasileiros
+
+- Substituir o `<Input>` de Estado por um `<Select>` com as 27 UFs (AC, AL, AM, ..., TO)
+- Exibir nome completo + sigla (ex: "Mato Grosso do Sul (MS)")
+- Valor armazenado: sigla (ex: "MS")
+
+### 4. Dropdown de Cidade filtrado por Estado
+
+- Usar lista estática dos municípios brasileiros seria muito pesada (~5570 cidades)
+- Alternativa: usar a API do IBGE (`https://servicodados.ibge.gov.br/api/v1/localidades/estados/{UF}/municipios`) para carregar cidades dinamicamente quando o estado é selecionado
+- Substituir o `<Input>` de Cidade por um `<Select>` com busca (ou Combobox) populado pela API
+- Ao selecionar via CEP, o estado e cidade são preenchidos automaticamente
 
 ### Arquivos modificados
-- `src/pages/Dashboard.tsx` — adicionar seção SaaS com 4 KPIs
+- `src/pages/Accounts.tsx` — formulário de criação/edição: reordenar campos, CEP com fetch, dropdowns estado/cidade
+- `src/pages/AccountDetail.tsx` — mesmo formulário de edição: mesmas mudanças
+- Dados: soft-delete da conta duplicada via insert tool
 
-### Nota
-A página de detalhes do Produto Pai (`/products/:id`) mencionada no plano original pode ser implementada futuramente se necessário — por ora os planos já são visíveis via expansão na listagem de produtos.
+### Ordem dos campos de endereço (novo layout)
+```text
+CEP          | País
+Endereço (rua, número)
+Cidade       | Estado
+```
+
+### Detalhes técnicos
+- ViaCEP é gratuita e não requer API key
+- API IBGE de municípios é gratuita e pública
+- Debounce de 500ms no campo CEP para evitar requests desnecessários
+- Cache das cidades por UF em memória para evitar re-fetches
 
