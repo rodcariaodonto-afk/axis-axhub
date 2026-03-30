@@ -128,7 +128,37 @@ export default function Orders() {
       }
     }
     await supabase.from("order_payments").insert(orderPayments as any);
-    toast({ title: "Pedido criado!", description: `Número: ${orderNumber}` });
+
+    // Generate receivables for each payment/installment
+    const receivables: any[] = [];
+    let installmentCounter: Record<string, { current: number; total: number }> = {};
+    for (const p of payments) {
+      const key = p.method;
+      if (!installmentCounter[key]) installmentCounter[key] = { current: 0, total: p.installments };
+    }
+    for (const op of orderPayments) {
+      const methodLabel = pmLabels[op.method] || op.method;
+      const counterKey = op.method;
+      installmentCounter[counterKey].current++;
+      const cur = installmentCounter[counterKey].current;
+      const tot = installmentCounter[counterKey].total;
+      const desc = tot > 1
+        ? `Pedido ${orderNumber} — ${methodLabel} ${cur}/${tot}`
+        : `Pedido ${orderNumber} — ${methodLabel}`;
+      receivables.push({
+        tenant_id: profile.tenant_id,
+        description: desc,
+        amount: op.amount,
+        due_date: op.due_date || new Date().toISOString().split("T")[0],
+        order_id: order.id,
+        customer_id: selectedCustomer,
+      });
+    }
+    if (receivables.length > 0) {
+      await supabase.from("receivables").insert(receivables as any);
+    }
+
+    toast({ title: "Pedido criado!", description: `Número: ${orderNumber} — ${receivables.length} recebível(is) gerado(s)` });
     setDialogOpen(false); fetchOrders();
   };
 
@@ -136,20 +166,25 @@ export default function Orders() {
     const { error } = await supabase.from("orders").update({ status: newStatus }).eq("id", orderId);
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     if (newStatus === "completed") {
-      try {
-        const { data: order } = await supabase.from("orders").select("*").eq("id", orderId).single();
-        const { data: { user: u } } = await supabase.auth.getUser();
-        const { data: profile } = u ? await supabase.from("profiles").select("tenant_id").eq("id", u.id).single() : { data: null };
-        if (order && profile) {
-          const dueDate = new Date();
-          dueDate.setDate(dueDate.getDate() + 30);
-          await supabase.from("receivables").insert({
-            tenant_id: profile.tenant_id, description: `Pedido ${order.number}`, amount: Number(order.total),
-            due_date: dueDate.toISOString().split("T")[0], order_id: orderId, customer_id: order.customer_id, deal_id: order.deal_id,
-          } as any);
-          toast({ title: `Pedido concluído!`, description: "Conta a receber gerada automaticamente (venc. 30 dias)." });
-        }
-      } catch { toast({ title: `Status alterado para ${statusLabels[newStatus]}` }); }
+      // Check if receivables already exist (created during order creation)
+      const { data: existingReceivables } = await supabase.from("receivables").select("id").eq("order_id", orderId);
+      if (!existingReceivables || existingReceivables.length === 0) {
+        // Legacy fallback for old orders without split payments
+        try {
+          const { data: order } = await supabase.from("orders").select("*").eq("id", orderId).single();
+          const { data: { user: u } } = await supabase.auth.getUser();
+          const { data: profile } = u ? await supabase.from("profiles").select("tenant_id").eq("id", u.id).single() : { data: null };
+          if (order && profile) {
+            const dueDate = new Date();
+            dueDate.setDate(dueDate.getDate() + 30);
+            await supabase.from("receivables").insert({
+              tenant_id: profile.tenant_id, description: `Pedido ${order.number}`, amount: Number(order.total),
+              due_date: dueDate.toISOString().split("T")[0], order_id: orderId, customer_id: order.customer_id, deal_id: order.deal_id,
+            } as any);
+          }
+        } catch { /* ignore */ }
+      }
+      toast({ title: `Pedido concluído!`, description: "Recebíveis já gerados na criação do pedido." });
     } else {
       toast({ title: `Status alterado para ${statusLabels[newStatus]}` });
     }
