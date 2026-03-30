@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
+import { formatDocument, stripDocument } from "@/lib/documentMask";
 
 interface CompanyForm {
   company_name: string;
@@ -92,7 +93,7 @@ export default function CompanyGeneral() {
           </div>
           <div className="space-y-1.5">
             <Label>CNPJ</Label>
-            <Input {...form.register("cnpj")} />
+            <Input {...form.register("cnpj", { onChange: (e) => { e.target.value = formatDocument(e.target.value); } })} />
           </div>
           <div className="space-y-1.5">
             <Label>Endereço</Label>

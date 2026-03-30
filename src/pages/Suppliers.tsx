@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search } from "lucide-react";
+import { formatDocument, stripDocument } from "@/lib/documentMask";
 
 export default function Suppliers() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
@@ -32,7 +33,7 @@ export default function Suppliers() {
     const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
     if (!profile) return;
     const { error } = await supabase.from("suppliers").insert({
-      tenant_id: profile.tenant_id, ...form, cnpj: form.cnpj || null, email: form.email || null, phone: form.phone || null,
+      tenant_id: profile.tenant_id, ...form, cnpj: stripDocument(form.cnpj) || null, email: form.email || null, phone: form.phone || null,
     });
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
     else { toast({ title: "Fornecedor criado!" }); setDialogOpen(false); setForm({ name: "", cnpj: "", email: "", phone: "" }); fetchData(); }
@@ -53,7 +54,7 @@ export default function Suppliers() {
             <DialogHeader><DialogTitle>Novo Fornecedor</DialogTitle></DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="space-y-2"><Label>Nome</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
-              <div className="space-y-2"><Label>CNPJ</Label><Input value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} /></div>
+              <div className="space-y-2"><Label>CNPJ</Label><Input value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: formatDocument(e.target.value) })} /></div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>E-mail</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
                 <div className="space-y-2"><Label>Telefone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
@@ -77,7 +78,7 @@ export default function Suppliers() {
               filtered.map((s) => (
                 <TableRow key={s.id} className="border-border">
                   <TableCell className="font-medium">{s.name}</TableCell>
-                  <TableCell className="font-mono text-xs">{s.cnpj || "—"}</TableCell>
+                  <TableCell className="font-mono text-xs">{s.cnpj ? formatDocument(s.cnpj) : "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{s.email || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{s.phone || "—"}</TableCell>
                 </TableRow>
