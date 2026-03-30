@@ -42,12 +42,6 @@ export default function Customers() {
 
   useEffect(() => { fetchCustomers(); }, []);
 
-  const openCreate = () => {
-    setEditingId(null);
-    setForm({ name: "", document: "", email: "", phone: "" });
-    setDialogOpen(true);
-  };
-
   const openEdit = (c: Customer) => {
     setEditingId(c.id);
     setForm({ name: c.name, document: c.document || "", email: c.email || "", phone: c.phone || "" });
