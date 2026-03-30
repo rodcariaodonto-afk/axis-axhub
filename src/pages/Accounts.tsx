@@ -41,7 +41,7 @@ export default function Accounts() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [owners, setOwners] = useState<any[]>([]);
   const [page, setPage] = useState(1);
-  const [docType, setDocType] = useState<"cpf" | "cnpj">("cnpj");
+  const [docType, setDocType] = useState<DocType>("cnpj");
   const [form, setForm] = useState({
     name: "", cnpj: "", email: "", phone: "", segment: "", website: "", instagram: "",
     street: "", city: "", state: "", country: "", postal_code: "", owner_user_id: "",
