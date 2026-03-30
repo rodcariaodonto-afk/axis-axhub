@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
+import { formatDocument, stripDocument } from "@/lib/documentMask";
 
 interface CompanyForm {
   company_name: string;
