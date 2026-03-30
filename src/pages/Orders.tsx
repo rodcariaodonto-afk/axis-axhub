@@ -42,6 +42,8 @@ export default function Orders() {
   const [selectedProduct, setSelectedProduct] = useState("");
   const [itemQty, setItemQty] = useState("1");
   const [notes, setNotes] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("pix");
+  const [installments, setInstallments] = useState("1");
   const { toast } = useToast();
 
   const fetchOrders = useCallback(async () => {
@@ -60,7 +62,7 @@ export default function Orders() {
     setCustomers(c || []); setProducts(p || []);
   };
 
-  const handleOpenDialog = () => { loadFormData(); setSelectedCustomer(""); setItems([]); setNotes(""); setDialogOpen(true); };
+  const handleOpenDialog = () => { loadFormData(); setSelectedCustomer(""); setItems([]); setNotes(""); setPaymentMethod("pix"); setInstallments("1"); setDialogOpen(true); };
 
   const addItem = () => {
     const product = products.find((p) => p.id === selectedProduct);
@@ -80,7 +82,7 @@ export default function Orders() {
     const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
     if (!profile) return;
     const orderNumber = `PED-${Date.now().toString(36).toUpperCase()}`;
-    const { data: order, error } = await supabase.from("orders").insert({ tenant_id: profile.tenant_id, number: orderNumber, customer_id: selectedCustomer, subtotal, total: subtotal, notes: notes || null }).select().single();
+    const { data: order, error } = await supabase.from("orders").insert({ tenant_id: profile.tenant_id, number: orderNumber, customer_id: selectedCustomer, subtotal, total: subtotal, notes: notes || null, payment_method: paymentMethod, installments: parseInt(installments) || 1 } as any).select().single();
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     const orderItems = items.map((i) => ({ tenant_id: profile.tenant_id, order_id: order.id, product_id: i.product_id, quantity: i.quantity, unit_price: i.unit_price, total: i.total }));
     await supabase.from("order_items").insert(orderItems);
@@ -158,8 +160,40 @@ export default function Orders() {
                   <div className="p-3 border-t border-border flex justify-between items-center"><span className="text-sm text-muted-foreground">{items.length} item(ns)</span><span className="text-lg font-bold">Total: R$ {subtotal.toFixed(2)}</span></div>
                 </div>
               )}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Forma de Pagamento</Label>
+                  <Select value={paymentMethod} onValueChange={(v) => { setPaymentMethod(v); if (v !== "credit_card") setInstallments("1"); }}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pix">PIX</SelectItem>
+                      <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
+                      <SelectItem value="debit_card">Cartão de Débito</SelectItem>
+                      <SelectItem value="boleto">Boleto</SelectItem>
+                      <SelectItem value="transfer">Transferência</SelectItem>
+                      <SelectItem value="cash">Dinheiro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {paymentMethod === "credit_card" && (
+                  <div className="space-y-2">
+                    <Label>Parcelas</Label>
+                    <Select value={installments} onValueChange={setInstallments}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+                          <SelectItem key={n} value={String(n)}>{n}x {n === 1 ? "à vista" : `de R$ ${(subtotal / n).toFixed(2)}`}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
               <div className="space-y-2"><Label>Observações</Label><Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notas do pedido (opcional)" /></div>
-              <Button onClick={handleCreate} className="w-full" disabled={!selectedCustomer || items.length === 0}>Criar Pedido</Button>
+              <Button onClick={handleCreate} className="w-full" disabled={!selectedCustomer || items.length === 0}>
+                Criar Pedido
+                {items.length === 0 && <span className="ml-2 text-xs opacity-70">(adicione itens com o botão +)</span>}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -170,16 +204,21 @@ export default function Orders() {
       <Card className="border-border bg-card">
         <CardContent className="p-0">
           <Table>
-            <TableHeader><TableRow className="border-border"><TableHead>Nº Pedido</TableHead><TableHead>Cliente</TableHead><TableHead>Deal</TableHead><TableHead>Status</TableHead><TableHead>Pagamento</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="w-10" /></TableRow></TableHeader>
+            <TableHeader><TableRow className="border-border"><TableHead>Nº Pedido</TableHead><TableHead>Cliente</TableHead><TableHead>Deal</TableHead><TableHead>Status</TableHead><TableHead>Forma Pgto</TableHead><TableHead>Pagamento</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="w-10" /></TableRow></TableHeader>
             <TableBody>
-              {loading ? <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow> :
-              filtered.length === 0 ? <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum pedido encontrado</TableCell></TableRow> :
-              filtered.map((o) => (
+              {loading ? <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow> :
+              filtered.length === 0 ? <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum pedido encontrado</TableCell></TableRow> :
+              filtered.map((o) => {
+                const pmLabels: Record<string, string> = { pix: "PIX", credit_card: "Cartão Créd.", debit_card: "Cartão Déb.", boleto: "Boleto", transfer: "Transferência", cash: "Dinheiro" };
+                const pm = (o as any).payment_method || "pix";
+                const inst = (o as any).installments || 1;
+                return (
                 <TableRow key={o.id} className="border-border">
                   <TableCell className="font-mono text-xs">{o.number}</TableCell>
                   <TableCell className="font-medium">{o.customers?.name || "—"}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{(o as any).deals?.name || "—"}</TableCell>
                   <TableCell><Badge variant={statusColors[o.status] as any || "secondary"}>{statusLabels[o.status] || o.status}</Badge></TableCell>
+                  <TableCell className="text-sm">{pmLabels[pm] || pm}{inst > 1 ? ` ${inst}x` : ""}</TableCell>
                   <TableCell><Badge variant={o.paid_status === "paid" ? "default" : "secondary"}>{o.paid_status === "paid" ? "Pago" : o.paid_status === "partial" ? "Parcial" : "Pendente"}</Badge></TableCell>
                   <TableCell className="text-right font-medium">R$ {Number(o.total).toFixed(2)}</TableCell>
                   <TableCell>
@@ -195,7 +234,7 @@ export default function Orders() {
                     )}
                   </TableCell>
                 </TableRow>
-              ))}
+              );})}
             </TableBody>
           </Table>
         </CardContent>
