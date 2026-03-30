@@ -1,26 +1,20 @@
 
 
-## Limpar Dados da Cleide + Adicionar Botão Deletar Pedido
+## Corrigir Campo de Valor nos Pagamentos do Pedido
 
-### 1. Deletar recebíveis da cliente Cleide
-Executar via ferramenta de inserção/deleção SQL:
-```sql
-DELETE FROM receivables WHERE customer_id IN (SELECT id FROM customers WHERE name ILIKE '%cleide%');
-```
+### Problema
+O campo "Valor (R$)" na seção de formas de pagamento usa `type="number"`, que não suporta formatação brasileira. Ao digitar "10.000" (dez mil), o navegador interpreta como "10,00000".
 
-### 2. Adicionar opção "Excluir Pedido" no dropdown de ações (`src/pages/Orders.tsx`)
+### Solução
+Aplicar o mesmo padrão `parseBRCurrency` já usado nos produtos:
 
-**Mudanças:**
-- Adicionar função `deleteOrder` que:
-  1. Deleta recebíveis associados (`receivables` WHERE `order_id`)
-  2. Deleta pagamentos associados (`order_payments` WHERE `order_id`)
-  3. Deleta itens do pedido (`order_items` WHERE `order_id`)
-  4. Deleta o pedido em si (`orders`)
-  5. Mostra toast de confirmação
-- Adicionar `DropdownMenuItem` "Excluir Pedido" (com estilo destructive) no menu de ações de cada pedido, disponível em qualquer status
-- Adicionar `PasswordConfirmDialog` para confirmar exclusão com senha
+**`src/pages/Orders.tsx`**:
+1. Adicionar helper `parseBRCurrency` no arquivo
+2. Mudar `PaymentEntry.amount` de `number` para `string` (para manter o texto digitado)
+3. Trocar o input de `type="number"` para `type="text"` com `inputMode="decimal"`
+4. Usar `parseBRCurrency` em todos os cálculos: `totalAllocated`, `remaining`, `addPayment` (valor restante), e no `handleCreate` ao salvar
+5. Filtrar caracteres inválidos no onChange (permitir apenas `0-9.,`)
 
-### Arquivos modificados
-- Migração SQL (deleção dos recebíveis da Cleide — via insert tool)
-- `src/pages/Orders.tsx` — botão de exclusão + lógica de cascade delete
+### Arquivo modificado
+- `src/pages/Orders.tsx`
 
