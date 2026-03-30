@@ -1,26 +1,27 @@
 
 
-## Botão "Excluir Duplicados" na página de Contatos
+## Corrigir Botão Desabilitado + Adicionar Campos de Pagamento nos Pedidos
+
+### Problema do botão
+O botão "Criar Pedido" fica desabilitado porque a condição exige `items.length > 0` — o usuário precisa clicar no "+" para adicionar o produto à lista antes. O produto selecionado no dropdown não conta como item adicionado. Vamos melhorar a UX para deixar isso mais claro.
 
 ### O que será feito
 
-Adicionar um botão "Excluir Duplicados" na barra de ações da página de Contatos que:
+**1. Migração SQL** — Adicionar 2 colunas na tabela `orders`:
+- `payment_method` (text, default `'pix'`) — Método de pagamento
+- `installments` (integer, default `1`) — Número de parcelas
 
-1. **Detecta duplicados** — Agrupa contatos por `first_name + last_name + email` (case-insensitive). Contatos com todos esses campos iguais são considerados duplicados.
-2. **Mostra dialog de confirmação** — Lista os grupos de duplicados encontrados, mostrando quantos serão removidos.
-3. **Remove duplicados** — Mantém o registro mais antigo (`created_at ASC`) de cada grupo e deleta os demais.
-4. **Feedback** — Toast informando quantos contatos duplicados foram removidos (ou que nenhum foi encontrado).
+**2. Campos de pagamento no formulário** (`src/pages/Orders.tsx`):
+- **Forma de Pagamento** — Select com opções: PIX, Cartão de Crédito, Cartão de Débito, Boleto, Transferência, Dinheiro
+- **Parcelas** — Select com 1x a 12x (visível apenas quando método = Cartão de Crédito)
+- **Condição** — Badge automática: "À Vista" (1x ou PIX/Débito/Dinheiro) ou "Parcelado Nx"
+- Salvar `payment_method` e `installments` no insert
 
-### Implementação
-
-**Arquivo:** `src/pages/Contacts.tsx`
-
-- Adicionar estado `dedupDialogOpen` e `duplicateGroups`
-- Função `findDuplicates()`: agrupa `contacts` em memória por chave normalizada, identifica grupos com 2+ registros
-- Função `removeDuplicates()`: para cada grupo, mantém o mais antigo e deleta os outros via `supabase.from("contacts").delete().in("id", idsToRemove)`
-- Botão com ícone `Copy` ao lado de "Novo Contato"
-- Dialog mostrando lista de duplicados antes de confirmar exclusão
+**3. Melhoria de UX do botão**:
+- Tornar mais claro que o item precisa ser adicionado via "+"
+- Mostrar coluna "Forma Pgto" na tabela de listagem
 
 ### Arquivos modificados
-- `src/pages/Contacts.tsx` — botão + lógica de deduplicação + dialog de confirmação
+- Migração SQL (1 migration)
+- `src/pages/Orders.tsx` — campos de pagamento + UX do botão + coluna na listagem
 
