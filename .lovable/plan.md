@@ -1,47 +1,47 @@
 
 
-## Melhorias no Cadastro de Contas: CEP Automático, Dropdowns de Cidade/Estado e Exclusão de Duplicata
+## Padronização de Campos de Endereço e Documento em toda a Plataforma
 
-### 1. Excluir conta duplicada "Cleide"
+### Páginas afetadas
 
-Usar o insert tool para soft-delete (is_active = false) na conta duplicada `9cbd1ad8-8fc8-453d-8a8c-53f4cce12d39` (a mais recente das duas).
+| Página | CPF/CNPJ | CEP/Cidade/Estado | Observação |
+|--------|----------|-------------------|------------|
+| `Accounts.tsx` | ✅ já tem máscara | ✅ já tem AddressFields | Já implementado |
+| `AccountDetail.tsx` | ✅ já tem máscara | ✅ já tem AddressFields | Já implementado |
+| `Customers.tsx` | Campo `document` sem máscara | Sem campos de endereço | Adicionar máscara CPF/CNPJ |
+| `Suppliers.tsx` | Campo `cnpj` sem máscara | Sem campos de endereço | Adicionar máscara CNPJ |
+| `Contacts.tsx` (converter) | Campo `document` sem máscara | Sem campos de endereço | Adicionar máscara CPF/CNPJ |
+| `CompanyGeneral.tsx` | Campo `cnpj` sem máscara | Campo `address` texto livre | Adicionar máscara CNPJ |
 
-### 2. Busca automática por CEP (ViaCEP API)
+### O que será feito
 
-Nos dois arquivos de formulário (`Accounts.tsx` e `AccountDetail.tsx`):
-- Ao digitar/colar CEP com 8 dígitos (ou formato 00000-000), chamar `https://viacep.com.br/ws/{cep}/json/`
-- Auto-preencher: Endereço (logradouro + bairro), Cidade, Estado, País ("Brasil")
-- Mostrar loading spinner no campo CEP durante a busca
-- Mover o campo CEP para **antes** dos campos de Endereço, Cidade e Estado na ordem do formulário
+**1. Criar utilitário de máscara CPF/CNPJ** (`src/lib/documentMask.ts`)
+- Função `formatDocument(value)`: detecta CPF (11 dígitos) ou CNPJ (14 dígitos) e aplica máscara automaticamente
+  - CPF: `000.000.000-00`
+  - CNPJ: `00.000.000/0001-00`
+- Função `stripDocument(value)`: remove formatação para salvar no banco
 
-### 3. Dropdown de Estado com todos os 27 UFs brasileiros
+**2. `Customers.tsx`** — Máscara no campo CPF/CNPJ
+- Aplicar `formatDocument` no onChange do campo `document`
+- Exibir valor formatado na tabela de listagem
 
-- Substituir o `<Input>` de Estado por um `<Select>` com as 27 UFs (AC, AL, AM, ..., TO)
-- Exibir nome completo + sigla (ex: "Mato Grosso do Sul (MS)")
-- Valor armazenado: sigla (ex: "MS")
+**3. `Suppliers.tsx`** — Máscara no campo CNPJ
+- Aplicar `formatDocument` no onChange do campo `cnpj`
+- Exibir valor formatado na tabela
 
-### 4. Dropdown de Cidade filtrado por Estado
+**4. `Contacts.tsx`** — Máscara no campo CPF/CNPJ do dialog "Converter em Cliente"
+- Aplicar `formatDocument` no onChange do campo `document`
 
-- Usar lista estática dos municípios brasileiros seria muito pesada (~5570 cidades)
-- Alternativa: usar a API do IBGE (`https://servicodados.ibge.gov.br/api/v1/localidades/estados/{UF}/municipios`) para carregar cidades dinamicamente quando o estado é selecionado
-- Substituir o `<Input>` de Cidade por um `<Select>` com busca (ou Combobox) populado pela API
-- Ao selecionar via CEP, o estado e cidade são preenchidos automaticamente
+**5. `CompanyGeneral.tsx`** — Máscara no campo CNPJ
+- Aplicar `formatDocument` no onChange do campo `cnpj`
 
 ### Arquivos modificados
-- `src/pages/Accounts.tsx` — formulário de criação/edição: reordenar campos, CEP com fetch, dropdowns estado/cidade
-- `src/pages/AccountDetail.tsx` — mesmo formulário de edição: mesmas mudanças
-- Dados: soft-delete da conta duplicada via insert tool
+- `src/lib/documentMask.ts` — novo utilitário
+- `src/pages/Customers.tsx` — máscara CPF/CNPJ + formatação na listagem
+- `src/pages/Suppliers.tsx` — máscara CNPJ + formatação na listagem
+- `src/pages/Contacts.tsx` — máscara no dialog de conversão
+- `src/pages/settings/CompanyGeneral.tsx` — máscara CNPJ
 
-### Ordem dos campos de endereço (novo layout)
-```text
-CEP          | País
-Endereço (rua, número)
-Cidade       | Estado
-```
-
-### Detalhes técnicos
-- ViaCEP é gratuita e não requer API key
-- API IBGE de municípios é gratuita e pública
-- Debounce de 500ms no campo CEP para evitar requests desnecessários
-- Cache das cidades por UF em memória para evitar re-fetches
+### Nota
+As páginas `Accounts.tsx` e `AccountDetail.tsx` já possuem CEP automático, dropdowns de cidade/estado e máscara de documento — não serão alteradas. As demais páginas (Customers, Suppliers, Contacts, CompanyGeneral) não possuem campos de endereço no banco de dados, então a melhoria se limita à máscara de CPF/CNPJ.
 
