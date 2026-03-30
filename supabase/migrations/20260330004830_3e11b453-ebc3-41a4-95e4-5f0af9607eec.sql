@@ -1,0 +1,1 @@
+ALTER TABLE public.order_payments ADD COLUMN due_date date;

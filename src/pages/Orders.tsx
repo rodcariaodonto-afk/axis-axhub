@@ -10,7 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Trash2, MoreHorizontal } from "lucide-react";
+import { Plus, Search, Trash2, MoreHorizontal, CalendarIcon } from "lucide-react";
+import { format, addMonths } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 const statusColors: Record<string, string> = {
   draft: "secondary", pending_approval: "outline", approved: "default",
@@ -31,7 +36,7 @@ const transitions: Record<string, { label: string; to: string }[]> = {
 const pmLabels: Record<string, string> = { pix: "PIX", credit_card: "Cartão Créd.", debit_card: "Cartão Déb.", boleto: "Boleto", transfer: "Transferência", cash: "Dinheiro" };
 
 interface OrderItem { product_id: string; product_name: string; quantity: number; unit_price: number; total: number; }
-interface PaymentEntry { method: string; amount: number; installments: number; }
+interface PaymentEntry { method: string; amount: number; installments: number; first_due_date: Date | undefined; }
 
 export default function Orders() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -45,7 +50,7 @@ export default function Orders() {
   const [selectedProduct, setSelectedProduct] = useState("");
   const [itemQty, setItemQty] = useState("1");
   const [notes, setNotes] = useState("");
-  const [payments, setPayments] = useState<PaymentEntry[]>([{ method: "pix", amount: 0, installments: 1 }]);
+  const [payments, setPayments] = useState<PaymentEntry[]>([{ method: "pix", amount: 0, installments: 1, first_due_date: undefined }]);
   const { toast } = useToast();
 
   const fetchOrders = useCallback(async () => {
@@ -64,7 +69,7 @@ export default function Orders() {
     setCustomers(c || []); setProducts(p || []);
   };
 
-  const handleOpenDialog = () => { loadFormData(); setSelectedCustomer(""); setItems([]); setNotes(""); setPayments([{ method: "pix", amount: 0, installments: 1 }]); setDialogOpen(true); };
+  const handleOpenDialog = () => { loadFormData(); setSelectedCustomer(""); setItems([]); setNotes(""); setPayments([{ method: "pix", amount: 0, installments: 1, first_due_date: undefined }]); setDialogOpen(true); };
 
   const addItem = () => {
     const product = products.find((p) => p.id === selectedProduct);
@@ -84,7 +89,7 @@ export default function Orders() {
 
   const addPayment = () => {
     const rem = Math.max(0, subtotal - totalAllocated);
-    setPayments([...payments, { method: "pix", amount: Number(rem.toFixed(2)), installments: 1 }]);
+    setPayments([...payments, { method: "pix", amount: Number(rem.toFixed(2)), installments: 1, first_due_date: undefined }]);
   };
   const removePayment = (i: number) => setPayments(payments.filter((_, idx) => idx !== i));
   const updatePayment = (i: number, field: keyof PaymentEntry, value: any) => {
@@ -109,8 +114,19 @@ export default function Orders() {
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     const orderItems = items.map((i) => ({ tenant_id: profile.tenant_id, order_id: order.id, product_id: i.product_id, quantity: i.quantity, unit_price: i.unit_price, total: i.total }));
     await supabase.from("order_items").insert(orderItems);
-    // Insert split payments
-    const orderPayments = payments.map((p) => ({ tenant_id: profile.tenant_id, order_id: order.id, method: p.method, amount: p.amount, installments: p.installments }));
+    // Insert split payments with installment date generation
+    const orderPayments: any[] = [];
+    for (const p of payments) {
+      if (p.installments > 1 && p.first_due_date) {
+        const perInstallment = Number((p.amount / p.installments).toFixed(2));
+        for (let n = 0; n < p.installments; n++) {
+          const dueDate = addMonths(p.first_due_date, n);
+          orderPayments.push({ tenant_id: profile.tenant_id, order_id: order.id, method: p.method, amount: perInstallment, installments: 1, due_date: format(dueDate, "yyyy-MM-dd") });
+        }
+      } else {
+        orderPayments.push({ tenant_id: profile.tenant_id, order_id: order.id, method: p.method, amount: p.amount, installments: p.installments, due_date: p.first_due_date ? format(p.first_due_date, "yyyy-MM-dd") : null });
+      }
+    }
     await supabase.from("order_payments").insert(orderPayments as any);
     toast({ title: "Pedido criado!", description: `Número: ${orderNumber}` });
     setDialogOpen(false); fetchOrders();
@@ -219,6 +235,20 @@ export default function Orders() {
                         </Select>
                       </div>
                     )}
+                    <div className="w-36 space-y-1">
+                      <Label className="text-xs text-muted-foreground">{pm.installments > 1 ? "Data 1ª parcela" : "Data pgto"}</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-10", !pm.first_due_date && "text-muted-foreground")}>
+                            <CalendarIcon className="mr-1 h-3 w-3" />
+                            {pm.first_due_date ? format(pm.first_due_date, "dd/MM/yyyy") : <span className="text-xs">Selecionar</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={pm.first_due_date} onSelect={(d) => updatePayment(i, "first_due_date", d)} initialFocus className={cn("p-3 pointer-events-auto")} locale={ptBR} />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                     {payments.length > 1 && (
                       <Button variant="ghost" size="icon" onClick={() => removePayment(i)} className="h-9 w-9 shrink-0"><Trash2 className="h-3 w-3 text-destructive" /></Button>
                     )}
