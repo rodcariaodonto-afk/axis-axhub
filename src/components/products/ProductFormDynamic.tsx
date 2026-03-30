@@ -266,12 +266,31 @@ export default function ProductFormDynamic({ categories, customFields, onSuccess
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Preço</Label>
-          <Input type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
+          <Input
+            type="text"
+            inputMode="decimal"
+            placeholder="0,00"
+            value={form.price}
+            onChange={(e) => {
+              const raw = e.target.value.replace(/[^0-9.,]/g, "");
+              setForm({ ...form, price: raw });
+            }}
+            required
+          />
         </div>
         {visibleFields.includes("cost") && (
           <div className="space-y-2">
             <Label>Custo</Label>
-            <Input type="number" step="0.01" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} />
+            <Input
+              type="text"
+              inputMode="decimal"
+              placeholder="0,00"
+              value={form.cost}
+              onChange={(e) => {
+                const raw = e.target.value.replace(/[^0-9.,]/g, "");
+                setForm({ ...form, cost: raw });
+              }}
+            />
           </div>
         )}
       </div>
