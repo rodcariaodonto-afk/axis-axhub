@@ -5543,32 +5543,59 @@ export type Database = {
       suppliers: {
         Row: {
           address_json: Json | null
+          city: string | null
+          city_registration: string | null
           cnpj: string | null
+          contact_name: string | null
+          country: string | null
           created_at: string
           email: string | null
           id: string
           name: string
           phone: string | null
+          phone2: string | null
+          postal_code: string | null
+          state: string | null
+          state_registration: string | null
+          street: string | null
           tenant_id: string
         }
         Insert: {
           address_json?: Json | null
+          city?: string | null
+          city_registration?: string | null
           cnpj?: string | null
+          contact_name?: string | null
+          country?: string | null
           created_at?: string
           email?: string | null
           id?: string
           name: string
           phone?: string | null
+          phone2?: string | null
+          postal_code?: string | null
+          state?: string | null
+          state_registration?: string | null
+          street?: string | null
           tenant_id: string
         }
         Update: {
           address_json?: Json | null
+          city?: string | null
+          city_registration?: string | null
           cnpj?: string | null
+          contact_name?: string | null
+          country?: string | null
           created_at?: string
           email?: string | null
           id?: string
           name?: string
           phone?: string | null
+          phone2?: string | null
+          postal_code?: string | null
+          state?: string | null
+          state_registration?: string | null
+          street?: string | null
           tenant_id?: string
         }
         Relationships: [
