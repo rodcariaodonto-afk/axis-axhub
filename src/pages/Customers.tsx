@@ -26,6 +26,7 @@ export default function Customers() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", document: "", email: "", phone: "" });
+  const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
   const { toast } = useToast();
 
   const fetchCustomers = async () => {
