@@ -36,7 +36,7 @@ const transitions: Record<string, { label: string; to: string }[]> = {
 const pmLabels: Record<string, string> = { pix: "PIX", credit_card: "Cartão Créd.", debit_card: "Cartão Déb.", boleto: "Boleto", transfer: "Transferência", cash: "Dinheiro" };
 
 interface OrderItem { product_id: string; product_name: string; quantity: number; unit_price: number; total: number; }
-interface PaymentEntry { method: string; amount: number; installments: number; }
+interface PaymentEntry { method: string; amount: number; installments: number; first_due_date: Date | undefined; }
 
 export default function Orders() {
   const [orders, setOrders] = useState<any[]>([]);
