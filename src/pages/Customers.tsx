@@ -156,7 +156,7 @@ export default function Customers() {
             <TableHeader>
               <TableRow className="border-border">
                 <TableHead>Nome</TableHead>
-                <TableHead>CPF/CNPJ</TableHead>
+                <TableHead>Documento</TableHead>
                 <TableHead>E-mail</TableHead>
                 <TableHead>Telefone</TableHead>
                 <TableHead className="w-10" />

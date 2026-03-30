@@ -131,7 +131,7 @@ export default function Suppliers() {
             <TableHeader>
               <TableRow className="border-border">
                 <TableHead>Nome</TableHead>
-                <TableHead>CNPJ</TableHead>
+                <TableHead>Documento</TableHead>
                 <TableHead>Contato</TableHead>
                 <TableHead>E-mail</TableHead>
                 <TableHead>Telefone</TableHead>
