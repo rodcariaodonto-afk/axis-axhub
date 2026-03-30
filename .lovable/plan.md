@@ -1,38 +1,38 @@
 
 
-## Adicionar Datas de Pagamento nas Formas de Pagamento dos Pedidos
+## Integração Pedidos → Contas a Receber (com Split Payment)
 
-### O que será feito
+### Problema atual
+Quando um pedido é criado com formas de pagamento detalhadas (ex: R$10.000 cartão 10x + R$10.000 PIX), o sistema:
+1. Salva corretamente os registros em `order_payments`
+2. Mas só gera **um único recebível genérico** de 30 dias quando o status muda para "completed"
+3. Ignora completamente as datas, parcelas e métodos de pagamento informados
 
-**1. Migração SQL** — Adicionar coluna `due_date` na tabela `order_payments`:
-- `due_date date` — data de vencimento da parcela/pagamento
+### Solução
+Ao criar o pedido, gerar automaticamente os recebíveis baseados nos `order_payments` já inseridos — cada parcela vira um recebível individual com a data correta.
 
-**2. Interface de pagamento atualizada** (`src/pages/Orders.tsx`):
+### Mudanças em `src/pages/Orders.tsx`
 
-- Adicionar campo `first_due_date` (data inicial) no `PaymentEntry`
-- Para **cartão de crédito**: mostrar apenas campo "Data 1ª parcela" — as demais datas são calculadas automaticamente (mês a mês) e salvas no banco
-- Para **outros métodos** (PIX, boleto, transferência, dinheiro, débito):
-  - Se parcelas = 1: mostrar campo "Data de pagamento"
-  - Se parcelas > 1 (ex: boleto parcelado): mostrar "Data 1ª parcela" e gerar datas automaticamente
+**Na função `handleCreate` (após inserir `order_payments`):**
+- Para cada registro de `orderPayments`, criar um recebível correspondente em `receivables` com:
+  - `description`: "Pedido PED-XXX — Cartão Créd. 2/10" (método + parcela)
+  - `amount`: valor da parcela individual
+  - `due_date`: data calculada do pagamento
+  - `order_id`: ID do pedido
+  - `customer_id`: cliente selecionado
+  - `category_id`: null (pode ser categorizado depois)
 
-**3. Salvar no banco**:
-- Ao criar pedido, para cada forma de pagamento com parcelas > 1, gerar N registros em `order_payments` (um por parcela), cada um com `due_date` calculada (primeira data + N meses)
-- Para pagamento à vista (1 parcela), salvar 1 registro com a data informada
+**Na função `changeStatus` (quando status = "completed"):**
+- Remover a lógica de gerar recebível genérico
+- Verificar se já existem recebíveis para o pedido (gerados na criação)
+- Se não existir nenhum (pedidos antigos), gerar com a lógica legada
 
-### Layout da seção de pagamento (atualizado)
-```text
-┌─────────────────┬────────────┬──────────┬──────────────┬───┐
-│ Cartão Crédito  │ R$ 10000   │ 10x      │ 📅 15/04/2026│ 🗑 │
-│ PIX             │ R$ 10000   │ —        │ 📅 01/04/2026│ 🗑 │
-└─────────────────┴────────────┴──────────┴──────────────┴───┘
-```
+### Exemplo de resultado
+Pedido de R$20.000 com Cartão 10x (R$10.000) + PIX (R$10.000):
+- Gera 11 recebíveis automaticamente:
+  - 10x de R$1.000 (cartão, datas mensais)
+  - 1x de R$10.000 (PIX, data informada)
 
 ### Arquivos modificados
-- Migração SQL (adicionar `due_date` em `order_payments`)
-- `src/pages/Orders.tsx` — campo de data no formulário de pagamento + lógica de geração de parcelas com datas
-
-### Detalhes técnicos
-- Usar Popover + Calendar (Shadcn DatePicker) para o campo de data
-- Ao salvar cartão 10x com data 15/04, gera 10 registros: 15/04, 15/05, 15/06... 15/01
-- `PaymentEntry` ganha campo `first_due_date: string` (formato ISO date)
+- `src/pages/Orders.tsx` — lógica de geração de recebíveis na criação do pedido
 
