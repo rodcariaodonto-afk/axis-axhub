@@ -14,6 +14,12 @@ import { Plus, Search, Settings2, Trash2, ImageIcon, Pencil, ChevronRight, Chevr
 import ProductFormDynamic from "@/components/products/ProductFormDynamic";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
+const parseBRCurrency = (v: string): number => {
+  if (!v) return 0;
+  if (v.includes(",")) return parseFloat(v.replace(/\./g, "").replace(",", ".")) || 0;
+  return parseFloat(v) || 0;
+};
+
 interface Product {
   id: string;
   sku: string;
@@ -148,8 +154,8 @@ export default function Products() {
       name: form.name,
       type: form.type,
       category: form.category || null,
-      price: parseFloat(form.price) || 0,
-      cost: parseFloat(form.cost) || 0,
+      price: parseBRCurrency(form.price),
+      cost: parseBRCurrency(form.cost),
     }).select().single();
 
     if (error) {
@@ -245,8 +251,8 @@ export default function Products() {
       description: editForm.description || null,
       type: editForm.type,
       category: editForm.category || null,
-      price: parseFloat(editForm.price) || 0,
-      cost: parseFloat(editForm.cost) || 0,
+      price: parseBRCurrency(editForm.price),
+      cost: parseBRCurrency(editForm.cost),
     }).eq("id", editProduct.id);
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
@@ -580,11 +586,11 @@ export default function Products() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Preço</Label>
-                <Input type="number" step="0.01" value={editForm.price} onChange={(e) => setEditForm({ ...editForm, price: e.target.value })} />
+                <Input type="text" inputMode="decimal" placeholder="0,00" value={editForm.price} onChange={(e) => setEditForm({ ...editForm, price: e.target.value.replace(/[^0-9.,]/g, "") })} />
               </div>
               <div className="space-y-2">
                 <Label>Custo</Label>
-                <Input type="number" step="0.01" value={editForm.cost} onChange={(e) => setEditForm({ ...editForm, cost: e.target.value })} />
+                <Input type="text" inputMode="decimal" placeholder="0,00" value={editForm.cost} onChange={(e) => setEditForm({ ...editForm, cost: e.target.value.replace(/[^0-9.,]/g, "") })} />
               </div>
             </div>
             <Button className="w-full" onClick={handleEditSave} disabled={editUploading}>
