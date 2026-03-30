@@ -4145,9 +4145,11 @@ export type Database = {
           deal_id: string | null
           discount: number
           id: string
+          installments: number
           notes: string | null
           number: string
           paid_status: string
+          payment_method: string
           shipping_address_json: Json | null
           source: string
           status: string
@@ -4163,9 +4165,11 @@ export type Database = {
           deal_id?: string | null
           discount?: number
           id?: string
+          installments?: number
           notes?: string | null
           number: string
           paid_status?: string
+          payment_method?: string
           shipping_address_json?: Json | null
           source?: string
           status?: string
@@ -4181,9 +4185,11 @@ export type Database = {
           deal_id?: string | null
           discount?: number
           id?: string
+          installments?: number
           notes?: string | null
           number?: string
           paid_status?: string
+          payment_method?: string
           shipping_address_json?: Json | null
           source?: string
           status?: string
