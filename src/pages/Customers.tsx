@@ -31,6 +31,7 @@ export default function Customers() {
   const [docType, setDocType] = useState<DocType>("cpf");
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const fetchCustomers = async () => {
     const { data, error } = await supabase.from("customers").select("*").order("created_at", { ascending: false });
