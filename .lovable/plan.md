@@ -1,17 +1,24 @@
 
 
-## Parcelas em Todos os Métodos de Pagamento
+## Bloquear Criação Direta de Clientes — Obrigar Conta CRM
 
 ### Problema
-Atualmente, apenas "Cartão de Crédito" exibe o seletor de parcelas (até 12x). O usuário precisa parcelar em qualquer método (PIX, Boleto, Transferência, etc.).
+Atualmente é possível criar clientes diretamente na página de Clientes (ERP), sem ter uma Conta no CRM. O fluxo correto deve ser: **Criar Conta no CRM → Converter em Cliente**.
 
 ### Solução
 
-**`src/pages/Orders.tsx`** — 2 mudanças:
+**`src/pages/Customers.tsx`** — 3 mudanças:
 
-1. **Remover condição `pm.method === "credit_card"`** que esconde o seletor de parcelas — exibir o campo "Parcelas" para todos os métodos
-2. **Remover reset de parcelas** na linha que faz `if (field === "method" && value !== "credit_card") updated[i].installments = 1` — ao trocar de método, manter o número de parcelas selecionado
+1. **Remover botão "Novo Cliente"** e todo o formulário de criação (Dialog de criação). Manter apenas o Dialog de **edição** (quando `editingId` existe)
+2. **Substituir o botão por um alerta/guia**: No lugar do botão "Novo Cliente", colocar um botão que redireciona para a página de Contas (`/accounts`) com texto "Criar Conta no CRM" e um tooltip explicando o fluxo
+3. **No estado vazio** (nenhum cliente), mostrar mensagem explicativa: "Para cadastrar um cliente, primeiro crie uma Conta no CRM e use o botão 'Converter em Cliente'." com link para `/accounts`
+
+**Lógica preservada:**
+- Edição de clientes existentes continua funcionando normalmente
+- Exclusão com confirmação de senha continua funcionando
+- Busca e listagem sem alterações
+- O botão "Converter em Cliente" nas páginas Accounts.tsx, AccountDetail.tsx e Contacts.tsx continua sendo o único caminho para criar clientes
 
 ### Arquivo modificado
-- `src/pages/Orders.tsx`
+- `src/pages/Customers.tsx`
 
