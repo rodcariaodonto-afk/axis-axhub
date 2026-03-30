@@ -72,7 +72,7 @@ export default function Accounts() {
 
   const openCreate = () => {
     setEditingId(null);
-    setDocType("cnpj");
+    setDocType("cnpj" as DocType);
     setForm({ name: "", cnpj: "", email: "", phone: "", segment: "", website: "", instagram: "", street: "", city: "", state: "", country: "", postal_code: "", owner_user_id: "", resp_name: "", resp_cpf: "", resp_phone: "", resp_email: "" });
     setErrors({});
     setDialogOpen(true);
