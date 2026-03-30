@@ -50,7 +50,7 @@ export default function Orders() {
   const [selectedProduct, setSelectedProduct] = useState("");
   const [itemQty, setItemQty] = useState("1");
   const [notes, setNotes] = useState("");
-  const [payments, setPayments] = useState<PaymentEntry[]>([{ method: "pix", amount: 0, installments: 1 }]);
+  const [payments, setPayments] = useState<PaymentEntry[]>([{ method: "pix", amount: 0, installments: 1, first_due_date: undefined }]);
   const { toast } = useToast();
 
   const fetchOrders = useCallback(async () => {
