@@ -107,7 +107,7 @@ export default function Orders() {
   const updatePayment = (i: number, field: keyof PaymentEntry, value: any) => {
     const updated = [...payments];
     (updated[i] as any)[field] = value;
-    if (field === "method" && value !== "credit_card") updated[i].installments = 1;
+    
     setPayments(updated);
   };
 
