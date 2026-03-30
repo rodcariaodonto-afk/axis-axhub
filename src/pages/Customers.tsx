@@ -111,8 +111,24 @@ export default function Customers() {
               <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
             </div>
             <div className="space-y-2">
-              <Label>CPF/CNPJ</Label>
-              <Input value={form.document} onChange={(e) => setForm({ ...form, document: formatDocument(e.target.value) })} />
+              <Label>Documento</Label>
+              <div className="flex gap-2">
+                <Select value={docType} onValueChange={(v) => { setDocType(v as DocType); setForm({ ...form, document: "" }); }}>
+                  <SelectTrigger className="w-24 shrink-0"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cpf">CPF</SelectItem>
+                    <SelectItem value="cnpj">CNPJ</SelectItem>
+                    <SelectItem value="nif">NIF</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  value={form.document}
+                  onChange={(e) => setForm({ ...form, document: docType === "nif" ? e.target.value : formatDocument(e.target.value) })}
+                  placeholder={docType === "cpf" ? "000.000.000-00" : docType === "cnpj" ? "00.000.000/0000-00" : "Número de Identificação Fiscal"}
+                  className="flex-1"
+                />
+              </div>
+            </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
