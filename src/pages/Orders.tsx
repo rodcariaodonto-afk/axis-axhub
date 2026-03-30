@@ -69,7 +69,7 @@ export default function Orders() {
     setCustomers(c || []); setProducts(p || []);
   };
 
-  const handleOpenDialog = () => { loadFormData(); setSelectedCustomer(""); setItems([]); setNotes(""); setPayments([{ method: "pix", amount: 0, installments: 1 }]); setDialogOpen(true); };
+  const handleOpenDialog = () => { loadFormData(); setSelectedCustomer(""); setItems([]); setNotes(""); setPayments([{ method: "pix", amount: 0, installments: 1, first_due_date: undefined }]); setDialogOpen(true); };
 
   const addItem = () => {
     const product = products.find((p) => p.id === selectedProduct);
@@ -89,7 +89,7 @@ export default function Orders() {
 
   const addPayment = () => {
     const rem = Math.max(0, subtotal - totalAllocated);
-    setPayments([...payments, { method: "pix", amount: Number(rem.toFixed(2)), installments: 1 }]);
+    setPayments([...payments, { method: "pix", amount: Number(rem.toFixed(2)), installments: 1, first_due_date: undefined }]);
   };
   const removePayment = (i: number) => setPayments(payments.filter((_, idx) => idx !== i));
   const updatePayment = (i: number, field: keyof PaymentEntry, value: any) => {
