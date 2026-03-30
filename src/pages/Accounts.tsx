@@ -16,13 +16,11 @@ import AddressFields from "@/components/address/AddressFields";
 const SEGMENTS = ["Tecnologia", "Varejo", "Serviços", "Indústria", "Saúde", "Educação", "Financeiro", "Outro"];
 const PAGE_SIZE = 10;
 
-function detectDocType(doc: string): "cpf" | "cnpj" {
-  const digits = (doc || "").replace(/\D/g, "");
-  return digits.length === 11 ? "cpf" : "cnpj";
-}
+import { detectDocumentType, type DocType } from "@/lib/documentMask";
 
-function validateDoc(doc: string, type: "cpf" | "cnpj"): boolean {
+function validateDoc(doc: string, type: DocType): boolean {
   if (!doc) return true;
+  if (type === "nif") return doc.replace(/\D/g, "").length > 0;
   if (type === "cpf") return /^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(doc);
   return /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/.test(doc);
 }
@@ -43,7 +41,7 @@ export default function Accounts() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [owners, setOwners] = useState<any[]>([]);
   const [page, setPage] = useState(1);
-  const [docType, setDocType] = useState<"cpf" | "cnpj">("cnpj");
+  const [docType, setDocType] = useState<DocType>("cnpj");
   const [form, setForm] = useState({
     name: "", cnpj: "", email: "", phone: "", segment: "", website: "", instagram: "",
     street: "", city: "", state: "", country: "", postal_code: "", owner_user_id: "",
@@ -74,7 +72,7 @@ export default function Accounts() {
 
   const openCreate = () => {
     setEditingId(null);
-    setDocType("cnpj");
+    setDocType("cnpj" as DocType);
     setForm({ name: "", cnpj: "", email: "", phone: "", segment: "", website: "", instagram: "", street: "", city: "", state: "", country: "", postal_code: "", owner_user_id: "", resp_name: "", resp_cpf: "", resp_phone: "", resp_email: "" });
     setErrors({});
     setDialogOpen(true);
@@ -82,7 +80,7 @@ export default function Accounts() {
 
   const openEdit = (a: any) => {
     setEditingId(a.id);
-    setDocType(detectDocType(a.cnpj || ""));
+    setDocType(detectDocumentType(a.cnpj || ""));
     const addr = a.address_json || {};
     const resp = (a as any).responsible_json || {};
     setForm({
@@ -112,7 +110,7 @@ export default function Accounts() {
     const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = "Nome obrigatório";
     if (form.cnpj && !validateDoc(form.cnpj, docType)) {
-      e.cnpj = docType === "cpf" ? "Formato: 000.000.000-00" : "Formato: 00.000.000/0000-00";
+      e.cnpj = docType === "cpf" ? "Formato: 000.000.000-00" : docType === "cnpj" ? "Formato: 00.000.000/0000-00" : "Informe o NIF";
     }
     if (form.website && !validateURL(form.website)) e.website = "URL inválida";
     setErrors(e);
@@ -233,17 +231,18 @@ export default function Accounts() {
               <div className="space-y-2">
                 <Label>Documento</Label>
                 <div className="flex gap-2">
-                  <Select value={docType} onValueChange={(v) => { setDocType(v as "cpf" | "cnpj"); setForm({ ...form, cnpj: "" }); }}>
+                  <Select value={docType} onValueChange={(v) => { setDocType(v as DocType); setForm({ ...form, cnpj: "" }); }}>
                     <SelectTrigger className="w-24 shrink-0"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="cnpj">CNPJ</SelectItem>
                       <SelectItem value="cpf">CPF</SelectItem>
+                      <SelectItem value="nif">NIF</SelectItem>
                     </SelectContent>
                   </Select>
                   <Input
                     value={form.cnpj}
                     onChange={(e) => setForm({ ...form, cnpj: e.target.value })}
-                    placeholder={docType === "cpf" ? "000.000.000-00" : "00.000.000/0000-00"}
+                    placeholder={docType === "cpf" ? "000.000.000-00" : docType === "cnpj" ? "00.000.000/0000-00" : "Número de Identificação Fiscal"}
                     className="flex-1"
                   />
                 </div>
