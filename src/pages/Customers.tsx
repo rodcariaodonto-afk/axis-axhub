@@ -128,7 +128,7 @@ export default function Customers() {
                 <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
               </div>
             </div>
-            <Button type="submit" className="w-full">{editingId ? "Salvar" : "Criar Cliente"}</Button>
+            <Button type="submit" className="w-full">Salvar</Button>
           </form>
         </DialogContent>
       </Dialog>
