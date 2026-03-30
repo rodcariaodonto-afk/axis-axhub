@@ -86,7 +86,9 @@ export default function Customers() {
           <h1 className="text-2xl font-bold tracking-tight">Clientes</h1>
           <p className="text-muted-foreground">Gerencie seus clientes</p>
         </div>
-        <Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" />Novo Cliente</Button>
+        <Button onClick={() => navigate("/accounts")} variant="outline">
+          <ArrowRight className="mr-2 h-4 w-4" />Criar Conta no CRM
+        </Button>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
