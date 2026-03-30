@@ -173,7 +173,7 @@ export default function AccountDetail() {
 
   const addr = account.address_json || {};
   const addressStr = [addr.street, addr.city, addr.state, addr.country, addr.postal_code].filter(Boolean).join(", ");
-  const docLabel = account.cnpj ? (detectDocType(account.cnpj) === "cpf" ? "CPF" : "CNPJ") : "Documento";
+  const docLabel = account.cnpj ? (detectDocumentType(account.cnpj) === "cpf" ? "CPF" : detectDocumentType(account.cnpj) === "cnpj" ? "CNPJ" : "NIF") : "Documento";
   const instagramHandle = (account as any).instagram?.replace(/^@/, "") || "";
   const resp = (account as any).responsible_json || {};
 
