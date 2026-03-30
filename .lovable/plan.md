@@ -1,37 +1,34 @@
 
 
-## Expandir Cadastro de Fornecedores
+## Adicionar Suporte a NIF em Todos os Campos de Documento
 
-### 1. Migração SQL — Novos campos na tabela `suppliers`
-```sql
-ALTER TABLE public.suppliers
-  ADD COLUMN phone2 text,
-  ADD COLUMN contact_name text,
-  ADD COLUMN state_registration text,    -- inscrição estadual
-  ADD COLUMN city_registration text,     -- inscrição municipal
-  ADD COLUMN postal_code text,
-  ADD COLUMN street text,
-  ADD COLUMN city text,
-  ADD COLUMN state text,
-  ADD COLUMN country text DEFAULT 'Brasil';
-```
+### Arquivos a modificar
 
-### 2. Atualizar formulário e tabela (`src/pages/Suppliers.tsx`)
+**1. `src/lib/documentMask.ts`** — Centralizar lógica
+- Adicionar função `detectDocumentType(value): "cpf" | "cnpj" | "nif"` (11 dígitos = CPF, 14 = CNPJ, outro = NIF)
+- Atualizar `formatDocument` para retornar o valor sem máscara quando NIF (apenas dígitos)
 
-**Formulário de criação** (dialog com scroll):
-- Nome (existente)
-- CNPJ (existente)
-- Inscrição Estadual / Inscrição Municipal (grid 2 cols)
-- Nome do Contato
-- E-mail / Telefone 1 (grid 2 cols)
-- Telefone 2
-- Campos de endereço usando o componente `AddressFields` existente (CEP com auto-preenchimento, Estado com dropdown, Cidade dinâmica via IBGE)
+**2. `src/pages/Accounts.tsx`**
+- Expandir tipo de `"cpf" | "cnpj"` para `"cpf" | "cnpj" | "nif"` no estado `docType`
+- Adicionar `<SelectItem value="nif">NIF</SelectItem>` no Select de tipo de documento
+- Atualizar `detectDocType` e `validateDoc` para aceitar NIF (sem validação de formato)
+- Quando NIF, ocultar seção "Responsável pela Empresa" (assim como CPF)
 
-**Tabela de listagem** — adicionar colunas: Contato, Telefone 2
+**3. `src/pages/AccountDetail.tsx`**
+- Mesmas mudanças: expandir tipo, adicionar opção NIF no Select, atualizar `detectDocType` e `validateDoc`
 
-**Estado do form** — expandir para incluir todos os novos campos; salvar na criação passando os campos individuais.
+**4. `src/pages/Suppliers.tsx`**
+- Adicionar estado `docType` (`"cnpj" | "cpf" | "nif"`, default `"cnpj"`)
+- Trocar label fixa "CNPJ" por Select com 3 opções (CNPJ/CPF/NIF)
+- Não aplicar máscara quando NIF
 
-### Arquivos modificados
-- Migração SQL (novos campos)
-- `src/pages/Suppliers.tsx` — formulário expandido + `AddressFields` + novos campos na tabela
+**5. `src/pages/Customers.tsx`**
+- Adicionar estado `docType` ao formulário
+- Trocar label "CPF/CNPJ" por Select com 3 opções (CPF/CNPJ/NIF)
+- Não aplicar máscara quando NIF
+
+### Detalhes técnicos
+- NIF angolano: aceitar qualquer sequência de dígitos, sem máscara rígida
+- Sem migração SQL necessária — campos de documento já são texto livre
+- Placeholder do NIF: "Número de Identificação Fiscal"
 
