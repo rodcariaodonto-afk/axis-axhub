@@ -7,7 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Pencil } from "lucide-react";
+import { Plus, Search, Pencil, Trash2 } from "lucide-react";
+import PasswordConfirmDialog from "@/components/finance/PasswordConfirmDialog";
 import { formatDocument, stripDocument } from "@/lib/documentMask";
 
 interface Customer {
@@ -25,6 +26,7 @@ export default function Customers() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", document: "", email: "", phone: "" });
+  const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
   const { toast } = useToast();
 
   const fetchCustomers = async () => {
@@ -72,6 +74,15 @@ export default function Customers() {
     }
     setForm({ name: "", document: "", email: "", phone: "" });
     setDialogOpen(false);
+    fetchCustomers();
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    const { error } = await supabase.from("customers").delete().eq("id", deleteTarget.id);
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Cliente excluído!" });
+    setDeleteTarget(null);
     fetchCustomers();
   };
 
@@ -146,9 +157,14 @@ export default function Customers() {
                     <TableCell className="text-muted-foreground">{c.email || "—"}</TableCell>
                     <TableCell className="text-muted-foreground">{c.phone || "—"}</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(c)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -157,6 +173,15 @@ export default function Customers() {
           </Table>
         </CardContent>
       </Card>
+
+      <PasswordConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}
+        title="Excluir Cliente"
+        description={`Tem certeza que deseja excluir "${deleteTarget?.name}"? Esta ação não pode ser desfeita.`}
+        onConfirm={handleDelete}
+        variant="destructive"
+      />
     </div>
   );
 }
