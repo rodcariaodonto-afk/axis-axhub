@@ -231,17 +231,18 @@ export default function Accounts() {
               <div className="space-y-2">
                 <Label>Documento</Label>
                 <div className="flex gap-2">
-                  <Select value={docType} onValueChange={(v) => { setDocType(v as "cpf" | "cnpj"); setForm({ ...form, cnpj: "" }); }}>
+                  <Select value={docType} onValueChange={(v) => { setDocType(v as DocType); setForm({ ...form, cnpj: "" }); }}>
                     <SelectTrigger className="w-24 shrink-0"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="cnpj">CNPJ</SelectItem>
                       <SelectItem value="cpf">CPF</SelectItem>
+                      <SelectItem value="nif">NIF</SelectItem>
                     </SelectContent>
                   </Select>
                   <Input
                     value={form.cnpj}
                     onChange={(e) => setForm({ ...form, cnpj: e.target.value })}
-                    placeholder={docType === "cpf" ? "000.000.000-00" : "00.000.000/0000-00"}
+                    placeholder={docType === "cpf" ? "000.000.000-00" : docType === "cnpj" ? "00.000.000/0000-00" : "Número de Identificação Fiscal"}
                     className="flex-1"
                   />
                 </div>
