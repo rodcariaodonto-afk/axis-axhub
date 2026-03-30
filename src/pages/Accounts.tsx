@@ -274,7 +274,7 @@ export default function Accounts() {
                 <Input value={form.instagram} onChange={(e) => setForm({ ...form, instagram: e.target.value })} placeholder="@perfil" />
               </div>
             </div>
-            {docType === "cnpj" && (
+            {docType === "cnpj" && docType !== "nif" && (
               <>
                 <div className="border border-border rounded-lg p-4 space-y-4">
                   <p className="text-sm font-medium text-muted-foreground">Responsável pela Empresa</p>
