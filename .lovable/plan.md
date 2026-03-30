@@ -1,47 +1,26 @@
 
 
-## Padronização de Campos de Endereço e Documento em toda a Plataforma
-
-### Páginas afetadas
-
-| Página | CPF/CNPJ | CEP/Cidade/Estado | Observação |
-|--------|----------|-------------------|------------|
-| `Accounts.tsx` | ✅ já tem máscara | ✅ já tem AddressFields | Já implementado |
-| `AccountDetail.tsx` | ✅ já tem máscara | ✅ já tem AddressFields | Já implementado |
-| `Customers.tsx` | Campo `document` sem máscara | Sem campos de endereço | Adicionar máscara CPF/CNPJ |
-| `Suppliers.tsx` | Campo `cnpj` sem máscara | Sem campos de endereço | Adicionar máscara CNPJ |
-| `Contacts.tsx` (converter) | Campo `document` sem máscara | Sem campos de endereço | Adicionar máscara CPF/CNPJ |
-| `CompanyGeneral.tsx` | Campo `cnpj` sem máscara | Campo `address` texto livre | Adicionar máscara CNPJ |
+## Botão "Excluir Duplicados" na página de Contatos
 
 ### O que será feito
 
-**1. Criar utilitário de máscara CPF/CNPJ** (`src/lib/documentMask.ts`)
-- Função `formatDocument(value)`: detecta CPF (11 dígitos) ou CNPJ (14 dígitos) e aplica máscara automaticamente
-  - CPF: `000.000.000-00`
-  - CNPJ: `00.000.000/0001-00`
-- Função `stripDocument(value)`: remove formatação para salvar no banco
+Adicionar um botão "Excluir Duplicados" na barra de ações da página de Contatos que:
 
-**2. `Customers.tsx`** — Máscara no campo CPF/CNPJ
-- Aplicar `formatDocument` no onChange do campo `document`
-- Exibir valor formatado na tabela de listagem
+1. **Detecta duplicados** — Agrupa contatos por `first_name + last_name + email` (case-insensitive). Contatos com todos esses campos iguais são considerados duplicados.
+2. **Mostra dialog de confirmação** — Lista os grupos de duplicados encontrados, mostrando quantos serão removidos.
+3. **Remove duplicados** — Mantém o registro mais antigo (`created_at ASC`) de cada grupo e deleta os demais.
+4. **Feedback** — Toast informando quantos contatos duplicados foram removidos (ou que nenhum foi encontrado).
 
-**3. `Suppliers.tsx`** — Máscara no campo CNPJ
-- Aplicar `formatDocument` no onChange do campo `cnpj`
-- Exibir valor formatado na tabela
+### Implementação
 
-**4. `Contacts.tsx`** — Máscara no campo CPF/CNPJ do dialog "Converter em Cliente"
-- Aplicar `formatDocument` no onChange do campo `document`
+**Arquivo:** `src/pages/Contacts.tsx`
 
-**5. `CompanyGeneral.tsx`** — Máscara no campo CNPJ
-- Aplicar `formatDocument` no onChange do campo `cnpj`
+- Adicionar estado `dedupDialogOpen` e `duplicateGroups`
+- Função `findDuplicates()`: agrupa `contacts` em memória por chave normalizada, identifica grupos com 2+ registros
+- Função `removeDuplicates()`: para cada grupo, mantém o mais antigo e deleta os outros via `supabase.from("contacts").delete().in("id", idsToRemove)`
+- Botão com ícone `Copy` ao lado de "Novo Contato"
+- Dialog mostrando lista de duplicados antes de confirmar exclusão
 
 ### Arquivos modificados
-- `src/lib/documentMask.ts` — novo utilitário
-- `src/pages/Customers.tsx` — máscara CPF/CNPJ + formatação na listagem
-- `src/pages/Suppliers.tsx` — máscara CNPJ + formatação na listagem
-- `src/pages/Contacts.tsx` — máscara no dialog de conversão
-- `src/pages/settings/CompanyGeneral.tsx` — máscara CNPJ
-
-### Nota
-As páginas `Accounts.tsx` e `AccountDetail.tsx` já possuem CEP automático, dropdowns de cidade/estado e máscara de documento — não serão alteradas. As demais páginas (Customers, Suppliers, Contacts, CompanyGeneral) não possuem campos de endereço no banco de dados, então a melhoria se limita à máscara de CPF/CNPJ.
+- `src/pages/Contacts.tsx` — botão + lógica de deduplicação + dialog de confirmação
 
