@@ -90,7 +90,7 @@ export default function AccountDetail() {
     if (!account) return;
     const addr = account.address_json || {};
     const resp = (account as any).responsible_json || {};
-    setDocType(detectDocType(account.cnpj || ""));
+    setDocType(detectDocumentType(account.cnpj || ""));
     setForm({
       name: account.name, cnpj: account.cnpj || "", email: account.email || "", phone: account.phone || "",
       segment: account.segment || "", website: account.website || "", instagram: (account as any).instagram || "",
