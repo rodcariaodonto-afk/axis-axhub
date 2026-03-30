@@ -251,6 +251,7 @@ export default function Contacts() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {noAccounts && (
