@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, User, Pencil, Trash2, UserCheck, AlertTriangle } from "lucide-react";
+import { Plus, Search, User, Pencil, Trash2, UserCheck, AlertTriangle, Copy } from "lucide-react";
 import { formatDocument } from "@/lib/documentMask";
 
 export default function Contacts() {
@@ -34,6 +34,38 @@ export default function Contacts() {
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
   const [convertingContact, setConvertingContact] = useState<any>(null);
   const [convertForm, setConvertForm] = useState({ name: "", document: "", email: "", phone: "" });
+
+  const [dedupDialogOpen, setDedupDialogOpen] = useState(false);
+  const [duplicateGroups, setDuplicateGroups] = useState<{ key: string; contacts: any[] }[]>([]);
+
+  const findDuplicates = () => {
+    const groups: Record<string, any[]> = {};
+    contacts.forEach((c) => {
+      const key = `${(c.first_name || "").toLowerCase().trim()}|${(c.last_name || "").toLowerCase().trim()}|${(c.email || "").toLowerCase().trim()}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(c);
+    });
+    const dups = Object.entries(groups)
+      .filter(([, arr]) => arr.length > 1)
+      .map(([key, arr]) => ({ key, contacts: arr.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) }));
+    setDuplicateGroups(dups);
+    if (dups.length === 0) {
+      toast({ title: "Nenhum duplicado encontrado", description: "Todos os contatos são únicos." });
+    } else {
+      setDedupDialogOpen(true);
+    }
+  };
+
+  const removeDuplicates = async () => {
+    const idsToRemove = duplicateGroups.flatMap((g) => g.contacts.slice(1).map((c) => c.id));
+    if (idsToRemove.length === 0) return;
+    const { error } = await supabase.from("contacts").delete().in("id", idsToRemove);
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    toast({ title: `${idsToRemove.length} contato(s) duplicado(s) removido(s)!` });
+    setDedupDialogOpen(false);
+    setDuplicateGroups([]);
+    fetchData();
+  };
 
   const fetchData = useCallback(async () => {
     const [{ data: c }, { data: a }] = await Promise.all([
@@ -203,9 +235,13 @@ export default function Contacts() {
           <h1 className="text-2xl font-bold tracking-tight">Contatos</h1>
           <p className="text-muted-foreground">Gerencie os contatos do CRM</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button disabled={noAccounts}><Plus className="mr-2 h-4 w-4" />Novo Contato</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={findDuplicates}>
+            <Copy className="mr-2 h-4 w-4" />Excluir Duplicados
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button disabled={noAccounts}><Plus className="mr-2 h-4 w-4" />Novo Contato</Button>
           </DialogTrigger>
           <DialogContent className="bg-card border-border">
             <DialogHeader><DialogTitle>Novo Contato</DialogTitle></DialogHeader>
@@ -215,6 +251,7 @@ export default function Contacts() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {noAccounts && (
@@ -361,6 +398,35 @@ export default function Contacts() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dedup Confirmation */}
+      <AlertDialog open={dedupDialogOpen} onOpenChange={setDedupDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir contatos duplicados</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>{duplicateGroups.length} grupo(s) de duplicados encontrado(s). Serão removidos <strong>{duplicateGroups.reduce((sum, g) => sum + g.contacts.length - 1, 0)}</strong> contato(s), mantendo o mais antigo de cada grupo.</p>
+                <div className="max-h-48 overflow-y-auto space-y-2">
+                  {duplicateGroups.map((g) => (
+                    <div key={g.key} className="text-xs border rounded p-2">
+                      <span className="font-medium">{g.contacts[0].first_name} {g.contacts[0].last_name || ""}</span>
+                      <span className="text-muted-foreground ml-1">({g.contacts[0].email || "sem email"})</span>
+                      <span className="text-muted-foreground"> — {g.contacts.length} registros, {g.contacts.length - 1} será(ão) removido(s)</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={removeDuplicates} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir Duplicados
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
