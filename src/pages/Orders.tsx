@@ -162,6 +162,18 @@ export default function Orders() {
     setDialogOpen(false); fetchOrders();
   };
 
+  const deleteOrder = async (orderId: string) => {
+    if (!confirm("Tem certeza que deseja excluir este pedido? Esta ação não pode ser desfeita.")) return;
+    // Cascade delete: receivables → order_payments → order_items → order
+    await supabase.from("receivables").delete().eq("order_id", orderId);
+    await supabase.from("order_payments").delete().eq("order_id", orderId);
+    await supabase.from("order_items").delete().eq("order_id", orderId);
+    const { error } = await supabase.from("orders").delete().eq("id", orderId);
+    if (error) { toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Pedido excluído com sucesso!" });
+    fetchOrders();
+  };
+
   const changeStatus = async (orderId: string, newStatus: string) => {
     const { error } = await supabase.from("orders").update({ status: newStatus }).eq("id", orderId);
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
@@ -327,16 +339,17 @@ export default function Orders() {
                   <TableCell><Badge variant={o.paid_status === "paid" ? "default" : "secondary"}>{o.paid_status === "paid" ? "Pago" : o.paid_status === "partial" ? "Parcial" : "Pendente"}</Badge></TableCell>
                   <TableCell className="text-right font-medium">R$ {Number(o.total).toFixed(2)}</TableCell>
                   <TableCell>
-                    {transitions[o.status] && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {transitions[o.status].map((t) => (
-                            <DropdownMenuItem key={t.to} onClick={() => changeStatus(o.id, t.to)}>{t.label}</DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {transitions[o.status]?.map((t) => (
+                          <DropdownMenuItem key={t.to} onClick={() => changeStatus(o.id, t.to)}>{t.label}</DropdownMenuItem>
+                        ))}
+                        <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => deleteOrder(o.id)}>
+                          <Trash2 className="mr-2 h-4 w-4" />Excluir Pedido
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               );})}
