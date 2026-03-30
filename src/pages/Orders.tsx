@@ -35,8 +35,20 @@ const transitions: Record<string, { label: string; to: string }[]> = {
 
 const pmLabels: Record<string, string> = { pix: "PIX", credit_card: "Cartão Créd.", debit_card: "Cartão Déb.", boleto: "Boleto", transfer: "Transferência", cash: "Dinheiro" };
 
+const parseBRCurrency = (v: string): number => {
+  if (!v) return 0;
+  let s = v.replace(/\s/g, "");
+  if (s.includes(",") && s.includes(".")) {
+    const lastComma = s.lastIndexOf(",");
+    const lastDot = s.lastIndexOf(".");
+    if (lastComma > lastDot) { s = s.replace(/\./g, "").replace(",", "."); }
+    else { s = s.replace(/,/g, ""); }
+  } else if (s.includes(",")) { s = s.replace(",", "."); }
+  return parseFloat(s) || 0;
+};
+
 interface OrderItem { product_id: string; product_name: string; quantity: number; unit_price: number; total: number; }
-interface PaymentEntry { method: string; amount: number; installments: number; first_due_date: Date | undefined; }
+interface PaymentEntry { method: string; amount: string; installments: number; first_due_date: Date | undefined; }
 
 export default function Orders() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -50,7 +62,7 @@ export default function Orders() {
   const [selectedProduct, setSelectedProduct] = useState("");
   const [itemQty, setItemQty] = useState("1");
   const [notes, setNotes] = useState("");
-  const [payments, setPayments] = useState<PaymentEntry[]>([{ method: "pix", amount: 0, installments: 1, first_due_date: undefined }]);
+  const [payments, setPayments] = useState<PaymentEntry[]>([{ method: "pix", amount: "", installments: 1, first_due_date: undefined }]);
   const { toast } = useToast();
 
   const fetchOrders = useCallback(async () => {
@@ -69,7 +81,7 @@ export default function Orders() {
     setCustomers(c || []); setProducts(p || []);
   };
 
-  const handleOpenDialog = () => { loadFormData(); setSelectedCustomer(""); setItems([]); setNotes(""); setPayments([{ method: "pix", amount: 0, installments: 1, first_due_date: undefined }]); setDialogOpen(true); };
+  const handleOpenDialog = () => { loadFormData(); setSelectedCustomer(""); setItems([]); setNotes(""); setPayments([{ method: "pix", amount: "", installments: 1, first_due_date: undefined }]); setDialogOpen(true); };
 
   const addItem = () => {
     const product = products.find((p) => p.id === selectedProduct);
@@ -83,13 +95,13 @@ export default function Orders() {
   const subtotal = items.reduce((sum, i) => sum + i.total, 0);
 
   // Payment helpers
-  const totalAllocated = payments.reduce((sum, p) => sum + p.amount, 0);
+  const totalAllocated = payments.reduce((sum, p) => sum + parseBRCurrency(p.amount), 0);
   const remaining = subtotal - totalAllocated;
   const isFullyAllocated = Math.abs(remaining) < 0.01 && subtotal > 0;
 
   const addPayment = () => {
     const rem = Math.max(0, subtotal - totalAllocated);
-    setPayments([...payments, { method: "pix", amount: Number(rem.toFixed(2)), installments: 1, first_due_date: undefined }]);
+    setPayments([...payments, { method: "pix", amount: rem > 0 ? rem.toFixed(2).replace(".", ",") : "", installments: 1, first_due_date: undefined }]);
   };
   const removePayment = (i: number) => setPayments(payments.filter((_, idx) => idx !== i));
   const updatePayment = (i: number, field: keyof PaymentEntry, value: any) => {
@@ -117,14 +129,15 @@ export default function Orders() {
     // Insert split payments with installment date generation
     const orderPayments: any[] = [];
     for (const p of payments) {
+      const pAmount = parseBRCurrency(p.amount);
       if (p.installments > 1 && p.first_due_date) {
-        const perInstallment = Number((p.amount / p.installments).toFixed(2));
+        const perInstallment = Number((pAmount / p.installments).toFixed(2));
         for (let n = 0; n < p.installments; n++) {
           const dueDate = addMonths(p.first_due_date, n);
           orderPayments.push({ tenant_id: profile.tenant_id, order_id: order.id, method: p.method, amount: perInstallment, installments: 1, due_date: format(dueDate, "yyyy-MM-dd") });
         }
       } else {
-        orderPayments.push({ tenant_id: profile.tenant_id, order_id: order.id, method: p.method, amount: p.amount, installments: p.installments, due_date: p.first_due_date ? format(p.first_due_date, "yyyy-MM-dd") : null });
+        orderPayments.push({ tenant_id: profile.tenant_id, order_id: order.id, method: p.method, amount: pAmount, installments: p.installments, due_date: p.first_due_date ? format(p.first_due_date, "yyyy-MM-dd") : null });
       }
     }
     await supabase.from("order_payments").insert(orderPayments as any);
@@ -267,7 +280,7 @@ export default function Orders() {
                     </div>
                     <div className="w-32 space-y-1">
                       <Label className="text-xs text-muted-foreground">Valor (R$)</Label>
-                      <Input type="number" min="0" step="0.01" value={pm.amount || ""} onChange={(e) => updatePayment(i, "amount", Number(e.target.value) || 0)} />
+                      <Input type="text" inputMode="decimal" value={pm.amount} onChange={(e) => { const v = e.target.value.replace(/[^0-9.,]/g, ""); updatePayment(i, "amount", v); }} placeholder="10.000,00" />
                     </div>
                     {pm.method === "credit_card" && (
                       <div className="w-24 space-y-1">
