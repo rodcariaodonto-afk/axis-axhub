@@ -35,8 +35,20 @@ const transitions: Record<string, { label: string; to: string }[]> = {
 
 const pmLabels: Record<string, string> = { pix: "PIX", credit_card: "Cartão Créd.", debit_card: "Cartão Déb.", boleto: "Boleto", transfer: "Transferência", cash: "Dinheiro" };
 
+const parseBRCurrency = (v: string): number => {
+  if (!v) return 0;
+  let s = v.replace(/\s/g, "");
+  if (s.includes(",") && s.includes(".")) {
+    const lastComma = s.lastIndexOf(",");
+    const lastDot = s.lastIndexOf(".");
+    if (lastComma > lastDot) { s = s.replace(/\./g, "").replace(",", "."); }
+    else { s = s.replace(/,/g, ""); }
+  } else if (s.includes(",")) { s = s.replace(",", "."); }
+  return parseFloat(s) || 0;
+};
+
 interface OrderItem { product_id: string; product_name: string; quantity: number; unit_price: number; total: number; }
-interface PaymentEntry { method: string; amount: number; installments: number; first_due_date: Date | undefined; }
+interface PaymentEntry { method: string; amount: string; installments: number; first_due_date: Date | undefined; }
 
 export default function Orders() {
   const [orders, setOrders] = useState<any[]>([]);
