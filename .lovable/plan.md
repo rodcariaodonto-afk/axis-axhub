@@ -1,34 +1,32 @@
 
 
-## Adicionar Suporte a NIF em Todos os Campos de Documento
+## Suporte Internacional no Endereço (Países, Estados, Cidades)
 
-### Arquivos a modificar
+### Problema
+O componente `AddressFields` só lista estados brasileiros (hardcoded) e cidades via API IBGE. Para clientes internacionais (ex: Angola), não há opções válidas.
 
-**1. `src/lib/documentMask.ts`** — Centralizar lógica
-- Adicionar função `detectDocumentType(value): "cpf" | "cnpj" | "nif"` (11 dígitos = CPF, 14 = CNPJ, outro = NIF)
-- Atualizar `formatDocument` para retornar o valor sem máscara quando NIF (apenas dígitos)
+### Solução
+Tornar o campo País um **dropdown com todos os países do mundo** e adaptar estados/cidades conforme o país selecionado:
 
-**2. `src/pages/Accounts.tsx`**
-- Expandir tipo de `"cpf" | "cnpj"` para `"cpf" | "cnpj" | "nif"` no estado `docType`
-- Adicionar `<SelectItem value="nif">NIF</SelectItem>` no Select de tipo de documento
-- Atualizar `detectDocType` e `validateDoc` para aceitar NIF (sem validação de formato)
-- Quando NIF, ocultar seção "Responsável pela Empresa" (assim como CPF)
+- **Brasil**: mantém comportamento atual (CEP via ViaCEP, estados dropdown, cidades via IBGE)
+- **Outros países**: estados e cidades viram **campos de texto livre** (não existe API universal confiável para subdivisões de todos os países)
+- CEP só faz auto-preenchimento quando país = "Brasil"
 
-**3. `src/pages/AccountDetail.tsx`**
-- Mesmas mudanças: expandir tipo, adicionar opção NIF no Select, atualizar `detectDocType` e `validateDoc`
+### Mudanças
 
-**4. `src/pages/Suppliers.tsx`**
-- Adicionar estado `docType` (`"cnpj" | "cpf" | "nif"`, default `"cnpj"`)
-- Trocar label fixa "CNPJ" por Select com 3 opções (CNPJ/CPF/NIF)
-- Não aplicar máscara quando NIF
+**1. `src/hooks/useAddressCep.ts`**
+- Exportar lista `COUNTRIES` com ~195 países (nome em português, código ISO)
 
-**5. `src/pages/Customers.tsx`**
-- Adicionar estado `docType` ao formulário
-- Trocar label "CPF/CNPJ" por Select com 3 opções (CPF/CNPJ/NIF)
-- Não aplicar máscara quando NIF
+**2. `src/components/address/AddressFields.tsx`**
+- Trocar campo País de `Input` para `Select` com todos os países
+- Quando país ≠ "Brasil":
+  - Ocultar auto-preenchimento de CEP
+  - Estado → Input texto livre (label "Estado / Província")
+  - Cidade → Input texto livre
+- Quando país = "Brasil": manter dropdown de estados + cidades IBGE
+- Ao mudar de país, limpar estado e cidade
 
-### Detalhes técnicos
-- NIF angolano: aceitar qualquer sequência de dígitos, sem máscara rígida
-- Sem migração SQL necessária — campos de documento já são texto livre
-- Placeholder do NIF: "Número de Identificação Fiscal"
+### Arquivos modificados
+- `src/hooks/useAddressCep.ts` — adicionar lista de países
+- `src/components/address/AddressFields.tsx` — dropdown de países + lógica condicional
 
