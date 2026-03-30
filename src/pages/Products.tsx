@@ -14,6 +14,12 @@ import { Plus, Search, Settings2, Trash2, ImageIcon, Pencil, ChevronRight, Chevr
 import ProductFormDynamic from "@/components/products/ProductFormDynamic";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
+const parseBRCurrency = (v: string): number => {
+  if (!v) return 0;
+  if (v.includes(",")) return parseFloat(v.replace(/\./g, "").replace(",", ".")) || 0;
+  return parseFloat(v) || 0;
+};
+
 interface Product {
   id: string;
   sku: string;
