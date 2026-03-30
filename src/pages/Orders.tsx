@@ -28,7 +28,10 @@ const transitions: Record<string, { label: string; to: string }[]> = {
   shipped: [{ label: "Concluir", to: "completed" }],
 };
 
+const pmLabels: Record<string, string> = { pix: "PIX", credit_card: "Cartão Créd.", debit_card: "Cartão Déb.", boleto: "Boleto", transfer: "Transferência", cash: "Dinheiro" };
+
 interface OrderItem { product_id: string; product_name: string; quantity: number; unit_price: number; total: number; }
+interface PaymentEntry { method: string; amount: number; installments: number; }
 
 export default function Orders() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -42,8 +45,7 @@ export default function Orders() {
   const [selectedProduct, setSelectedProduct] = useState("");
   const [itemQty, setItemQty] = useState("1");
   const [notes, setNotes] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("pix");
-  const [installments, setInstallments] = useState("1");
+  const [payments, setPayments] = useState<PaymentEntry[]>([{ method: "pix", amount: 0, installments: 1 }]);
   const { toast } = useToast();
 
   const fetchOrders = useCallback(async () => {
@@ -62,7 +64,7 @@ export default function Orders() {
     setCustomers(c || []); setProducts(p || []);
   };
 
-  const handleOpenDialog = () => { loadFormData(); setSelectedCustomer(""); setItems([]); setNotes(""); setPaymentMethod("pix"); setInstallments("1"); setDialogOpen(true); };
+  const handleOpenDialog = () => { loadFormData(); setSelectedCustomer(""); setItems([]); setNotes(""); setPayments([{ method: "pix", amount: 0, installments: 1 }]); setDialogOpen(true); };
 
   const addItem = () => {
     const product = products.find((p) => p.id === selectedProduct);
@@ -75,17 +77,41 @@ export default function Orders() {
   const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index));
   const subtotal = items.reduce((sum, i) => sum + i.total, 0);
 
+  // Payment helpers
+  const totalAllocated = payments.reduce((sum, p) => sum + p.amount, 0);
+  const remaining = subtotal - totalAllocated;
+  const isFullyAllocated = Math.abs(remaining) < 0.01 && subtotal > 0;
+
+  const addPayment = () => {
+    const rem = Math.max(0, subtotal - totalAllocated);
+    setPayments([...payments, { method: "pix", amount: Number(rem.toFixed(2)), installments: 1 }]);
+  };
+  const removePayment = (i: number) => setPayments(payments.filter((_, idx) => idx !== i));
+  const updatePayment = (i: number, field: keyof PaymentEntry, value: any) => {
+    const updated = [...payments];
+    (updated[i] as any)[field] = value;
+    if (field === "method" && value !== "credit_card") updated[i].installments = 1;
+    setPayments(updated);
+  };
+
+  const paymentSummary = (paymentList: PaymentEntry[]) =>
+    paymentList.map(p => `${pmLabels[p.method] || p.method}${p.installments > 1 ? ` ${p.installments}x` : ""}`).join(" + ");
+
   const handleCreate = async () => {
-    if (!selectedCustomer || items.length === 0) { toast({ title: "Erro", description: "Selecione um cliente e adicione itens.", variant: "destructive" }); return; }
+    if (!selectedCustomer || items.length === 0 || !isFullyAllocated) { toast({ title: "Erro", description: "Preencha todos os campos e aloque o valor total.", variant: "destructive" }); return; }
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
     if (!profile) return;
     const orderNumber = `PED-${Date.now().toString(36).toUpperCase()}`;
-    const { data: order, error } = await supabase.from("orders").insert({ tenant_id: profile.tenant_id, number: orderNumber, customer_id: selectedCustomer, subtotal, total: subtotal, notes: notes || null, payment_method: paymentMethod, installments: parseInt(installments) || 1 } as any).select().single();
+    const summary = paymentSummary(payments);
+    const { data: order, error } = await supabase.from("orders").insert({ tenant_id: profile.tenant_id, number: orderNumber, customer_id: selectedCustomer, subtotal, total: subtotal, notes: notes || null, payment_method: summary, installments: payments[0]?.installments || 1 } as any).select().single();
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     const orderItems = items.map((i) => ({ tenant_id: profile.tenant_id, order_id: order.id, product_id: i.product_id, quantity: i.quantity, unit_price: i.unit_price, total: i.total }));
     await supabase.from("order_items").insert(orderItems);
+    // Insert split payments
+    const orderPayments = payments.map((p) => ({ tenant_id: profile.tenant_id, order_id: order.id, method: p.method, amount: p.amount, installments: p.installments }));
+    await supabase.from("order_payments").insert(orderPayments as any);
     toast({ title: "Pedido criado!", description: `Número: ${orderNumber}` });
     setDialogOpen(false); fetchOrders();
   };
@@ -93,8 +119,6 @@ export default function Orders() {
   const changeStatus = async (orderId: string, newStatus: string) => {
     const { error } = await supabase.from("orders").update({ status: newStatus }).eq("id", orderId);
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
-    
-    // Auto-create receivable when order is completed
     if (newStatus === "completed") {
       try {
         const { data: order } = await supabase.from("orders").select("*").eq("id", orderId).single();
@@ -104,19 +128,12 @@ export default function Orders() {
           const dueDate = new Date();
           dueDate.setDate(dueDate.getDate() + 30);
           await supabase.from("receivables").insert({
-            tenant_id: profile.tenant_id,
-            description: `Pedido ${order.number}`,
-            amount: Number(order.total),
-            due_date: dueDate.toISOString().split("T")[0],
-            order_id: orderId,
-            customer_id: order.customer_id,
-            deal_id: order.deal_id,
+            tenant_id: profile.tenant_id, description: `Pedido ${order.number}`, amount: Number(order.total),
+            due_date: dueDate.toISOString().split("T")[0], order_id: orderId, customer_id: order.customer_id, deal_id: order.deal_id,
           } as any);
           toast({ title: `Pedido concluído!`, description: "Conta a receber gerada automaticamente (venc. 30 dias)." });
         }
-      } catch {
-        toast({ title: `Status alterado para ${statusLabels[newStatus]}` });
-      }
+      } catch { toast({ title: `Status alterado para ${statusLabels[newStatus]}` }); }
     } else {
       toast({ title: `Status alterado para ${statusLabels[newStatus]}` });
     }
@@ -160,37 +177,62 @@ export default function Orders() {
                   <div className="p-3 border-t border-border flex justify-between items-center"><span className="text-sm text-muted-foreground">{items.length} item(ns)</span><span className="text-lg font-bold">Total: R$ {subtotal.toFixed(2)}</span></div>
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Forma de Pagamento</Label>
-                  <Select value={paymentMethod} onValueChange={(v) => { setPaymentMethod(v); if (v !== "credit_card") setInstallments("1"); }}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pix">PIX</SelectItem>
-                      <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
-                      <SelectItem value="debit_card">Cartão de Débito</SelectItem>
-                      <SelectItem value="boleto">Boleto</SelectItem>
-                      <SelectItem value="transfer">Transferência</SelectItem>
-                      <SelectItem value="cash">Dinheiro</SelectItem>
-                    </SelectContent>
-                  </Select>
+
+              {/* Split Payment Section */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-semibold">Formas de Pagamento</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={addPayment} disabled={subtotal === 0}>
+                    <Plus className="h-3 w-3 mr-1" />Adicionar Forma
+                  </Button>
                 </div>
-                {paymentMethod === "credit_card" && (
-                  <div className="space-y-2">
-                    <Label>Parcelas</Label>
-                    <Select value={installments} onValueChange={setInstallments}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
-                          <SelectItem key={n} value={String(n)}>{n}x {n === 1 ? "à vista" : `de R$ ${(subtotal / n).toFixed(2)}`}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                {payments.map((pm, i) => (
+                  <div key={i} className="flex gap-2 items-end border border-border rounded-md p-3">
+                    <div className="flex-1 space-y-1">
+                      <Label className="text-xs text-muted-foreground">Método</Label>
+                      <Select value={pm.method} onValueChange={(v) => updatePayment(i, "method", v)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pix">PIX</SelectItem>
+                          <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
+                          <SelectItem value="debit_card">Cartão de Débito</SelectItem>
+                          <SelectItem value="boleto">Boleto</SelectItem>
+                          <SelectItem value="transfer">Transferência</SelectItem>
+                          <SelectItem value="cash">Dinheiro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="w-32 space-y-1">
+                      <Label className="text-xs text-muted-foreground">Valor (R$)</Label>
+                      <Input type="number" min="0" step="0.01" value={pm.amount || ""} onChange={(e) => updatePayment(i, "amount", Number(e.target.value) || 0)} />
+                    </div>
+                    {pm.method === "credit_card" && (
+                      <div className="w-24 space-y-1">
+                        <Label className="text-xs text-muted-foreground">Parcelas</Label>
+                        <Select value={String(pm.installments)} onValueChange={(v) => updatePayment(i, "installments", parseInt(v))}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 12 }, (_, n) => n + 1).map((n) => (
+                              <SelectItem key={n} value={String(n)}>{n}x</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    {payments.length > 1 && (
+                      <Button variant="ghost" size="icon" onClick={() => removePayment(i)} className="h-9 w-9 shrink-0"><Trash2 className="h-3 w-3 text-destructive" /></Button>
+                    )}
+                  </div>
+                ))}
+                {subtotal > 0 && (
+                  <div className={`text-sm text-right font-medium ${isFullyAllocated ? "text-green-600" : "text-destructive"}`}>
+                    {isFullyAllocated ? `✓ Alocado: R$ ${totalAllocated.toFixed(2)}` : `Falta alocar: R$ ${remaining.toFixed(2)}`}
                   </div>
                 )}
               </div>
+
               <div className="space-y-2"><Label>Observações</Label><Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notas do pedido (opcional)" /></div>
-              <Button onClick={handleCreate} className="w-full" disabled={!selectedCustomer || items.length === 0}>
+              <Button onClick={handleCreate} className="w-full" disabled={!selectedCustomer || items.length === 0 || !isFullyAllocated}>
                 Criar Pedido
                 {items.length === 0 && <span className="ml-2 text-xs opacity-70">(adicione itens com o botão +)</span>}
               </Button>
@@ -209,16 +251,14 @@ export default function Orders() {
               {loading ? <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow> :
               filtered.length === 0 ? <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum pedido encontrado</TableCell></TableRow> :
               filtered.map((o) => {
-                const pmLabels: Record<string, string> = { pix: "PIX", credit_card: "Cartão Créd.", debit_card: "Cartão Déb.", boleto: "Boleto", transfer: "Transferência", cash: "Dinheiro" };
                 const pm = (o as any).payment_method || "pix";
-                const inst = (o as any).installments || 1;
                 return (
                 <TableRow key={o.id} className="border-border">
                   <TableCell className="font-mono text-xs">{o.number}</TableCell>
                   <TableCell className="font-medium">{o.customers?.name || "—"}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{(o as any).deals?.name || "—"}</TableCell>
                   <TableCell><Badge variant={statusColors[o.status] as any || "secondary"}>{statusLabels[o.status] || o.status}</Badge></TableCell>
-                  <TableCell className="text-sm">{pmLabels[pm] || pm}{inst > 1 ? ` ${inst}x` : ""}</TableCell>
+                  <TableCell className="text-sm max-w-[200px] truncate">{pm}</TableCell>
                   <TableCell><Badge variant={o.paid_status === "paid" ? "default" : "secondary"}>{o.paid_status === "paid" ? "Pago" : o.paid_status === "partial" ? "Parcial" : "Pendente"}</Badge></TableCell>
                   <TableCell className="text-right font-medium">R$ {Number(o.total).toFixed(2)}</TableCell>
                   <TableCell>
