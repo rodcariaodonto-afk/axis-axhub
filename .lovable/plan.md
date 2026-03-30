@@ -1,38 +1,20 @@
 
 
-## Integração Pedidos → Contas a Receber (com Split Payment)
+## Corrigir Integração Pedidos → Contas a Receber
 
-### Problema atual
-Quando um pedido é criado com formas de pagamento detalhadas (ex: R$10.000 cartão 10x + R$10.000 PIX), o sistema:
-1. Salva corretamente os registros em `order_payments`
-2. Mas só gera **um único recebível genérico** de 30 dias quando o status muda para "completed"
-3. Ignora completamente as datas, parcelas e métodos de pagamento informados
+### Diagnóstico
+O pedido `PED-MNCH3UP8` foi criado **antes** do código de integração com recebíveis ser implantado. Os `order_payments` (11 registros) existem no banco, mas os `receivables` correspondentes nunca foram gerados. Não é necessário aprovar o pedido — os recebíveis devem ser criados automaticamente na hora da criação do pedido.
 
-### Solução
-Ao criar o pedido, gerar automaticamente os recebíveis baseados nos `order_payments` já inseridos — cada parcela vira um recebível individual com a data correta.
+### O que será feito
 
-### Mudanças em `src/pages/Orders.tsx`
+**1. Corrigir pedido existente** — Inserir os 11 recebíveis faltantes diretamente no banco via migração SQL, baseados nos `order_payments` já existentes para o pedido `PED-MNCH3UP8`.
 
-**Na função `handleCreate` (após inserir `order_payments`):**
-- Para cada registro de `orderPayments`, criar um recebível correspondente em `receivables` com:
-  - `description`: "Pedido PED-XXX — Cartão Créd. 2/10" (método + parcela)
-  - `amount`: valor da parcela individual
-  - `due_date`: data calculada do pagamento
-  - `order_id`: ID do pedido
-  - `customer_id`: cliente selecionado
-  - `category_id`: null (pode ser categorizado depois)
+**2. Adicionar backfill genérico** — Na mesma migração, gerar recebíveis para qualquer pedido que tenha `order_payments` mas não tenha `receivables` associados (segurança contra outros pedidos futuros com o mesmo problema).
 
-**Na função `changeStatus` (quando status = "completed"):**
-- Remover a lógica de gerar recebível genérico
-- Verificar se já existem recebíveis para o pedido (gerados na criação)
-- Se não existir nenhum (pedidos antigos), gerar com a lógica legada
+### Detalhes técnicos
+A migração faz um `INSERT INTO receivables ... SELECT` dos `order_payments` que não possuem recebível correspondente, usando `LEFT JOIN` para detectar lacunas.
 
-### Exemplo de resultado
-Pedido de R$20.000 com Cartão 10x (R$10.000) + PIX (R$10.000):
-- Gera 11 recebíveis automaticamente:
-  - 10x de R$1.000 (cartão, datas mensais)
-  - 1x de R$10.000 (PIX, data informada)
-
-### Arquivos modificados
-- `src/pages/Orders.tsx` — lógica de geração de recebíveis na criação do pedido
+### Arquivos
+- 1 migração SQL (backfill de recebíveis faltantes)
+- Nenhuma alteração de código (a lógica no `Orders.tsx` já gera recebíveis na criação)
 
