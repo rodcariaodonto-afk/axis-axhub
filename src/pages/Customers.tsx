@@ -93,7 +93,7 @@ export default function Customers() {
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="bg-card border-border">
-          <DialogHeader><DialogTitle>{editingId ? "Editar Cliente" : "Novo Cliente"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Editar Cliente</DialogTitle></DialogHeader>
           <form onSubmit={handleSave} className="space-y-4">
             <div className="space-y-2">
               <Label>Nome</Label>
