@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, User, Pencil, Trash2, UserCheck, AlertTriangle } from "lucide-react";
+import { formatDocument } from "@/lib/documentMask";
 
 export default function Contacts() {
   const navigate = useNavigate();
