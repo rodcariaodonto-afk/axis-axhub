@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search } from "lucide-react";
-import { formatDocument, stripDocument } from "@/lib/documentMask";
+import { formatDocument, stripDocument, type DocType } from "@/lib/documentMask";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AddressFields from "@/components/address/AddressFields";
 
 const emptyForm = {
