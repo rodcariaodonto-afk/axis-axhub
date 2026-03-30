@@ -77,6 +77,15 @@ export default function Customers() {
     fetchCustomers();
   };
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    const { error } = await supabase.from("customers").delete().eq("id", deleteTarget.id);
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Cliente excluído!" });
+    setDeleteTarget(null);
+    fetchCustomers();
+  };
+
   const filtered = customers.filter(
     (c) => c.name.toLowerCase().includes(search.toLowerCase()) || (c.document || "").includes(search)
   );
