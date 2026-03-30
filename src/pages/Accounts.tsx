@@ -80,7 +80,7 @@ export default function Accounts() {
 
   const openEdit = (a: any) => {
     setEditingId(a.id);
-    setDocType(detectDocType(a.cnpj || ""));
+    setDocType(detectDocumentType(a.cnpj || ""));
     const addr = a.address_json || {};
     const resp = (a as any).responsible_json || {};
     setForm({
