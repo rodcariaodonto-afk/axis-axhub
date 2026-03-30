@@ -402,6 +402,35 @@ export default function Contacts() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dedup Confirmation */}
+      <AlertDialog open={dedupDialogOpen} onOpenChange={setDedupDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir contatos duplicados</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>{duplicateGroups.length} grupo(s) de duplicados encontrado(s). Serão removidos <strong>{duplicateGroups.reduce((sum, g) => sum + g.contacts.length - 1, 0)}</strong> contato(s), mantendo o mais antigo de cada grupo.</p>
+                <div className="max-h-48 overflow-y-auto space-y-2">
+                  {duplicateGroups.map((g) => (
+                    <div key={g.key} className="text-xs border rounded p-2">
+                      <span className="font-medium">{g.contacts[0].first_name} {g.contacts[0].last_name || ""}</span>
+                      <span className="text-muted-foreground ml-1">({g.contacts[0].email || "sem email"})</span>
+                      <span className="text-muted-foreground"> — {g.contacts.length} registros, {g.contacts.length - 1} será(ão) removido(s)</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={removeDuplicates} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir Duplicados
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
