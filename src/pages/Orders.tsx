@@ -114,8 +114,19 @@ export default function Orders() {
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     const orderItems = items.map((i) => ({ tenant_id: profile.tenant_id, order_id: order.id, product_id: i.product_id, quantity: i.quantity, unit_price: i.unit_price, total: i.total }));
     await supabase.from("order_items").insert(orderItems);
-    // Insert split payments
-    const orderPayments = payments.map((p) => ({ tenant_id: profile.tenant_id, order_id: order.id, method: p.method, amount: p.amount, installments: p.installments }));
+    // Insert split payments with installment date generation
+    const orderPayments: any[] = [];
+    for (const p of payments) {
+      if (p.installments > 1 && p.first_due_date) {
+        const perInstallment = Number((p.amount / p.installments).toFixed(2));
+        for (let n = 0; n < p.installments; n++) {
+          const dueDate = addMonths(p.first_due_date, n);
+          orderPayments.push({ tenant_id: profile.tenant_id, order_id: order.id, method: p.method, amount: perInstallment, installments: 1, due_date: format(dueDate, "yyyy-MM-dd") });
+        }
+      } else {
+        orderPayments.push({ tenant_id: profile.tenant_id, order_id: order.id, method: p.method, amount: p.amount, installments: p.installments, due_date: p.first_due_date ? format(p.first_due_date, "yyyy-MM-dd") : null });
+      }
+    }
     await supabase.from("order_payments").insert(orderPayments as any);
     toast({ title: "Pedido criado!", description: `Número: ${orderNumber}` });
     setDialogOpen(false); fetchOrders();
