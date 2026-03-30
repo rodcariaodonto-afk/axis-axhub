@@ -25,6 +25,7 @@ export default function Suppliers() {
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ ...emptyForm });
+  const [docType, setDocType] = useState<DocType>("cnpj");
   const { toast } = useToast();
 
   const fetchData = async () => {
