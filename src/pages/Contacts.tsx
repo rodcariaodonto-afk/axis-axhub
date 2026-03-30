@@ -35,6 +35,38 @@ export default function Contacts() {
   const [convertingContact, setConvertingContact] = useState<any>(null);
   const [convertForm, setConvertForm] = useState({ name: "", document: "", email: "", phone: "" });
 
+  const [dedupDialogOpen, setDedupDialogOpen] = useState(false);
+  const [duplicateGroups, setDuplicateGroups] = useState<{ key: string; contacts: any[] }[]>([]);
+
+  const findDuplicates = () => {
+    const groups: Record<string, any[]> = {};
+    contacts.forEach((c) => {
+      const key = `${(c.first_name || "").toLowerCase().trim()}|${(c.last_name || "").toLowerCase().trim()}|${(c.email || "").toLowerCase().trim()}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(c);
+    });
+    const dups = Object.entries(groups)
+      .filter(([, arr]) => arr.length > 1)
+      .map(([key, arr]) => ({ key, contacts: arr.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) }));
+    setDuplicateGroups(dups);
+    if (dups.length === 0) {
+      toast({ title: "Nenhum duplicado encontrado", description: "Todos os contatos são únicos." });
+    } else {
+      setDedupDialogOpen(true);
+    }
+  };
+
+  const removeDuplicates = async () => {
+    const idsToRemove = duplicateGroups.flatMap((g) => g.contacts.slice(1).map((c) => c.id));
+    if (idsToRemove.length === 0) return;
+    const { error } = await supabase.from("contacts").delete().in("id", idsToRemove);
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    toast({ title: `${idsToRemove.length} contato(s) duplicado(s) removido(s)!` });
+    setDedupDialogOpen(false);
+    setDuplicateGroups([]);
+    fetchData();
+  };
+
   const fetchData = useCallback(async () => {
     const [{ data: c }, { data: a }] = await Promise.all([
       supabase.from("contacts").select("*, crm_accounts(id, name)").order("created_at", { ascending: false }),
