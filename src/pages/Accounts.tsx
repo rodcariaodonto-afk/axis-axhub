@@ -16,13 +16,11 @@ import AddressFields from "@/components/address/AddressFields";
 const SEGMENTS = ["Tecnologia", "Varejo", "Serviços", "Indústria", "Saúde", "Educação", "Financeiro", "Outro"];
 const PAGE_SIZE = 10;
 
-function detectDocType(doc: string): "cpf" | "cnpj" {
-  const digits = (doc || "").replace(/\D/g, "");
-  return digits.length === 11 ? "cpf" : "cnpj";
-}
+import { detectDocumentType, type DocType } from "@/lib/documentMask";
 
-function validateDoc(doc: string, type: "cpf" | "cnpj"): boolean {
+function validateDoc(doc: string, type: DocType): boolean {
   if (!doc) return true;
+  if (type === "nif") return doc.replace(/\D/g, "").length > 0;
   if (type === "cpf") return /^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(doc);
   return /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/.test(doc);
 }
