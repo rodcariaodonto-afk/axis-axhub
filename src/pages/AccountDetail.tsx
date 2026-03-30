@@ -106,7 +106,7 @@ export default function AccountDetail() {
     const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = "Nome obrigatório";
     if (form.cnpj && !validateDoc(form.cnpj, docType)) {
-      e.cnpj = docType === "cpf" ? "Formato: 000.000.000-00" : "Formato: 00.000.000/0000-00";
+      e.cnpj = docType === "cpf" ? "Formato: 000.000.000-00" : docType === "cnpj" ? "Formato: 00.000.000/0000-00" : "Informe o NIF";
     }
     if (form.website && !validateURL(form.website)) e.website = "URL inválida";
     setErrors(e);
