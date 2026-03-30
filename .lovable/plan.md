@@ -1,20 +1,37 @@
 
 
-## Corrigir Campo de Valor nos Pagamentos do Pedido
+## Expandir Cadastro de Fornecedores
 
-### Problema
-O campo "Valor (R$)" na seção de formas de pagamento usa `type="number"`, que não suporta formatação brasileira. Ao digitar "10.000" (dez mil), o navegador interpreta como "10,00000".
+### 1. Migração SQL — Novos campos na tabela `suppliers`
+```sql
+ALTER TABLE public.suppliers
+  ADD COLUMN phone2 text,
+  ADD COLUMN contact_name text,
+  ADD COLUMN state_registration text,    -- inscrição estadual
+  ADD COLUMN city_registration text,     -- inscrição municipal
+  ADD COLUMN postal_code text,
+  ADD COLUMN street text,
+  ADD COLUMN city text,
+  ADD COLUMN state text,
+  ADD COLUMN country text DEFAULT 'Brasil';
+```
 
-### Solução
-Aplicar o mesmo padrão `parseBRCurrency` já usado nos produtos:
+### 2. Atualizar formulário e tabela (`src/pages/Suppliers.tsx`)
 
-**`src/pages/Orders.tsx`**:
-1. Adicionar helper `parseBRCurrency` no arquivo
-2. Mudar `PaymentEntry.amount` de `number` para `string` (para manter o texto digitado)
-3. Trocar o input de `type="number"` para `type="text"` com `inputMode="decimal"`
-4. Usar `parseBRCurrency` em todos os cálculos: `totalAllocated`, `remaining`, `addPayment` (valor restante), e no `handleCreate` ao salvar
-5. Filtrar caracteres inválidos no onChange (permitir apenas `0-9.,`)
+**Formulário de criação** (dialog com scroll):
+- Nome (existente)
+- CNPJ (existente)
+- Inscrição Estadual / Inscrição Municipal (grid 2 cols)
+- Nome do Contato
+- E-mail / Telefone 1 (grid 2 cols)
+- Telefone 2
+- Campos de endereço usando o componente `AddressFields` existente (CEP com auto-preenchimento, Estado com dropdown, Cidade dinâmica via IBGE)
 
-### Arquivo modificado
-- `src/pages/Orders.tsx`
+**Tabela de listagem** — adicionar colunas: Contato, Telefone 2
+
+**Estado do form** — expandir para incluir todos os novos campos; salvar na criação passando os campos individuais.
+
+### Arquivos modificados
+- Migração SQL (novos campos)
+- `src/pages/Suppliers.tsx` — formulário expandido + `AddressFields` + novos campos na tabela
 
