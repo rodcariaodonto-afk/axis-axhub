@@ -107,7 +107,7 @@ export default function Orders() {
   const updatePayment = (i: number, field: keyof PaymentEntry, value: any) => {
     const updated = [...payments];
     (updated[i] as any)[field] = value;
-    if (field === "method" && value !== "credit_card") updated[i].installments = 1;
+    
     setPayments(updated);
   };
 
@@ -282,19 +282,17 @@ export default function Orders() {
                       <Label className="text-xs text-muted-foreground">Valor (R$)</Label>
                       <Input type="text" inputMode="decimal" value={pm.amount} onChange={(e) => { const v = e.target.value.replace(/[^0-9.,]/g, ""); updatePayment(i, "amount", v); }} placeholder="10.000,00" />
                     </div>
-                    {pm.method === "credit_card" && (
-                      <div className="w-24 space-y-1">
-                        <Label className="text-xs text-muted-foreground">Parcelas</Label>
-                        <Select value={String(pm.installments)} onValueChange={(v) => updatePayment(i, "installments", parseInt(v))}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {Array.from({ length: 12 }, (_, n) => n + 1).map((n) => (
-                              <SelectItem key={n} value={String(n)}>{n}x</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
+                    <div className="w-24 space-y-1">
+                      <Label className="text-xs text-muted-foreground">Parcelas</Label>
+                      <Select value={String(pm.installments)} onValueChange={(v) => updatePayment(i, "installments", parseInt(v))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 12 }, (_, n) => n + 1).map((n) => (
+                            <SelectItem key={n} value={String(n)}>{n}x</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <div className="w-36 space-y-1">
                       <Label className="text-xs text-muted-foreground">{pm.installments > 1 ? "Data 1ª parcela" : "Data pgto"}</Label>
                       <Popover>
