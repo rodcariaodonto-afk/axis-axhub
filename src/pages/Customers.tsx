@@ -7,7 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Pencil, Trash2 } from "lucide-react";
+import { Search, Pencil, Trash2, ArrowRight, Info } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import PasswordConfirmDialog from "@/components/finance/PasswordConfirmDialog";
 import { formatDocument, stripDocument, type DocType } from "@/lib/documentMask";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -30,6 +31,7 @@ export default function Customers() {
   const [docType, setDocType] = useState<DocType>("cpf");
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const fetchCustomers = async () => {
     const { data, error } = await supabase.from("customers").select("*").order("created_at", { ascending: false });
@@ -39,12 +41,6 @@ export default function Customers() {
   };
 
   useEffect(() => { fetchCustomers(); }, []);
-
-  const openCreate = () => {
-    setEditingId(null);
-    setForm({ name: "", document: "", email: "", phone: "" });
-    setDialogOpen(true);
-  };
 
   const openEdit = (c: Customer) => {
     setEditingId(c.id);
@@ -61,19 +57,10 @@ export default function Customers() {
       phone: form.phone || null,
     };
 
-    if (editingId) {
-      const { error } = await supabase.from("customers").update(payload).eq("id", editingId);
-      if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
-      toast({ title: "Cliente atualizado!" });
-    } else {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
-      if (!profile) return;
-      const { error } = await supabase.from("customers").insert({ ...payload, tenant_id: profile.tenant_id });
-      if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
-      toast({ title: "Cliente criado!" });
-    }
+    if (!editingId) return;
+    const { error } = await supabase.from("customers").update(payload).eq("id", editingId);
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Cliente atualizado!" });
     setForm({ name: "", document: "", email: "", phone: "" });
     setDialogOpen(false);
     fetchCustomers();
@@ -99,12 +86,14 @@ export default function Customers() {
           <h1 className="text-2xl font-bold tracking-tight">Clientes</h1>
           <p className="text-muted-foreground">Gerencie seus clientes</p>
         </div>
-        <Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" />Novo Cliente</Button>
+        <Button onClick={() => navigate("/accounts")} variant="outline">
+          <ArrowRight className="mr-2 h-4 w-4" />Criar Conta no CRM
+        </Button>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="bg-card border-border">
-          <DialogHeader><DialogTitle>{editingId ? "Editar Cliente" : "Novo Cliente"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Editar Cliente</DialogTitle></DialogHeader>
           <form onSubmit={handleSave} className="space-y-4">
             <div className="space-y-2">
               <Label>Nome</Label>
@@ -139,7 +128,7 @@ export default function Customers() {
                 <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
               </div>
             </div>
-            <Button type="submit" className="w-full">{editingId ? "Salvar" : "Criar Cliente"}</Button>
+            <Button type="submit" className="w-full">Salvar</Button>
           </form>
         </DialogContent>
       </Dialog>
@@ -165,7 +154,13 @@ export default function Customers() {
               {loading ? (
                 <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nenhum cliente encontrado</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="text-center py-8">
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    <Info className="h-6 w-6" />
+                    <p>Nenhum cliente encontrado.</p>
+                    <p className="text-xs">Para cadastrar um cliente, primeiro crie uma <button onClick={() => navigate("/accounts")} className="text-primary underline">Conta no CRM</button> e use o botão "Converter em Cliente".</p>
+                  </div>
+                </TableCell></TableRow>
               ) : (
                 filtered.map((c) => (
                   <TableRow key={c.id} className="border-border">
