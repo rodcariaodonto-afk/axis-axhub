@@ -50,7 +50,7 @@ export default function ProductFormDynamic({ categories, customFields, onSuccess
   // Regenerate variations when configs change
   useEffect(() => {
     if (variationConfigs.length > 0 && form.sku && form.name) {
-      const vars = generateVariations(form.sku, form.name, parseFloat(form.price) || 0, parseFloat(form.cost) || 0, variationConfigs);
+      const vars = generateVariations(form.sku, form.name, parseBRCurrency(form.price), parseBRCurrency(form.cost), variationConfigs);
       setGeneratedVariations(vars);
     } else {
       setGeneratedVariations([]);
@@ -98,8 +98,8 @@ export default function ProductFormDynamic({ categories, customFields, onSuccess
       name: form.name,
       type: dbType,
       category: form.category || null,
-      price: isSaas ? 0 : (parseFloat(form.price) || 0),
-      cost: isSaas ? 0 : (parseFloat(form.cost) || 0),
+      price: isSaas ? 0 : parseBRCurrency(form.price),
+      cost: isSaas ? 0 : parseBRCurrency(form.cost),
       is_parent: isSaas,
       is_subscription: isSaas,
     } as any).select().single();
