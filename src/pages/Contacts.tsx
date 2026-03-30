@@ -235,9 +235,13 @@ export default function Contacts() {
           <h1 className="text-2xl font-bold tracking-tight">Contatos</h1>
           <p className="text-muted-foreground">Gerencie os contatos do CRM</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button disabled={noAccounts}><Plus className="mr-2 h-4 w-4" />Novo Contato</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={findDuplicates}>
+            <Copy className="mr-2 h-4 w-4" />Excluir Duplicados
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button disabled={noAccounts}><Plus className="mr-2 h-4 w-4" />Novo Contato</Button>
           </DialogTrigger>
           <DialogContent className="bg-card border-border">
             <DialogHeader><DialogTitle>Novo Contato</DialogTitle></DialogHeader>
