@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Pencil, Power, Globe, Phone, Mail, MapPin, Building2, User, Instagram, UserCheck } from "lucide-react";
+import AddressFields from "@/components/address/AddressFields";
 
 const SEGMENTS = ["Tecnologia", "Varejo", "Serviços", "Indústria", "Saúde", "Educação", "Financeiro", "Outro"];
 
@@ -424,15 +425,14 @@ export default function AccountDetail() {
                 <Input value={form.instagram} onChange={(e) => setForm({ ...form, instagram: e.target.value })} placeholder="@perfil" />
               </div>
             </div>
-            <div className="space-y-2"><Label>Endereço</Label><Input value={form.street} onChange={(e) => setForm({ ...form, street: e.target.value })} /></div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>Cidade</Label><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
-              <div className="space-y-2"><Label>Estado</Label><Input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>País</Label><Input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} /></div>
-              <div className="space-y-2"><Label>CEP</Label><Input value={form.postal_code} onChange={(e) => setForm({ ...form, postal_code: e.target.value })} /></div>
-            </div>
+            <AddressFields
+              postal_code={form.postal_code}
+              country={form.country}
+              street={form.street}
+              city={form.city}
+              state={form.state}
+              onChange={(fields) => setForm((prev) => ({ ...prev, ...fields }))}
+            />
             {docType === "cnpj" && (
               <div className="border border-border rounded-lg p-4 space-y-4">
                 <p className="text-sm font-medium text-muted-foreground">Responsável pela Empresa</p>

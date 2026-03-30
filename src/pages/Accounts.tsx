@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Pencil, Building2, ChevronLeft, ChevronRight, UserCheck } from "lucide-react";
+import AddressFields from "@/components/address/AddressFields";
 
 const SEGMENTS = ["Tecnologia", "Varejo", "Serviços", "Indústria", "Saúde", "Educação", "Financeiro", "Outro"];
 const PAGE_SIZE = 10;
@@ -289,15 +290,14 @@ export default function Accounts() {
                 </div>
               </>
             )}
-            <div className="space-y-2"><Label>Endereço</Label><Input value={form.street} onChange={(e) => setForm({ ...form, street: e.target.value })} placeholder="Rua, número" /></div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>Cidade</Label><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
-              <div className="space-y-2"><Label>Estado</Label><Input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>País</Label><Input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} /></div>
-              <div className="space-y-2"><Label>CEP</Label><Input value={form.postal_code} onChange={(e) => setForm({ ...form, postal_code: e.target.value })} /></div>
-            </div>
+            <AddressFields
+              postal_code={form.postal_code}
+              country={form.country}
+              street={form.street}
+              city={form.city}
+              state={form.state}
+              onChange={(fields) => setForm((prev) => ({ ...prev, ...fields }))}
+            />
             <div className="space-y-2">
               <Label>Responsável</Label>
               <Select value={form.owner_user_id || "__none__"} onValueChange={(v) => setForm({ ...form, owner_user_id: v === "__none__" ? "" : v })}>
