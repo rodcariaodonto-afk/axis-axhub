@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Pencil, Trash2 } from "lucide-react";
 import PasswordConfirmDialog from "@/components/finance/PasswordConfirmDialog";
-import { formatDocument, stripDocument } from "@/lib/documentMask";
+import { formatDocument, stripDocument, type DocType } from "@/lib/documentMask";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Customer {
   id: string;
