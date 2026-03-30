@@ -154,7 +154,13 @@ export default function Customers() {
               {loading ? (
                 <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nenhum cliente encontrado</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="text-center py-8">
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    <Info className="h-6 w-6" />
+                    <p>Nenhum cliente encontrado.</p>
+                    <p className="text-xs">Para cadastrar um cliente, primeiro crie uma <button onClick={() => navigate("/accounts")} className="text-primary underline">Conta no CRM</button> e use o botão "Converter em Cliente".</p>
+                  </div>
+                </TableCell></TableRow>
               ) : (
                 filtered.map((c) => (
                   <TableRow key={c.id} className="border-border">
