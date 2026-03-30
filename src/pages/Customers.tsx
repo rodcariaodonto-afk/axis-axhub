@@ -52,7 +52,7 @@ export default function Customers() {
     e.preventDefault();
     const payload = {
       name: form.name,
-      document: form.document || null,
+      document: stripDocument(form.document) || null,
       email: form.email || null,
       phone: form.phone || null,
     };
@@ -99,7 +99,7 @@ export default function Customers() {
             </div>
             <div className="space-y-2">
               <Label>CPF/CNPJ</Label>
-              <Input value={form.document} onChange={(e) => setForm({ ...form, document: e.target.value })} />
+              <Input value={form.document} onChange={(e) => setForm({ ...form, document: formatDocument(e.target.value) })} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -142,7 +142,7 @@ export default function Customers() {
                 filtered.map((c) => (
                   <TableRow key={c.id} className="border-border">
                     <TableCell className="font-medium">{c.name}</TableCell>
-                    <TableCell className="font-mono text-xs">{c.document || "—"}</TableCell>
+                    <TableCell className="font-mono text-xs">{c.document ? formatDocument(c.document) : "—"}</TableCell>
                     <TableCell className="text-muted-foreground">{c.email || "—"}</TableCell>
                     <TableCell className="text-muted-foreground">{c.phone || "—"}</TableCell>
                     <TableCell>

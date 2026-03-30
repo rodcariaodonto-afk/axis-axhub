@@ -328,7 +328,7 @@ export default function Contacts() {
             </div>
             <div className="space-y-2">
               <Label>CPF/CNPJ</Label>
-              <Input value={convertForm.document} onChange={(e) => setConvertForm({ ...convertForm, document: e.target.value })} placeholder="Opcional" />
+              <Input value={convertForm.document} onChange={(e) => setConvertForm({ ...convertForm, document: formatDocument(e.target.value) })} placeholder="Opcional" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">

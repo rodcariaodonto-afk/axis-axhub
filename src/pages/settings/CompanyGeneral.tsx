@@ -93,7 +93,7 @@ export default function CompanyGeneral() {
           </div>
           <div className="space-y-1.5">
             <Label>CNPJ</Label>
-            <Input {...form.register("cnpj")} />
+            <Input {...form.register("cnpj", { onChange: (e) => { e.target.value = formatDocument(e.target.value); } })} />
           </div>
           <div className="space-y-1.5">
             <Label>Endereço</Label>
