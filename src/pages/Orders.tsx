@@ -235,6 +235,20 @@ export default function Orders() {
                         </Select>
                       </div>
                     )}
+                    <div className="w-36 space-y-1">
+                      <Label className="text-xs text-muted-foreground">{pm.installments > 1 ? "Data 1ª parcela" : "Data pgto"}</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-10", !pm.first_due_date && "text-muted-foreground")}>
+                            <CalendarIcon className="mr-1 h-3 w-3" />
+                            {pm.first_due_date ? format(pm.first_due_date, "dd/MM/yyyy") : <span className="text-xs">Selecionar</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={pm.first_due_date} onSelect={(d) => updatePayment(i, "first_due_date", d)} initialFocus className={cn("p-3 pointer-events-auto")} locale={ptBR} />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                     {payments.length > 1 && (
                       <Button variant="ghost" size="icon" onClick={() => removePayment(i)} className="h-9 w-9 shrink-0"><Trash2 className="h-3 w-3 text-destructive" /></Button>
                     )}
