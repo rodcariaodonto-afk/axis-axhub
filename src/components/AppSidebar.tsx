@@ -4,7 +4,7 @@ import {
   Gauge, UserPlus, Building2, Contact, TrendingUp, FileText, CalendarCheck, FileBarChart,
   Warehouse, Users, ShoppingCart, ArrowDownCircle, Truck,
   ArrowUpCircle, LogOut,
-  MessageSquare, Megaphone,
+  MessageSquare, Megaphone, CalendarDays,
   GitBranch,
   BookOpen,
   ChevronRight,
@@ -89,6 +89,7 @@ export function AppSidebar() {
         { title: "WhatsApp", url: "/whatsapp", icon: MessageCircle, module: "whatsapp" },
         { title: "Chat Interno", url: "/internal-chat", icon: MessageSquare, module: "whatsapp" },
         { title: "Campanhas", url: "/campanhas", icon: Megaphone, module: "campanhas" },
+        { title: "Agenda", url: "/agenda", icon: CalendarDays, module: "whatsapp" },
       ],
     },
     {
