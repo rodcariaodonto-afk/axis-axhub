@@ -1,80 +1,61 @@
 
+## Corrigir o erro da Agenda do Google Calendar
 
-## Integração Google Calendar no AXIS — Agenda Bidirecional
+### Diagnóstico
+O erro não está vindo do Google nem da URL publicada. Pelo que eu verifiquei:
 
-### Visão Geral
-Criar um painel de Agenda dentro da aba **Comunicação** que exibe os eventos do Google Calendar do usuário e permite criar/editar eventos diretamente, com sincronização bidirecional (AXIS ↔ Google Calendar).
+- As requisições da agenda estão saindo da origem de preview do editor: `*.lovableproject.com`
+- Elas falham com `Failed to fetch` antes mesmo de chegar nas funções
+- Não há erro de runtime nem logs da função sendo executada nesse fluxo
+- A URI publicada `https://axis-axhub.lovable.app/agenda` já está correta para o uso real
 
-### Pré-requisitos — Segredos OAuth2
-Antes de implementar, precisarei que você forneça:
-- **GOOGLE_CLIENT_ID** — Client ID do OAuth2
-- **GOOGLE_CLIENT_SECRET** — Client Secret do OAuth2
+Isso indica um problema do ambiente de preview com chamadas autenticadas da agenda, não um problema principal da integração em si.
 
-Esses serão armazenados de forma segura como secrets do projeto.
+### O que vou ajustar
+**Arquivo principal:** `src/pages/Agenda.tsx`
 
-### Arquitetura
+1. **Detectar ambiente de preview/editor**
+   - Identificar quando a página estiver rodando em domínio de preview/editor
+   - Ex.: `lovableproject.com` / preview temporário
 
-```text
-┌─────────────┐      ┌──────────────────┐      ┌──────────────────┐
-│  Frontend   │─────▶│  Edge Functions   │─────▶│ Google Calendar  │
-│  /agenda    │      │  (proxy OAuth2)   │      │      API v3      │
-└─────────────┘      └──────────────────┘      └──────────────────┘
-                            │
-                     ┌──────┴──────┐
-                     │  Supabase   │
-                     │  DB tables  │
-                     └─────────────┘
-```
+2. **Bloquear o fluxo de conexão no preview**
+   - Não tentar chamar `google-calendar-auth` nem `google-calendar-sync` no preview
+   - Evitar o erro visual `Failed to fetch`
 
-### 1. Migração SQL — Tabela de tokens OAuth do usuário
-- `google_calendar_tokens` — armazena `access_token`, `refresh_token`, `expires_at` por `user_id` e `tenant_id`
-- `calendar_events` (cache local) — `id`, `google_event_id`, `user_id`, `tenant_id`, `title`, `description`, `start_at`, `end_at`, `location`, `all_day`, `synced_at`
-- RLS: cada usuário só vê seus próprios tokens e eventos
+3. **Mostrar orientação correta no lugar do erro**
+   - Exibir um aviso claro:
+     - que a conexão do Google Calendar deve ser feita na URL publicada
+     - que a URL correta é `https://axis-axhub.lovable.app/agenda`
+   - Adicionar botão/link para abrir a agenda publicada
 
-### 2. Edge Functions (3 funções)
+4. **Melhorar tratamento de erro**
+   - Quando houver falha de rede nesse contexto, trocar a mensagem genérica por algo útil
+   - Ex.: “Abra a agenda na versão publicada para conectar e sincronizar o Google Calendar”
 
-**`google-calendar-auth`** — Fluxo OAuth2:
-- `GET ?action=authorize` → retorna URL de autorização Google
-- `POST ?action=callback` → troca code por tokens, salva na tabela `google_calendar_tokens`
+5. **Manter o fluxo normal na versão publicada**
+   - Na URL publicada, a agenda continua:
+     - conectando via OAuth
+     - listando eventos
+     - criando/editando/excluindo
+     - sincronizando com o Google
 
-**`google-calendar-sync`** — Proxy de leitura/escrita:
-- `GET ?action=list&timeMin=...&timeMax=...` → lista eventos do Google Calendar
-- `POST ?action=create` → cria evento no Google Calendar
-- `PUT ?action=update&eventId=...` → atualiza evento
-- `DELETE ?action=delete&eventId=...` → remove evento
-- Auto-refresh do access_token usando refresh_token quando expirado
+### O que não precisa mudar
+- Não precisa alterar CORS
+- Não precisa mudar as funções de backend por causa desse erro específico
+- Não precisa trocar a redirect URI já configurada para a versão publicada
+- Não precisa mexer no banco
 
-**`google-calendar-webhook`** — Recebe push notifications do Google (sync reversa):
-- Quando algo muda no Google Calendar, o Google envia notificação aqui
-- Atualiza cache local na tabela `calendar_events`
+### Validação após ajuste
+1. Abrir `https://axis-axhub.lovable.app/agenda`
+2. Clicar em conectar Google Calendar
+3. Autorizar a conta `rodrigo.axhub@gmail.com`
+4. Confirmar:
+   - agenda carrega eventos
+   - criar evento no AXIS aparece no Google
+   - criar/editar evento no Google aparece no AXIS após atualização/sincronização
+5. Confirmar também que no preview não aparece mais o erro vermelho, e sim a orientação para usar a URL publicada
 
-### 3. Frontend — Nova página `/agenda`
-
-**`src/pages/Agenda.tsx`**:
-- Visualização de calendário mensal/semanal/diária (usando componentes próprios com Tailwind)
-- Lista de eventos do dia na lateral
-- Botão "Conectar Google Calendar" → inicia fluxo OAuth2
-- Modal para criar/editar evento (título, data/hora início/fim, descrição, localização)
-- Ao criar/editar/deletar → chama edge function → Google API + cache local
-- Indicador de status de conexão Google
-
-### 4. Sidebar e Rota
-
-**`src/components/AppSidebar.tsx`** — Adicionar "Agenda" no grupo Comunicação:
-```
-{ title: "Agenda", url: "/agenda", icon: CalendarDays, module: "whatsapp" }
-```
-
-**`src/App.tsx`** — Adicionar rota `/agenda` protegida
-
-### 5. Sincronização bidirecional
-- **AXIS → Google**: Ao criar/editar/deletar evento na UI, a edge function envia para Google API e salva cache local
-- **Google → AXIS**: Ao abrir a agenda, faz fetch dos últimos eventos (pull). Opcionalmente, configura Google Push Notifications via webhook para sync em tempo real
-
-### Arquivos criados/modificados
-- **Secrets**: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (via add_secret)
-- **Migração SQL**: tabelas `google_calendar_tokens`, `calendar_events` + RLS
-- **Edge Functions**: `google-calendar-auth/index.ts`, `google-calendar-sync/index.ts`, `google-calendar-webhook/index.ts`
-- **Frontend**: `src/pages/Agenda.tsx` (página completa com calendário visual)
-- **Routing**: `src/App.tsx`, `src/components/AppSidebar.tsx`
-
+### Detalhes técnicos
+- O problema atual acontece porque o preview está chamando as funções a partir de uma origem temporária do editor
+- A evidência é que as requests falham com `Failed to fetch` e não chegam a gerar erro de execução nas funções
+- A correção ideal aqui é **UX + detecção de ambiente**, não reconfiguração da integração
