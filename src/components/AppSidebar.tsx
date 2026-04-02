@@ -4,7 +4,7 @@ import {
   Gauge, UserPlus, Building2, Contact, TrendingUp, FileText, CalendarCheck, FileBarChart,
   Warehouse, Users, ShoppingCart, ArrowDownCircle, Truck,
   ArrowUpCircle, LogOut,
-  MessageSquare, Megaphone,
+  MessageSquare, Megaphone, CalendarDays,
   GitBranch,
   BookOpen,
   ChevronRight,
