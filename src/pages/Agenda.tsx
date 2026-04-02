@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -9,9 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
-import { CalendarDays, ChevronLeft, ChevronRight, Plus, Trash2, Pencil, Loader2, Link2, Unlink } from "lucide-react";
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameMonth, isSameDay, parseISO } from "date-fns";
+import { CalendarDays, ChevronLeft, ChevronRight, Plus, Trash2, Pencil, Loader2, Link2, Unlink, Search } from "lucide-react";
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameMonth, isSameDay, parseISO, subDays, addWeeks, subWeeks } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+type ViewMode = "day" | "week" | "month";
 
 interface CalendarEvent {
   id: string;
@@ -64,37 +66,28 @@ export default function Agenda() {
   const [form, setForm] = useState<EventForm>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [connectingGoogle, setConnectingGoogle] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("month");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 
   const invokeSync = useCallback(async (action: string, params: Record<string, string> = {}, options: { method?: string; body?: object } = {}) => {
     const session = (await supabase.auth.getSession()).data.session;
     if (!session) throw new Error("Not authenticated");
-
     const qs = new URLSearchParams({ action, ...params }).toString();
     const url = `https://${projectId}.supabase.co/functions/v1/google-calendar-sync?${qs}`;
-
     const res = await fetch(url, {
       method: options.method || "GET",
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
       ...(options.body ? { body: JSON.stringify(options.body) } : {}),
     });
-
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Request failed");
     return data;
   }, [projectId]);
 
   const checkConnection = useCallback(async () => {
-    try {
-      await invokeSync("status");
-      setConnected(true);
-    } catch {
-      setConnected(false);
-    }
+    try { await invokeSync("status"); setConnected(true); } catch { setConnected(false); }
   }, [invokeSync]);
 
   const fetchEvents = useCallback(async () => {
@@ -107,9 +100,7 @@ export default function Agenda() {
       setEvents(data.items || []);
     } catch (err: any) {
       toast({ title: "Erro ao carregar eventos", description: err.message, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, [connected, currentMonth, invokeSync]);
 
   useEffect(() => { if (!isPreview) checkConnection(); else setConnected(false); }, [checkConnection, isPreview]);
@@ -120,36 +111,27 @@ export default function Agenda() {
     try {
       const session = (await supabase.auth.getSession()).data.session;
       if (!session) throw new Error("Not authenticated");
-
       const redirectUri = `${window.location.origin}/agenda`;
       const qs = new URLSearchParams({ action: "authorize", redirect_uri: redirectUri }).toString();
       const url = `https://${projectId}.supabase.co/functions/v1/google-calendar-auth?${qs}`;
-
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${session.access_token}` } });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       window.location.href = data.url;
     } catch (err: any) {
       toast({ title: "Erro ao conectar", description: err.message, variant: "destructive" });
-    } finally {
-      setConnectingGoogle(false);
-    }
+    } finally { setConnectingGoogle(false); }
   };
 
-  // Handle OAuth callback
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
     const state = params.get("state");
     if (!code || !state) return;
-
     (async () => {
       try {
         const session = (await supabase.auth.getSession()).data.session;
         if (!session) return;
-
         const url = `https://${projectId}.supabase.co/functions/v1/google-calendar-auth?action=callback`;
         const res = await fetch(url, {
           method: "POST",
@@ -169,84 +151,38 @@ export default function Agenda() {
 
   const handleDisconnect = async () => {
     const { error } = await supabase.from("google_calendar_tokens").delete().eq("user_id", user?.id || "");
-    if (error) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
-    } else {
-      setConnected(false);
-      setEvents([]);
-      toast({ title: "Google Calendar desconectado" });
-    }
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); }
+    else { setConnected(false); setEvents([]); toast({ title: "Google Calendar desconectado" }); }
   };
 
   const openCreate = (date?: Date) => {
     const d = date || selectedDate;
-    const start = new Date(d);
-    start.setHours(9, 0, 0);
-    const end = new Date(d);
-    end.setHours(10, 0, 0);
-
+    const start = new Date(d); start.setHours(9, 0, 0);
+    const end = new Date(d); end.setHours(10, 0, 0);
     setEditingEvent(null);
-    setForm({
-      ...emptyForm,
-      start_at: format(start, "yyyy-MM-dd'T'HH:mm"),
-      end_at: format(end, "yyyy-MM-dd'T'HH:mm"),
-      start_date: format(d, "yyyy-MM-dd"),
-      end_date: format(addDays(d, 1), "yyyy-MM-dd"),
-    });
+    setForm({ ...emptyForm, start_at: format(start, "yyyy-MM-dd'T'HH:mm"), end_at: format(end, "yyyy-MM-dd'T'HH:mm"), start_date: format(d, "yyyy-MM-dd"), end_date: format(addDays(d, 1), "yyyy-MM-dd") });
     setDialogOpen(true);
   };
 
   const openEdit = (ev: CalendarEvent) => {
     const isAllDay = !!ev.start.date;
     setEditingEvent(ev);
-    setForm({
-      title: ev.summary || "",
-      description: ev.description || "",
-      location: ev.location || "",
-      all_day: isAllDay,
-      start_at: ev.start.dateTime ? format(parseISO(ev.start.dateTime), "yyyy-MM-dd'T'HH:mm") : "",
-      end_at: ev.end.dateTime ? format(parseISO(ev.end.dateTime), "yyyy-MM-dd'T'HH:mm") : "",
-      start_date: ev.start.date || "",
-      end_date: ev.end.date || "",
-    });
+    setForm({ title: ev.summary || "", description: ev.description || "", location: ev.location || "", all_day: isAllDay, start_at: ev.start.dateTime ? format(parseISO(ev.start.dateTime), "yyyy-MM-dd'T'HH:mm") : "", end_at: ev.end.dateTime ? format(parseISO(ev.end.dateTime), "yyyy-MM-dd'T'HH:mm") : "", start_date: ev.start.date || "", end_date: ev.end.date || "" });
     setDialogOpen(true);
   };
 
   const handleSave = async () => {
-    if (!form.title.trim()) {
-      toast({ title: "Título obrigatório", variant: "destructive" });
-      return;
-    }
+    if (!form.title.trim()) { toast({ title: "Título obrigatório", variant: "destructive" }); return; }
     setSaving(true);
     try {
-      const payload: any = {
-        title: form.title,
-        description: form.description,
-        location: form.location,
-        all_day: form.all_day,
-      };
-      if (form.all_day) {
-        payload.start_date = form.start_date;
-        payload.end_date = form.end_date;
-      } else {
-        payload.start_at = new Date(form.start_at).toISOString();
-        payload.end_at = new Date(form.end_at).toISOString();
-      }
-
-      if (editingEvent) {
-        await invokeSync("update", { eventId: editingEvent.id }, { method: "PUT", body: payload });
-        toast({ title: "Evento atualizado!" });
-      } else {
-        await invokeSync("create", {}, { method: "POST", body: payload });
-        toast({ title: "Evento criado!" });
-      }
-      setDialogOpen(false);
-      fetchEvents();
-    } catch (err: any) {
-      toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
-    } finally {
-      setSaving(false);
-    }
+      const payload: any = { title: form.title, description: form.description, location: form.location, all_day: form.all_day };
+      if (form.all_day) { payload.start_date = form.start_date; payload.end_date = form.end_date; }
+      else { payload.start_at = new Date(form.start_at).toISOString(); payload.end_at = new Date(form.end_at).toISOString(); }
+      if (editingEvent) { await invokeSync("update", { eventId: editingEvent.id }, { method: "PUT", body: payload }); toast({ title: "Evento atualizado!" }); }
+      else { await invokeSync("create", {}, { method: "POST", body: payload }); toast({ title: "Evento criado!" }); }
+      setDialogOpen(false); fetchEvents();
+    } catch (err: any) { toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" }); }
+    finally { setSaving(false); }
   };
 
   const handleDelete = async (eventId: string) => {
@@ -254,28 +190,60 @@ export default function Agenda() {
       const url = `https://${projectId}.supabase.co/functions/v1/google-calendar-sync?action=delete&eventId=${eventId}`;
       const session = (await supabase.auth.getSession()).data.session;
       await fetch(url, { method: "DELETE", headers: { Authorization: `Bearer ${session!.access_token}` } });
-      toast({ title: "Evento excluído!" });
-      fetchEvents();
-    } catch (err: any) {
-      toast({ title: "Erro ao excluir", description: err.message, variant: "destructive" });
-    }
+      toast({ title: "Evento excluído!" }); fetchEvents();
+    } catch (err: any) { toast({ title: "Erro ao excluir", description: err.message, variant: "destructive" }); }
   };
 
-  // Calendar grid
-  const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(currentMonth);
-  const calStart = startOfWeek(monthStart, { locale: ptBR });
-  const calEnd = endOfWeek(monthEnd, { locale: ptBR });
+  // Filtered events
+  const filteredEvents = useMemo(() => {
+    if (!searchQuery.trim()) return events;
+    const q = searchQuery.toLowerCase();
+    return events.filter((ev) => ev.summary?.toLowerCase().includes(q));
+  }, [events, searchQuery]);
 
-  const days: Date[] = [];
-  let d = calStart;
-  while (d <= calEnd) {
-    days.push(d);
-    d = addDays(d, 1);
-  }
+  // Navigation
+  const navigateBack = () => {
+    if (viewMode === "month") setCurrentMonth(subMonths(currentMonth, 1));
+    else if (viewMode === "week") setSelectedDate(subWeeks(selectedDate, 1));
+    else setSelectedDate(subDays(selectedDate, 1));
+  };
+  const navigateForward = () => {
+    if (viewMode === "month") setCurrentMonth(addMonths(currentMonth, 1));
+    else if (viewMode === "week") setSelectedDate(addWeeks(selectedDate, 1));
+    else setSelectedDate(addDays(selectedDate, 1));
+  };
+
+  const headerLabel = useMemo(() => {
+    if (viewMode === "day") return format(selectedDate, "dd 'de' MMMM yyyy", { locale: ptBR });
+    if (viewMode === "week") {
+      const ws = startOfWeek(selectedDate, { locale: ptBR });
+      const we = endOfWeek(selectedDate, { locale: ptBR });
+      return `${format(ws, "dd MMM", { locale: ptBR })} – ${format(we, "dd MMM yyyy", { locale: ptBR })}`;
+    }
+    return format(currentMonth, "MMMM yyyy", { locale: ptBR });
+  }, [viewMode, selectedDate, currentMonth]);
+
+  // Calendar days
+  const calendarDays = useMemo(() => {
+    if (viewMode === "month") {
+      const monthStart = startOfMonth(currentMonth);
+      const monthEnd = endOfMonth(currentMonth);
+      const calStart = startOfWeek(monthStart, { locale: ptBR });
+      const calEnd = endOfWeek(monthEnd, { locale: ptBR });
+      const days: Date[] = [];
+      let d = calStart;
+      while (d <= calEnd) { days.push(d); d = addDays(d, 1); }
+      return days;
+    }
+    if (viewMode === "week") {
+      const ws = startOfWeek(selectedDate, { locale: ptBR });
+      return Array.from({ length: 7 }, (_, i) => addDays(ws, i));
+    }
+    return [selectedDate];
+  }, [viewMode, currentMonth, selectedDate]);
 
   const getEventsForDay = (date: Date) =>
-    events.filter((ev) => {
+    filteredEvents.filter((ev) => {
       const evDate = ev.start.dateTime ? parseISO(ev.start.dateTime) : ev.start.date ? parseISO(ev.start.date) : null;
       return evDate && isSameDay(evDate, date);
     });
@@ -293,21 +261,13 @@ export default function Agenda() {
         {isPreview ? (
           <>
             <h2 className="text-2xl font-semibold">Agenda disponível na versão publicada</h2>
-            <p className="text-muted-foreground text-center max-w-md">
-              A integração com o Google Calendar funciona apenas na URL publicada do AXIS. Acesse o link abaixo para conectar e sincronizar sua agenda.
-            </p>
-            <Button asChild size="lg">
-              <a href={PUBLISHED_URL} target="_blank" rel="noopener noreferrer">
-                <Link2 className="mr-2 h-4 w-4" /> Abrir Agenda Publicada
-              </a>
-            </Button>
+            <p className="text-muted-foreground text-center max-w-md">A integração com o Google Calendar funciona apenas na URL publicada do AXIS.</p>
+            <Button asChild size="lg"><a href={PUBLISHED_URL} target="_blank" rel="noopener noreferrer"><Link2 className="mr-2 h-4 w-4" /> Abrir Agenda Publicada</a></Button>
           </>
         ) : (
           <>
             <h2 className="text-2xl font-semibold">Conecte seu Google Calendar</h2>
-            <p className="text-muted-foreground text-center max-w-md">
-              Para visualizar e gerenciar sua agenda, conecte sua conta Google. Seus eventos serão sincronizados automaticamente.
-            </p>
+            <p className="text-muted-foreground text-center max-w-md">Para visualizar e gerenciar sua agenda, conecte sua conta Google.</p>
             <Button onClick={handleConnectGoogle} disabled={connectingGoogle} size="lg">
               {connectingGoogle ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Link2 className="mr-2 h-4 w-4" />}
               Conectar Google Calendar
@@ -323,29 +283,74 @@ export default function Agenda() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Agenda</h1>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleDisconnect}>
-            <Unlink className="mr-2 h-4 w-4" /> Desconectar
-          </Button>
-          <Button onClick={() => openCreate()} size="sm">
-            <Plus className="mr-2 h-4 w-4" /> Novo Evento
-          </Button>
+          <Button variant="outline" size="sm" onClick={handleDisconnect}><Unlink className="mr-2 h-4 w-4" /> Desconectar</Button>
+          <Button onClick={() => openCreate()} size="sm"><Plus className="mr-2 h-4 w-4" /> Novo Evento</Button>
+        </div>
+      </div>
+
+      {/* Search + View Mode Toggle */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Buscar eventos..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
+        </div>
+        <div className="flex rounded-lg border border-border overflow-hidden">
+          {(["day", "week", "month"] as ViewMode[]).map((mode) => (
+            <button
+              key={mode}
+              onClick={() => setViewMode(mode)}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${viewMode === mode ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+            >
+              {mode === "day" ? "Dia" : mode === "week" ? "Semana" : "Mês"}
+            </button>
+          ))}
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        {/* Calendar grid */}
         <Card className="lg:col-span-3">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}><ChevronLeft className="h-4 w-4" /></Button>
-              <CardTitle className="text-lg capitalize">{format(currentMonth, "MMMM yyyy", { locale: ptBR })}</CardTitle>
-              <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}><ChevronRight className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" onClick={navigateBack}><ChevronLeft className="h-4 w-4" /></Button>
+              <CardTitle className="text-lg capitalize">{headerLabel}</CardTitle>
+              <Button variant="ghost" size="icon" onClick={navigateForward}><ChevronRight className="h-4 w-4" /></Button>
             </div>
           </CardHeader>
           <CardContent>
             {loading ? (
               <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+            ) : viewMode === "day" ? (
+              /* Day view */
+              <div className="space-y-2">
+                {(() => {
+                  const dayEvs = getEventsForDay(selectedDate);
+                  if (dayEvs.length === 0) return <p className="text-sm text-muted-foreground py-8 text-center">Nenhum evento neste dia</p>;
+                  return dayEvs.sort((a, b) => {
+                    const ta = a.start.dateTime || a.start.date || "";
+                    const tb = b.start.dateTime || b.start.date || "";
+                    return ta.localeCompare(tb);
+                  }).map((ev) => {
+                    const startTime = ev.start.dateTime ? format(parseISO(ev.start.dateTime), "HH:mm") : "Dia todo";
+                    const endTime = ev.end.dateTime ? format(parseISO(ev.end.dateTime), "HH:mm") : "";
+                    return (
+                      <div key={ev.id} className="flex items-start gap-4 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                        <div className="min-w-[80px] text-sm font-medium text-primary">{startTime}{endTime ? ` – ${endTime}` : ""}</div>
+                        <div className="flex-1">
+                          <p className="font-medium">{ev.summary}</p>
+                          {ev.description && <p className="text-sm text-muted-foreground mt-1">{ev.description}</p>}
+                          {ev.location && <p className="text-sm text-muted-foreground">📍 {ev.location}</p>}
+                        </div>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(ev)}><Pencil className="h-3.5 w-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(ev.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
             ) : (
+              /* Week / Month grid */
               <>
                 <div className="grid grid-cols-7 gap-px mb-1">
                   {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => (
@@ -353,33 +358,31 @@ export default function Agenda() {
                   ))}
                 </div>
                 <div className="grid grid-cols-7 gap-px">
-                  {days.map((day, i) => {
+                  {calendarDays.map((day, i) => {
                     const dayEvents = getEventsForDay(day);
                     const isSelected = isSameDay(day, selectedDate);
                     const isToday = isSameDay(day, new Date());
                     const isCurrentMonth = isSameMonth(day, currentMonth);
+                    const maxVisible = viewMode === "week" ? 5 : 2;
                     return (
                       <button
                         key={i}
                         onClick={() => setSelectedDate(day)}
                         onDoubleClick={() => openCreate(day)}
-                        className={`min-h-[70px] p-1 text-left border rounded-md transition-colors ${
-                          isSelected ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"
-                        } ${!isCurrentMonth ? "opacity-40" : ""}`}
+                        className={`${viewMode === "week" ? "min-h-[140px]" : "min-h-[70px]"} p-1 text-left border rounded-md transition-colors ${isSelected ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"} ${viewMode === "month" && !isCurrentMonth ? "opacity-40" : ""}`}
                       >
-                        <span className={`text-xs font-medium inline-flex items-center justify-center w-6 h-6 rounded-full ${
-                          isToday ? "bg-primary text-primary-foreground" : ""
-                        }`}>
+                        <span className={`text-xs font-medium inline-flex items-center justify-center w-6 h-6 rounded-full ${isToday ? "bg-primary text-primary-foreground" : ""}`}>
                           {format(day, "d")}
                         </span>
                         <div className="space-y-0.5 mt-0.5">
-                          {dayEvents.slice(0, 2).map((ev) => (
+                          {dayEvents.slice(0, maxVisible).map((ev) => (
                             <div key={ev.id} className="text-[10px] leading-tight truncate bg-primary/10 text-primary rounded px-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); openEdit(ev); }}>
+                              {ev.start.dateTime && <span className="font-medium">{format(parseISO(ev.start.dateTime), "HH:mm")} </span>}
                               {ev.summary}
                             </div>
                           ))}
-                          {dayEvents.length > 2 && (
-                            <div className="text-[10px] text-muted-foreground">+{dayEvents.length - 2} mais</div>
+                          {dayEvents.length > maxVisible && (
+                            <div className="text-[10px] text-muted-foreground">+{dayEvents.length - maxVisible} mais</div>
                           )}
                         </div>
                       </button>
@@ -391,7 +394,7 @@ export default function Agenda() {
           </CardContent>
         </Card>
 
-        {/* Day detail */}
+        {/* Day detail sidebar */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm capitalize">{format(selectedDate, "EEEE, dd MMM", { locale: ptBR })}</CardTitle>
@@ -420,9 +423,7 @@ export default function Agenda() {
                 );
               })
             )}
-            <Button variant="outline" size="sm" className="w-full" onClick={() => openCreate()}>
-              <Plus className="mr-1 h-3 w-3" /> Adicionar
-            </Button>
+            <Button variant="outline" size="sm" className="w-full" onClick={() => openCreate()}><Plus className="mr-1 h-3 w-3" /> Adicionar</Button>
           </CardContent>
         </Card>
       </div>
@@ -430,18 +431,10 @@ export default function Agenda() {
       {/* Event dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingEvent ? "Editar Evento" : "Novo Evento"}</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>{editingEvent ? "Editar Evento" : "Novo Evento"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div>
-              <Label>Título *</Label>
-              <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch checked={form.all_day} onCheckedChange={(v) => setForm({ ...form, all_day: v })} />
-              <Label>Dia inteiro</Label>
-            </div>
+            <div><Label>Título *</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
+            <div className="flex items-center gap-2"><Switch checked={form.all_day} onCheckedChange={(v) => setForm({ ...form, all_day: v })} /><Label>Dia inteiro</Label></div>
             {form.all_day ? (
               <div className="grid grid-cols-2 gap-4">
                 <div><Label>Data início</Label><Input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></div>
@@ -458,10 +451,7 @@ export default function Agenda() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {editingEvent ? "Salvar" : "Criar"}
-            </Button>
+            <Button onClick={handleSave} disabled={saving}>{saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{editingEvent ? "Salvar" : "Criar"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
