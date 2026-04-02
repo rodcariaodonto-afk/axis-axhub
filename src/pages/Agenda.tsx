@@ -290,14 +290,30 @@ export default function Agenda() {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] gap-6">
         <CalendarDays className="h-16 w-16 text-muted-foreground" />
-        <h2 className="text-2xl font-semibold">Conecte seu Google Calendar</h2>
-        <p className="text-muted-foreground text-center max-w-md">
-          Para visualizar e gerenciar sua agenda, conecte sua conta Google. Seus eventos serão sincronizados automaticamente.
-        </p>
-        <Button onClick={handleConnectGoogle} disabled={connectingGoogle} size="lg">
-          {connectingGoogle ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Link2 className="mr-2 h-4 w-4" />}
-          Conectar Google Calendar
-        </Button>
+        {isPreview ? (
+          <>
+            <h2 className="text-2xl font-semibold">Agenda disponível na versão publicada</h2>
+            <p className="text-muted-foreground text-center max-w-md">
+              A integração com o Google Calendar funciona apenas na URL publicada do AXIS. Acesse o link abaixo para conectar e sincronizar sua agenda.
+            </p>
+            <Button asChild size="lg">
+              <a href={PUBLISHED_URL} target="_blank" rel="noopener noreferrer">
+                <Link2 className="mr-2 h-4 w-4" /> Abrir Agenda Publicada
+              </a>
+            </Button>
+          </>
+        ) : (
+          <>
+            <h2 className="text-2xl font-semibold">Conecte seu Google Calendar</h2>
+            <p className="text-muted-foreground text-center max-w-md">
+              Para visualizar e gerenciar sua agenda, conecte sua conta Google. Seus eventos serão sincronizados automaticamente.
+            </p>
+            <Button onClick={handleConnectGoogle} disabled={connectingGoogle} size="lg">
+              {connectingGoogle ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Link2 className="mr-2 h-4 w-4" />}
+              Conectar Google Calendar
+            </Button>
+          </>
+        )}
       </div>
     );
   }
