@@ -841,6 +841,62 @@ export type Database = {
           },
         ]
       }
+      calendar_events: {
+        Row: {
+          all_day: boolean | null
+          created_at: string | null
+          description: string | null
+          end_at: string
+          google_event_id: string | null
+          id: string
+          location: string | null
+          start_at: string
+          synced_at: string | null
+          tenant_id: string
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          all_day?: boolean | null
+          created_at?: string | null
+          description?: string | null
+          end_at: string
+          google_event_id?: string | null
+          id?: string
+          location?: string | null
+          start_at: string
+          synced_at?: string | null
+          tenant_id: string
+          title: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          all_day?: boolean | null
+          created_at?: string | null
+          description?: string | null
+          end_at?: string
+          google_event_id?: string | null
+          id?: string
+          location?: string | null
+          start_at?: string
+          synced_at?: string | null
+          tenant_id?: string
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campanhas: {
         Row: {
           created_at: string
@@ -3134,6 +3190,50 @@ export type Database = {
           },
           {
             foreignKeyName: "funis_variaveis_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      google_calendar_tokens: {
+        Row: {
+          access_token: string
+          calendar_id: string | null
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          refresh_token: string | null
+          tenant_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          calendar_id?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          refresh_token?: string | null
+          tenant_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          calendar_id?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          refresh_token?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_calendar_tokens_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
