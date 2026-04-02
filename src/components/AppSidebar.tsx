@@ -9,6 +9,7 @@ import {
   BookOpen,
   ChevronRight,
   ClipboardList,
+  Sparkles,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -90,6 +91,7 @@ export function AppSidebar() {
         { title: "Chat Interno", url: "/internal-chat", icon: MessageSquare, module: "whatsapp" },
         { title: "Campanhas", url: "/campanhas", icon: Megaphone, module: "campanhas" },
         { title: "Agenda", url: "/agenda", icon: CalendarDays, module: "whatsapp" },
+        { title: "Íris", url: "/iris", icon: Sparkles, module: "iris" },
       ],
     },
     {

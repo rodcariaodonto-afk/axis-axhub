@@ -60,6 +60,7 @@ const FormResponses = lazy(() => import("./pages/FormResponses"));
 const PublicForm = lazy(() => import("./pages/PublicForm"));
 const ContractTemplates = lazy(() => import("./pages/ContractTemplates"));
 const Agenda = lazy(() => import("./pages/Agenda"));
+const Iris = lazy(() => import("./pages/Iris"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -138,6 +139,7 @@ const App = () => (
               <Route path="/forms/:id/responses" element={<ProtectedRoute><FormResponses /></ProtectedRoute>} />
               <Route path="/form/:code" element={<PublicForm />} />
               <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
+              <Route path="/iris" element={<ProtectedRoute><Iris /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
