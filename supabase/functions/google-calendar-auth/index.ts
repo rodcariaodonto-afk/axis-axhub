@@ -1,5 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.49.4/cors";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID")!;
 const GOOGLE_CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET")!;
@@ -17,15 +21,13 @@ Deno.serve(async (req) => {
     const action = url.searchParams.get("action");
 
     if (action === "authorize") {
-      // Validate user
       const authHeader = req.headers.get("Authorization");
       if (!authHeader) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { global: { headers: { Authorization: authHeader } } });
-      const token = authHeader.replace("Bearer ", "");
-      const { data: claimsData, error: claimsErr } = await supabase.auth.getClaims(token);
-      if (claimsErr || !claimsData?.claims) {
+      const { data: { user }, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !user) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
@@ -36,7 +38,7 @@ Deno.serve(async (req) => {
         "https://www.googleapis.com/auth/calendar.events",
       ].join(" ");
 
-      const state = btoa(JSON.stringify({ user_id: claimsData.claims.sub, redirect_uri: redirectUri }));
+      const state = btoa(JSON.stringify({ user_id: user.id, redirect_uri: redirectUri }));
 
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
         `client_id=${encodeURIComponent(GOOGLE_CLIENT_ID)}` +
@@ -64,7 +66,6 @@ Deno.serve(async (req) => {
       const userId = stateData.user_id;
       const callbackUri = redirect_uri || stateData.redirect_uri;
 
-      // Exchange code for tokens
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -79,15 +80,14 @@ Deno.serve(async (req) => {
 
       const tokenData = await tokenRes.json();
       if (!tokenRes.ok) {
+        console.error("Token exchange failed:", tokenData);
         return new Response(JSON.stringify({ error: "Token exchange failed", details: tokenData }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       const expiresAt = new Date(Date.now() + (tokenData.expires_in || 3600) * 1000).toISOString();
 
-      // Save tokens using service role
       const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-      // Get tenant_id
       const { data: profile } = await supabaseAdmin.from("profiles").select("tenant_id").eq("id", userId).single();
       if (!profile) {
         return new Response(JSON.stringify({ error: "Profile not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
