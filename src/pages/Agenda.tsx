@@ -44,8 +44,16 @@ const emptyForm: EventForm = {
   end_date: "",
 };
 
+const PUBLISHED_URL = "https://axis-axhub.lovable.app/agenda";
+
+function isPreviewEnvironment() {
+  const host = window.location.hostname;
+  return host.includes("lovableproject.com") || host.includes("lovable.app") && host !== "axis-axhub.lovable.app";
+}
+
 export default function Agenda() {
   const { user } = useAuth();
+  const isPreview = isPreviewEnvironment();
   const [connected, setConnected] = useState<boolean | null>(null);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
