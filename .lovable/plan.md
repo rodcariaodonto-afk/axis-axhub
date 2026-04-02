@@ -1,36 +1,39 @@
 
 
-## Adicionar Busca e Filtro de Visualização (Dia/Semana/Mês) na Agenda
+## Embed do Íris AXholding via iframe no AXIS
 
-### Arquivo modificado
-**`src/pages/Agenda.tsx`**
+### Visão Geral
+Adicionar um módulo "Íris" no AXIS que carrega o projeto Íris AXholding via iframe, sem interferir no WhatsApp existente nem migrar dados. Acesso controlado pelo sistema de permissões do AXIS.
 
-### Mudanças
+### O que será feito
 
-**1. Novo estado `viewMode`** — `"day" | "week" | "month"` (padrão: `"month"`)
+**1. Nova página `src/pages/Iris.tsx`**
+- Componente simples com `<iframe>` apontando para a URL publicada do Íris
+- iframe ocupa 100% da área de conteúdo (fullscreen dentro do layout)
+- Loading state enquanto o iframe carrega
 
-**2. Campo de busca + toggle de visualização** — entre o título "Agenda" e o calendário:
-- Input de busca que filtra eventos pelo `summary` (título)
-- 3 botões toggle: **Dia / Semana / Mês** (usando botões com estilo ativo/inativo)
+**2. Rota no `src/App.tsx`**
+- Adicionar rota `/iris` protegida por autenticação
 
-**3. Lógica de visualização condicional:**
+**3. Item no menu lateral `src/components/AppSidebar.tsx`**
+- Novo item "Íris" na seção de Comunicação (junto com WhatsApp, Chat Interno, Agenda)
+- Ícone adequado (ex: `Bot` ou `Sparkles` do lucide)
 
-- **Mês** (atual): grid 7 colunas com todos os dias do mês, como já funciona
-- **Semana**: grid 7 colunas mostrando apenas os 7 dias da semana selecionada (baseada em `selectedDate`), com mais espaço vertical por dia para listar mais eventos
-- **Dia**: visualização expandida do dia selecionado, mostrando todos os eventos com horários em formato de lista detalhada
-
-**4. Busca:**
-- Filtrar `events` pelo texto digitado (case-insensitive no `summary`)
-- Aplicar filtro tanto na grid do calendário quanto no painel lateral
-
-**5. Navegação adaptada ao modo:**
-- No modo Mês: setas navegam meses (como hoje)
-- No modo Semana: setas navegam semanas (±7 dias)
-- No modo Dia: setas navegam dias (±1 dia)
-- Label do header muda conforme o modo (ex: "01–07 Abr 2026" para semana, "02 Abril 2026" para dia)
+**4. Controle de permissão**
+- Utilizar o sistema RBAC existente (`useUserPermissions`)
+- Criar um novo módulo de permissão `iris` no sistema
+- Apenas usuários com permissão `iris.view` veem o item no menu e acessam a página
+- Por padrão, admin tem acesso; outros usuários precisam receber a permissão
 
 ### Detalhes técnicos
-- Imports adicionais de `date-fns`: `startOfDay`, `endOfDay`, `addWeeks`, `subWeeks`, `subDays`
-- Busca local (sem chamada de API), apenas filtra o array `events` já carregado
-- O `fetchEvents` continua buscando o mês inteiro para ter dados disponíveis em todos os modos
+- A URL do iframe será a URL publicada do Íris (ex: `https://iris-axholding.lovable.app`)
+- Bancos de dados permanecem totalmente separados — zero interferência com WhatsApp ou qualquer outro módulo
+- O iframe é sandboxed mas permite `allow-same-origin allow-scripts allow-forms allow-popups` para que o Íris funcione normalmente
+- Pode ser necessário adicionar uma migration para registrar o módulo `iris` na tabela de permissões disponíveis
+
+### Arquivos criados/modificados
+- `src/pages/Iris.tsx` (novo)
+- `src/App.tsx` (nova rota)
+- `src/components/AppSidebar.tsx` (novo item no menu)
+- Migration SQL: inserir módulo `iris` nas permissões disponíveis (se aplicável)
 
