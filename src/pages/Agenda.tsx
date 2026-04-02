@@ -112,8 +112,8 @@ export default function Agenda() {
     }
   }, [connected, currentMonth, invokeSync]);
 
-  useEffect(() => { checkConnection(); }, [checkConnection]);
-  useEffect(() => { if (connected) fetchEvents(); }, [connected, fetchEvents]);
+  useEffect(() => { if (!isPreview) checkConnection(); else setConnected(false); }, [checkConnection, isPreview]);
+  useEffect(() => { if (connected && !isPreview) fetchEvents(); }, [connected, fetchEvents, isPreview]);
 
   const handleConnectGoogle = async () => {
     setConnectingGoogle(true);
