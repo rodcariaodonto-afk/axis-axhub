@@ -137,6 +137,7 @@ const App = () => (
               <Route path="/forms/:id/edit" element={<ProtectedRoute><FormEditor /></ProtectedRoute>} />
               <Route path="/forms/:id/responses" element={<ProtectedRoute><FormResponses /></ProtectedRoute>} />
               <Route path="/form/:code" element={<PublicForm />} />
+              <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
