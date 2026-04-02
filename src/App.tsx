@@ -59,6 +59,7 @@ const FormEditor = lazy(() => import("./pages/FormEditor"));
 const FormResponses = lazy(() => import("./pages/FormResponses"));
 const PublicForm = lazy(() => import("./pages/PublicForm"));
 const ContractTemplates = lazy(() => import("./pages/ContractTemplates"));
+const Agenda = lazy(() => import("./pages/Agenda"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
