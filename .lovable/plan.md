@@ -1,61 +1,36 @@
 
-## Corrigir o erro da Agenda do Google Calendar
 
-### Diagnóstico
-O erro não está vindo do Google nem da URL publicada. Pelo que eu verifiquei:
+## Adicionar Busca e Filtro de Visualização (Dia/Semana/Mês) na Agenda
 
-- As requisições da agenda estão saindo da origem de preview do editor: `*.lovableproject.com`
-- Elas falham com `Failed to fetch` antes mesmo de chegar nas funções
-- Não há erro de runtime nem logs da função sendo executada nesse fluxo
-- A URI publicada `https://axis-axhub.lovable.app/agenda` já está correta para o uso real
+### Arquivo modificado
+**`src/pages/Agenda.tsx`**
 
-Isso indica um problema do ambiente de preview com chamadas autenticadas da agenda, não um problema principal da integração em si.
+### Mudanças
 
-### O que vou ajustar
-**Arquivo principal:** `src/pages/Agenda.tsx`
+**1. Novo estado `viewMode`** — `"day" | "week" | "month"` (padrão: `"month"`)
 
-1. **Detectar ambiente de preview/editor**
-   - Identificar quando a página estiver rodando em domínio de preview/editor
-   - Ex.: `lovableproject.com` / preview temporário
+**2. Campo de busca + toggle de visualização** — entre o título "Agenda" e o calendário:
+- Input de busca que filtra eventos pelo `summary` (título)
+- 3 botões toggle: **Dia / Semana / Mês** (usando botões com estilo ativo/inativo)
 
-2. **Bloquear o fluxo de conexão no preview**
-   - Não tentar chamar `google-calendar-auth` nem `google-calendar-sync` no preview
-   - Evitar o erro visual `Failed to fetch`
+**3. Lógica de visualização condicional:**
 
-3. **Mostrar orientação correta no lugar do erro**
-   - Exibir um aviso claro:
-     - que a conexão do Google Calendar deve ser feita na URL publicada
-     - que a URL correta é `https://axis-axhub.lovable.app/agenda`
-   - Adicionar botão/link para abrir a agenda publicada
+- **Mês** (atual): grid 7 colunas com todos os dias do mês, como já funciona
+- **Semana**: grid 7 colunas mostrando apenas os 7 dias da semana selecionada (baseada em `selectedDate`), com mais espaço vertical por dia para listar mais eventos
+- **Dia**: visualização expandida do dia selecionado, mostrando todos os eventos com horários em formato de lista detalhada
 
-4. **Melhorar tratamento de erro**
-   - Quando houver falha de rede nesse contexto, trocar a mensagem genérica por algo útil
-   - Ex.: “Abra a agenda na versão publicada para conectar e sincronizar o Google Calendar”
+**4. Busca:**
+- Filtrar `events` pelo texto digitado (case-insensitive no `summary`)
+- Aplicar filtro tanto na grid do calendário quanto no painel lateral
 
-5. **Manter o fluxo normal na versão publicada**
-   - Na URL publicada, a agenda continua:
-     - conectando via OAuth
-     - listando eventos
-     - criando/editando/excluindo
-     - sincronizando com o Google
-
-### O que não precisa mudar
-- Não precisa alterar CORS
-- Não precisa mudar as funções de backend por causa desse erro específico
-- Não precisa trocar a redirect URI já configurada para a versão publicada
-- Não precisa mexer no banco
-
-### Validação após ajuste
-1. Abrir `https://axis-axhub.lovable.app/agenda`
-2. Clicar em conectar Google Calendar
-3. Autorizar a conta `rodrigo.axhub@gmail.com`
-4. Confirmar:
-   - agenda carrega eventos
-   - criar evento no AXIS aparece no Google
-   - criar/editar evento no Google aparece no AXIS após atualização/sincronização
-5. Confirmar também que no preview não aparece mais o erro vermelho, e sim a orientação para usar a URL publicada
+**5. Navegação adaptada ao modo:**
+- No modo Mês: setas navegam meses (como hoje)
+- No modo Semana: setas navegam semanas (±7 dias)
+- No modo Dia: setas navegam dias (±1 dia)
+- Label do header muda conforme o modo (ex: "01–07 Abr 2026" para semana, "02 Abril 2026" para dia)
 
 ### Detalhes técnicos
-- O problema atual acontece porque o preview está chamando as funções a partir de uma origem temporária do editor
-- A evidência é que as requests falham com `Failed to fetch` e não chegam a gerar erro de execução nas funções
-- A correção ideal aqui é **UX + detecção de ambiente**, não reconfiguração da integração
+- Imports adicionais de `date-fns`: `startOfDay`, `endOfDay`, `addWeeks`, `subWeeks`, `subDays`
+- Busca local (sem chamada de API), apenas filtra o array `events` já carregado
+- O `fetchEvents` continua buscando o mês inteiro para ter dados disponíveis em todos os modos
+
