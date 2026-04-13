@@ -47,3 +47,12 @@ verify_jwt = false
 
 [functions.google-calendar-webhook]
 verify_jwt = false
+
+[functions.generate-contract]
+verify_jwt = false
+
+[functions.request-otp]
+verify_jwt = false
+
+[functions.verify-and-sign]
+verify_jwt = false
