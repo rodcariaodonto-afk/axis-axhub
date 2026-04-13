@@ -1,39 +1,103 @@
 
 
-## Embed do Íris AXholding via iframe no AXIS
+## Módulo de Assinatura Eletrônica com Validade Legal (OTP + Trilha de Auditoria)
 
-### Visão Geral
-Adicionar um módulo "Íris" no AXIS que carrega o projeto Íris AXholding via iframe, sem interferir no WhatsApp existente nem migrar dados. Acesso controlado pelo sistema de permissões do AXIS.
+### Contexto atual
+O sistema já possui tabelas `contracts`, `contract_signatures` e `contract_versions`, além de assinatura via Canvas. A proposta é adicionar um fluxo de assinatura eletrônica avançada com OTP por e-mail, trilha de auditoria completa e conformidade com a Lei 14.063/2020.
 
-### O que será feito
+---
 
-**1. Nova página `src/pages/Iris.tsx`**
-- Componente simples com `<iframe>` apontando para a URL publicada do Íris
-- iframe ocupa 100% da área de conteúdo (fullscreen dentro do layout)
-- Loading state enquanto o iframe carrega
+### 1. Banco de Dados — Nova tabela + alterações
 
-**2. Rota no `src/App.tsx`**
-- Adicionar rota `/iris` protegida por autenticação
+**Nova tabela `signature_audit_logs`** (trilha de auditoria legal):
+- `id` UUID PK
+- `tenant_id` UUID (FK tenants, RLS)
+- `contract_id` UUID (FK contracts)
+- `signer_email` TEXT NOT NULL
+- `signer_name` TEXT
+- `otp_hash` TEXT (hash SHA-256 do OTP)
+- `otp_expires_at` TIMESTAMPTZ
+- `otp_verified` BOOLEAN DEFAULT false
+- `ip_address` TEXT
+- `user_agent` TEXT
+- `status` TEXT (pending, verified, expired, failed)
+- `signed_at` TIMESTAMPTZ
+- `created_at` TIMESTAMPTZ DEFAULT now()
 
-**3. Item no menu lateral `src/components/AppSidebar.tsx`**
-- Novo item "Íris" na seção de Comunicação (junto com WhatsApp, Chat Interno, Agenda)
-- Ícone adequado (ex: `Bot` ou `Sparkles` do lucide)
+**RLS em `signature_audit_logs`:**
+- SELECT: somente tenant do usuário autenticado (`get_user_tenant_id()`)
+- INSERT: bloqueado via RLS (apenas Edge Functions com service role)
+- UPDATE/DELETE: bloqueado
 
-**4. Controle de permissão**
-- Utilizar o sistema RBAC existente (`useUserPermissions`)
-- Criar um novo módulo de permissão `iris` no sistema
-- Apenas usuários com permissão `iris.view` veem o item no menu e acessam a página
-- Por padrão, admin tem acesso; outros usuários precisam receber a permissão
+**Alterações na tabela `contracts`:**
+- Adicionar coluna `signer_email` TEXT (e-mail do signatário externo)
+- Adicionar coluna `signer_name` TEXT
 
-### Detalhes técnicos
-- A URL do iframe será a URL publicada do Íris (ex: `https://iris-axholding.lovable.app`)
-- Bancos de dados permanecem totalmente separados — zero interferência com WhatsApp ou qualquer outro módulo
-- O iframe é sandboxed mas permite `allow-same-origin allow-scripts allow-forms allow-popups` para que o Íris funcione normalmente
-- Pode ser necessário adicionar uma migration para registrar o módulo `iris` na tabela de permissões disponíveis
+**Novo storage bucket `axis-contracts`** (privado, para PDFs gerados)
+
+---
+
+### 2. Edge Functions (3 funções)
+
+**`generate-contract`**
+- Valida JWT do usuário autenticado via `getClaims()`
+- Recebe `contract_id`, busca dados do contrato
+- Gera PDF simples com os dados do contrato (usando texto formatado, não biblioteca pesada)
+- Salva no bucket `axis-contracts` (privado)
+- Atualiza `contracts.document_url` com o path do storage
+- Retorna URL assinada temporária (60min)
+
+**`request-otp`**
+- Valida JWT do usuário autenticado
+- Recebe `contract_id` e `signer_email`
+- Gera OTP de 6 dígitos, salva hash SHA-256 em `signature_audit_logs` com expiração de 15min
+- Envia OTP via Resend (API key já configurada nos secrets)
+- Atualiza `contracts.signature_status` para "Pending"
+- Retorna confirmação
+
+**`verify-and-sign`**
+- Valida JWT do usuário autenticado
+- Recebe `contract_id`, `otp_code`, captura IP e User-Agent do request
+- Valida OTP contra hash no banco (verifica expiração)
+- Se válido: marca `otp_verified = true`, registra IP/User-Agent/signed_at
+- Atualiza `contracts.signature_status` para "Signed" e `signed_at`
+- Retorna sucesso com dados da trilha de auditoria
+
+---
+
+### 3. Frontend — Componentes React
+
+**Atualização do `ContractDetail.tsx` — tab Assinatura:**
+- Seção "Solicitar Assinatura": campos para e-mail e nome do signatário + botão "Enviar OTP"
+- Seção "Verificar OTP": input de 6 dígitos (usando `InputOTP` já existente) + botão "Verificar e Assinar"
+- Tabela de trilha de auditoria mostrando logs de assinatura do contrato
+- Botão "Gerar PDF" que invoca `generate-contract` e mostra link para download
+- Botão "Exportar Auditoria (JSON)" para conformidade LGPD
+
+**Fluxo visual:**
+1. Criador clica "Gerar PDF" → documento é gerado e salvo
+2. Criador preenche e-mail do signatário → clica "Enviar Código OTP"
+3. Signatário recebe OTP por e-mail
+4. Criador (ou signatário com acesso) insere o OTP → clica "Verificar e Assinar"
+5. Status muda para "Assinado" com trilha de auditoria completa
+
+---
+
+### 4. Segurança e Conformidade
+
+- Toda validação de OTP ocorre exclusivamente no backend (Edge Functions)
+- OTP armazenado como hash SHA-256 (nunca em texto plano)
+- Trilha de auditoria imutável (sem UPDATE/DELETE via RLS)
+- IP e User-Agent capturados no servidor
+- Exportação JSON da trilha para atendimento a requisições LGPD
+- Frontend usa apenas `supabase.functions.invoke()`, sem chaves de API expostas
+- Mensagens de erro genéricas no frontend
 
 ### Arquivos criados/modificados
-- `src/pages/Iris.tsx` (novo)
-- `src/App.tsx` (nova rota)
-- `src/components/AppSidebar.tsx` (novo item no menu)
-- Migration SQL: inserir módulo `iris` nas permissões disponíveis (se aplicável)
+- Migration SQL (nova tabela, bucket, RLS)
+- `supabase/functions/generate-contract/index.ts` (novo)
+- `supabase/functions/request-otp/index.ts` (novo)
+- `supabase/functions/verify-and-sign/index.ts` (novo)
+- `src/pages/ContractDetail.tsx` (atualização da tab Assinatura)
+- `supabase/config.toml` (config das novas funções)
 
