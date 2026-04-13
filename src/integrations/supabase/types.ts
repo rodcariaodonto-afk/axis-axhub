@@ -1510,6 +1510,8 @@ export type Database = {
           signature_token: string | null
           signed_at: string | null
           signed_by_id: string | null
+          signer_email: string | null
+          signer_name: string | null
           start_date: string | null
           status: string
           template_id: string | null
@@ -1539,6 +1541,8 @@ export type Database = {
           signature_token?: string | null
           signed_at?: string | null
           signed_by_id?: string | null
+          signer_email?: string | null
+          signer_name?: string | null
           start_date?: string | null
           status?: string
           template_id?: string | null
@@ -1568,6 +1572,8 @@ export type Database = {
           signature_token?: string | null
           signed_at?: string | null
           signed_by_id?: string | null
+          signer_email?: string | null
+          signer_name?: string | null
           start_date?: string | null
           status?: string
           template_id?: string | null
@@ -5479,6 +5485,69 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "sales_pipelines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signature_audit_logs: {
+        Row: {
+          contract_id: string
+          created_at: string
+          id: string
+          ip_address: string | null
+          otp_expires_at: string | null
+          otp_hash: string | null
+          otp_verified: boolean | null
+          signed_at: string | null
+          signer_email: string
+          signer_name: string | null
+          status: string
+          tenant_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          otp_expires_at?: string | null
+          otp_hash?: string | null
+          otp_verified?: boolean | null
+          signed_at?: string | null
+          signer_email: string
+          signer_name?: string | null
+          status?: string
+          tenant_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          otp_expires_at?: string | null
+          otp_hash?: string | null
+          otp_verified?: boolean | null
+          signed_at?: string | null
+          signer_email?: string
+          signer_name?: string | null
+          status?: string
+          tenant_id?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signature_audit_logs_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signature_audit_logs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
