@@ -13,8 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Pencil, EyeOff, History, PenTool, RotateCcw } from "lucide-react";
+import { ArrowLeft, Pencil, EyeOff, History, PenTool, RotateCcw, FileText, Mail, ShieldCheck, Download } from "lucide-react";
 import { differenceInDays, parseISO } from "date-fns";
 
 const statusOptions = ["Em elaboracao", "Ativo", "Expirado", "Cancelado", "Renovado"];
@@ -69,6 +70,19 @@ function ActivitiesTab({ contractId, navigate }: { contractId: string; navigate:
   );
 }
 
+const auditStatusLabels: Record<string, string> = {
+  pending: "Pendente",
+  verified: "Verificado",
+  expired: "Expirado",
+  failed: "Falhou",
+};
+const auditStatusColors: Record<string, string> = {
+  pending: "bg-yellow-500/20 text-yellow-400",
+  verified: "bg-green-500/20 text-green-400",
+  expired: "bg-muted text-muted-foreground",
+  failed: "bg-destructive/20 text-destructive",
+};
+
 export default function ContractDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -81,6 +95,7 @@ export default function ContractDetail() {
   const [versions, setVersions] = useState<any[]>([]);
   const [signatures, setSignatures] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [editOpen, setEditOpen] = useState(false);
@@ -90,12 +105,21 @@ export default function ContractDetail() {
   const [changeDescription, setChangeDescription] = useState("");
   const [agreed, setAgreed] = useState(false);
 
+  // OTP Signature state
+  const [signerEmail, setSignerEmail] = useState("");
+  const [signerName, setSignerName] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [pdfGenerating, setPdfGenerating] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawing = useRef(false);
 
   const fetchAll = useCallback(async () => {
     if (!id) return;
-    const [cRes, aRes, dRes, uRes, vRes, sRes, tRes] = await Promise.all([
+    const [cRes, aRes, dRes, uRes, vRes, sRes, tRes, alRes] = await Promise.all([
       supabase.from("contracts").select("*, crm_accounts(id, name, cnpj, phone, email, segment, website)").eq("id", id).single(),
       supabase.from("crm_accounts").select("id, name, cnpj, phone, email, segment, website").order("name"),
       supabase.from("deals").select("id, name, estimated_value, status").order("name"),
@@ -103,6 +127,7 @@ export default function ContractDetail() {
       supabase.from("contract_versions").select("*").eq("contract_id", id).order("version_number", { ascending: false }),
       supabase.from("contract_signatures").select("*").eq("contract_id", id).order("signed_at", { ascending: false }),
       supabase.from("contract_templates").select("id, name, type, content").eq("is_active", true).order("name"),
+      supabase.from("signature_audit_logs").select("*").eq("contract_id", id).order("created_at", { ascending: false }),
     ]);
     if (cRes.error || !cRes.data) { navigate("/contracts"); return; }
     setContract(cRes.data);
@@ -112,6 +137,10 @@ export default function ContractDetail() {
     setVersions(vRes.data || []);
     setSignatures(sRes.data || []);
     setTemplates(tRes.data || []);
+    setAuditLogs(alRes.data || []);
+    // Prefill signer from contract
+    if (cRes.data.signer_email) setSignerEmail(cRes.data.signer_email);
+    if (cRes.data.signer_name) setSignerName(cRes.data.signer_name);
     setLoading(false);
   }, [id, navigate]);
 
@@ -153,7 +182,6 @@ export default function ContractDetail() {
       toast({ title: "Data início deve ser anterior à data término", variant: "destructive" }); return;
     }
 
-    // Save version
     const { data: { user: u } } = await supabase.auth.getUser();
     if (!u) return;
     const { data: profile } = await supabase.from("profiles").select("id, tenant_id").eq("id", u.id).single();
@@ -273,6 +301,99 @@ export default function ContractDetail() {
     fetchAll();
   };
 
+  // --- OTP Signature Functions ---
+  const handleGeneratePdf = async () => {
+    setPdfGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-contract", {
+        body: { contract_id: id },
+      });
+      if (error) throw error;
+      if (data?.url) {
+        setPdfUrl(data.url);
+        toast({ title: "PDF gerado com sucesso!" });
+        fetchAll();
+      } else {
+        toast({ title: "Erro ao gerar PDF", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Erro ao gerar documento", variant: "destructive" });
+    } finally {
+      setPdfGenerating(false);
+    }
+  };
+
+  const handleRequestOtp = async () => {
+    if (!signerEmail || !signerEmail.includes("@")) {
+      toast({ title: "Informe um e-mail válido", variant: "destructive" });
+      return;
+    }
+    setOtpSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("request-otp", {
+        body: { contract_id: id, signer_email: signerEmail, signer_name: signerName },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        toast({ title: "Código OTP enviado!", description: `Enviado para ${signerEmail}` });
+        fetchAll();
+      } else {
+        toast({ title: data?.error || "Erro ao enviar OTP", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Erro ao solicitar código", variant: "destructive" });
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otpCode.length !== 6) {
+      toast({ title: "Insira o código de 6 dígitos", variant: "destructive" });
+      return;
+    }
+    setOtpVerifying(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("verify-and-sign", {
+        body: { contract_id: id, otp_code: otpCode },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        toast({ title: "Contrato assinado eletronicamente!", description: "Assinatura registrada com sucesso." });
+        setOtpCode("");
+        fetchAll();
+      } else {
+        toast({ title: data?.error || "Código inválido", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Erro ao verificar assinatura", variant: "destructive" });
+    } finally {
+      setOtpVerifying(false);
+    }
+  };
+
+  const exportAuditJson = () => {
+    const exportData = auditLogs.map((log) => ({
+      id: log.id,
+      contract_id: log.contract_id,
+      signer_email: log.signer_email,
+      signer_name: log.signer_name,
+      status: log.status,
+      ip_address: log.ip_address,
+      user_agent: log.user_agent,
+      signed_at: log.signed_at,
+      created_at: log.created_at,
+      otp_verified: log.otp_verified,
+    }));
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `auditoria-contrato-${id}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (loading) return <div className="flex items-center justify-center h-64 text-muted-foreground">Carregando...</div>;
   if (!contract) return null;
 
@@ -306,12 +427,12 @@ export default function ContractDetail() {
         <TabsList>
           <TabsTrigger value="details">Detalhes</TabsTrigger>
           <TabsTrigger value="signature">Assinatura</TabsTrigger>
+          <TabsTrigger value="electronic-signature">Assinatura Eletrônica (OTP)</TabsTrigger>
           <TabsTrigger value="activities">Atividades</TabsTrigger>
         </TabsList>
 
         <TabsContent value="details" className="space-y-6 mt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Info Principal */}
             <Card className="border-border">
               <CardHeader><CardTitle className="text-base">Informações</CardTitle></CardHeader>
               <CardContent className="space-y-3 text-sm">
@@ -325,8 +446,6 @@ export default function ContractDetail() {
                 <div className="flex justify-between"><span className="text-muted-foreground">Criado em</span><span>{new Date(contract.created_at).toLocaleDateString("pt-BR")}</span></div>
               </CardContent>
             </Card>
-
-            {/* Financeiro */}
             <Card className="border-border">
               <CardHeader><CardTitle className="text-base">Financeiro</CardTitle></CardHeader>
               <CardContent className="space-y-3 text-sm">
@@ -334,8 +453,6 @@ export default function ContractDetail() {
                 <div className="flex justify-between"><span className="text-muted-foreground">Moeda</span><span>{contract.currency}</span></div>
               </CardContent>
             </Card>
-
-            {/* Datas */}
             <Card className="border-border">
               <CardHeader><CardTitle className="text-base">Datas</CardTitle></CardHeader>
               <CardContent className="space-y-3 text-sm">
@@ -345,8 +462,6 @@ export default function ContractDetail() {
                 <div className="flex justify-between"><span className="text-muted-foreground">Dias até vencimento</span><ExpiryBadge days={days} /></div>
               </CardContent>
             </Card>
-
-            {/* Descrição */}
             <Card className="border-border">
               <CardHeader><CardTitle className="text-base">Descrição</CardTitle></CardHeader>
               <CardContent><p className="text-sm text-muted-foreground whitespace-pre-wrap">{contract.description || "Sem descrição."}</p></CardContent>
@@ -358,7 +473,7 @@ export default function ContractDetail() {
           <Card className="border-border">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base">Assinatura Digital</CardTitle>
+                <CardTitle className="text-base">Assinatura Digital (Canvas)</CardTitle>
                 {contract.signature_status !== "Signed" && (
                   <Button onClick={() => setSignOpen(true)}><PenTool className="mr-2 h-4 w-4" />Assinar Contrato</Button>
                 )}
@@ -380,6 +495,134 @@ export default function ContractDetail() {
                         <TableCell>{users.find(u => u.id === s.signer_id)?.full_name || "—"}</TableCell>
                         <TableCell className="font-mono text-xs">{s.signature_token?.slice(0, 8)}...</TableCell>
                         <TableCell>{s.is_valid ? <Badge className="bg-green-500/20 text-green-400">Sim</Badge> : <Badge className="bg-destructive/20 text-destructive">Não</Badge>}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="electronic-signature" className="space-y-6 mt-4">
+          <Card className="border-border">
+            <CardHeader><CardTitle className="text-base flex items-center gap-2"><FileText className="h-4 w-4" /> Gerar Documento PDF</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">Gere o PDF do contrato para envio ao signatário. O documento será armazenado de forma segura.</p>
+              <div className="flex items-center gap-4">
+                <Button onClick={handleGeneratePdf} disabled={pdfGenerating}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  {pdfGenerating ? "Gerando..." : "Gerar PDF"}
+                </Button>
+                {(pdfUrl || contract.document_url) && (
+                  <a href={pdfUrl || "#"} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1">
+                    <Download className="h-3 w-3" /> Download PDF
+                  </a>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border">
+            <CardHeader><CardTitle className="text-base flex items-center gap-2"><Mail className="h-4 w-4" /> Solicitar Assinatura (OTP)</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">Informe os dados do signatário e envie o código OTP de 6 dígitos por e-mail.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Nome do Signatário</Label>
+                  <Input value={signerName} onChange={(e) => setSignerName(e.target.value)} placeholder="Nome completo" />
+                </div>
+                <div className="space-y-2">
+                  <Label>E-mail do Signatário *</Label>
+                  <Input type="email" value={signerEmail} onChange={(e) => setSignerEmail(e.target.value)} placeholder="email@exemplo.com" required />
+                </div>
+              </div>
+              <Button onClick={handleRequestOtp} disabled={otpSending || contract.signature_status === "Signed"}>
+                <Mail className="mr-2 h-4 w-4" />
+                {otpSending ? "Enviando..." : "Enviar Código OTP"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {contract.signature_status === "Pending" && (
+            <Card className="border-border">
+              <CardHeader><CardTitle className="text-base flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> Verificar Código e Assinar</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">Insira o código de 6 dígitos recebido por e-mail para confirmar a assinatura.</p>
+                <div className="flex items-center gap-4">
+                  <InputOTP maxLength={6} value={otpCode} onChange={(value) => setOtpCode(value)}>
+                    <InputOTPGroup>
+                      <InputOTPSlot index={0} />
+                      <InputOTPSlot index={1} />
+                      <InputOTPSlot index={2} />
+                      <InputOTPSlot index={3} />
+                      <InputOTPSlot index={4} />
+                      <InputOTPSlot index={5} />
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
+                <Button onClick={handleVerifyOtp} disabled={otpVerifying || otpCode.length !== 6}>
+                  <ShieldCheck className="mr-2 h-4 w-4" />
+                  {otpVerifying ? "Verificando..." : "Verificar e Assinar"}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {contract.signature_status === "Signed" && (
+            <Card className="border-border border-green-500/30">
+              <CardContent className="py-6 flex items-center gap-3">
+                <ShieldCheck className="h-6 w-6 text-green-400" />
+                <div>
+                  <p className="font-semibold text-green-400">Contrato assinado eletronicamente</p>
+                  <p className="text-sm text-muted-foreground">
+                    Assinado em {contract.signed_at ? new Date(contract.signed_at).toLocaleString("pt-BR") : "—"}
+                    {contract.signer_email && ` por ${contract.signer_email}`}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card className="border-border">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">Trilha de Auditoria (Lei 14.063/2020)</CardTitle>
+                {auditLogs.length > 0 && (
+                  <Button variant="outline" size="sm" onClick={exportAuditJson}>
+                    <Download className="mr-2 h-3 w-3" /> Exportar JSON (LGPD)
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {auditLogs.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">Nenhum registro de auditoria ainda.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>E-mail</TableHead>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>IP</TableHead>
+                      <TableHead>Assinado em</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {auditLogs.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell className="text-xs">{new Date(log.created_at).toLocaleString("pt-BR")}</TableCell>
+                        <TableCell className="text-sm">{log.signer_email}</TableCell>
+                        <TableCell className="text-sm">{log.signer_name || "—"}</TableCell>
+                        <TableCell>
+                          <Badge className={auditStatusColors[log.status] || "bg-muted text-muted-foreground"}>
+                            {auditStatusLabels[log.status] || log.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">{log.ip_address || "—"}</TableCell>
+                        <TableCell className="text-xs">{log.signed_at ? new Date(log.signed_at).toLocaleString("pt-BR") : "—"}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -493,7 +736,7 @@ export default function ContractDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Sign Modal */}
+      {/* Sign Modal (Canvas) */}
       <Dialog open={signOpen} onOpenChange={setSignOpen}>
         <DialogContent className="bg-card border-border max-w-lg">
           <DialogHeader><DialogTitle>Assinar Contrato</DialogTitle></DialogHeader>
