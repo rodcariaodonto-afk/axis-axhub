@@ -1,0 +1,2 @@
+[functions.whatsapp-meta-webhook]
+verify_jwt = false
