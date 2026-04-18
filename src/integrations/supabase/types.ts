@@ -6193,6 +6193,119 @@ export type Database = {
           },
         ]
       }
+      whatsapp_meta_connections: {
+        Row: {
+          access_token: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          last_error: string | null
+          name: string
+          phone_number: string | null
+          phone_number_id: string
+          status: string | null
+          tenant_id: string
+          updated_at: string | null
+          user_id: string
+          waba_id: string
+          webhook_url: string
+          webhook_verify_token: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_error?: string | null
+          name: string
+          phone_number?: string | null
+          phone_number_id: string
+          status?: string | null
+          tenant_id: string
+          updated_at?: string | null
+          user_id: string
+          waba_id: string
+          webhook_url: string
+          webhook_verify_token: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_error?: string | null
+          name?: string
+          phone_number?: string | null
+          phone_number_id?: string
+          status?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+          user_id?: string
+          waba_id?: string
+          webhook_url?: string
+          webhook_verify_token?: string
+        }
+        Relationships: []
+      }
+      whatsapp_meta_messages: {
+        Row: {
+          connection_id: string
+          created_at: string | null
+          direction: string
+          error_message: string | null
+          id: string
+          media_url: string | null
+          message_content: string | null
+          message_id: string | null
+          message_type: string
+          meta_timestamp: string | null
+          phone_number: string
+          status: string | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          connection_id: string
+          created_at?: string | null
+          direction: string
+          error_message?: string | null
+          id?: string
+          media_url?: string | null
+          message_content?: string | null
+          message_id?: string | null
+          message_type?: string
+          meta_timestamp?: string | null
+          phone_number: string
+          status?: string | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          connection_id?: string
+          created_at?: string | null
+          direction?: string
+          error_message?: string | null
+          id?: string
+          media_url?: string | null
+          message_content?: string | null
+          message_id?: string | null
+          message_type?: string
+          meta_timestamp?: string | null
+          phone_number?: string
+          status?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_meta_messages_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_meta_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_queue_members: {
         Row: {
           created_at: string
