@@ -76,7 +76,7 @@ export default function WhatsApp() {
     const [{ data: evolutionSessions }, { data: assignedContacts }, { data: metaConnections }] = await Promise.all([
       supabase.from("whatsapp_sessions").select("*").eq("tenant_id", tenantId).order("created_at", { ascending: false }),
       supabase.from("whatsapp_contact_status").select("contact_id, whatsapp_contacts!inner(session_id)").eq("tenant_id", tenantId).eq("assigned_to", user.id),
-      supabase.from("whatsapp_meta_connections").select("id, name, phone_number, status, is_active").eq("tenant_id", tenantId).eq("is_active", true),
+      supabase.from("whatsapp_meta_connections").select("id, name, phone_number, phone_number_id, waba_id, webhook_url, webhook_verify_token, status, is_active, created_at").eq("tenant_id", tenantId).eq("is_active", true),
     ]);
 
     const assignedSessionIds = new Set(
@@ -98,6 +98,11 @@ export default function WhatsApp() {
       status: c.status === "connected" ? "connected" : "disconnected",
       phone_number: c.phone_number,
       connection_type: "meta",
+      phone_number_id: c.phone_number_id,
+      waba_id: c.waba_id,
+      webhook_url: c.webhook_url,
+      webhook_verify_token: c.webhook_verify_token,
+      created_at: c.created_at,
     }));
 
     setSessions([...visibleEvolution, ...metaSessions]);
@@ -353,6 +358,8 @@ export default function WhatsApp() {
             onNewMetaSession={() => { setEditingMetaConnection(null); setShowMetaModal(true); }}
             onConnect={handleConnect}
             onDelete={handleDeleteSession}
+            onEditMeta={(session) => { setEditingMetaConnection(session); setShowMetaModal(true); }}
+            onRefresh={loadSessions}
             onCheckStatus={handleCheckStatus}
           />
         </ResizablePanel>
