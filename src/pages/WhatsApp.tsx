@@ -10,6 +10,7 @@ import { WhatsAppQRDialog } from "@/components/whatsapp/WhatsAppQRDialog";
 import { WhatsAppSettingsDialog } from "@/components/whatsapp/WhatsAppSettingsDialog";
 import { WhatsAppTagManager } from "@/components/whatsapp/WhatsAppTagManager";
 import { TransferConversationModal } from "@/components/whatsapp/TransferConversationModal";
+import { MetaConnectionModal } from "@/components/whatsapp/MetaConnectionModal";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,85 +47,78 @@ export default function WhatsApp() {
   const [showTagManager, setShowTagManager] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
 
+  // Meta API
+  const [showMetaModal, setShowMetaModal] = useState(false);
+  const [editingMetaConnection, setEditingMetaConnection] = useState<any>(null);
+
   const [tenantId, setTenantId] = useState<string>();
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load tenant + admin IDs + profiles map
   useEffect(() => {
     if (!user) return;
     supabase.from("profiles").select("tenant_id").eq("id", user.id).single().then(async ({ data }) => {
       if (!data) return;
       setTenantId(data.tenant_id);
-
-      // Load all admin user IDs for this tenant
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, full_name")
-        .eq("tenant_id", data.tenant_id);
-
+      const { data: profiles } = await supabase.from("profiles").select("id, full_name").eq("tenant_id", data.tenant_id);
       if (profiles) {
         const pMap: Record<string, string> = {};
         profiles.forEach((p: any) => { pMap[p.id] = p.full_name || "Sem nome"; });
         setProfilesMap(pMap);
-
-        // Check which of these are admins
-        const { data: roles } = await supabase
-          .from("user_roles")
-          .select("user_id")
-          .eq("role", "admin")
-          .in("user_id", profiles.map((p: any) => p.id));
+        const { data: roles } = await supabase.from("user_roles").select("user_id").eq("role", "admin").in("user_id", profiles.map((p: any) => p.id));
         if (roles) setAdminUserIds(roles.map((r: any) => r.user_id));
       }
     });
   }, [user]);
 
-  // Load sessions (filtered by ownership for admins, but include sessions with assigned contacts)
   const loadSessions = useCallback(async () => {
     if (!tenantId || !user) return;
-    const [{ data }, { data: assignedContacts }] = await Promise.all([
-      supabase
-        .from("whatsapp_sessions")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .order("created_at", { ascending: false }),
-      // Find sessions where current user has contacts assigned to them
-      supabase
-        .from("whatsapp_contact_status")
-        .select("contact_id, whatsapp_contacts!inner(session_id)")
-        .eq("tenant_id", tenantId)
-        .eq("assigned_to", user.id),
+
+    const [{ data: evolutionSessions }, { data: assignedContacts }, { data: metaConnections }] = await Promise.all([
+      supabase.from("whatsapp_sessions").select("*").eq("tenant_id", tenantId).order("created_at", { ascending: false }),
+      supabase.from("whatsapp_contact_status").select("contact_id, whatsapp_contacts!inner(session_id)").eq("tenant_id", tenantId).eq("assigned_to", user.id),
+      supabase.from("whatsapp_meta_connections").select("id, name, phone_number, status, is_active").eq("tenant_id", tenantId).eq("is_active", true),
     ]);
-    if (data) {
-      // Session IDs where user has assigned contacts (via transfer)
-      const assignedSessionIds = new Set(
-        (assignedContacts || []).map((ac: any) => ac.whatsapp_contacts?.session_id).filter(Boolean)
-      );
-      // Filter: admin sees own sessions + non-admin sessions + unowned + sessions with assigned contacts
-      const visible = data.filter((s: any) => {
-        if (assignedSessionIds.has(s.id)) return true; // has contacts assigned to me
-        const owner = s.owner_user_id;
-        if (!owner || owner === user.id) return true;
-        if (isAdmin && adminUserIds.includes(owner)) return false; // another admin's session
-        return true; // non-admin's session = visible
-      });
-      setSessions(visible);
-    }
+
+    const assignedSessionIds = new Set(
+      (assignedContacts || []).map((ac: any) => ac.whatsapp_contacts?.session_id).filter(Boolean)
+    );
+
+    const visibleEvolution = (evolutionSessions || []).filter((s: any) => {
+      if (assignedSessionIds.has(s.id)) return true;
+      const owner = s.owner_user_id;
+      if (!owner || owner === user.id) return true;
+      if (isAdmin && adminUserIds.includes(owner)) return false;
+      return true;
+    });
+
+    // Mapear conexões Meta para o formato de sessão
+    const metaSessions = (metaConnections || []).map((c: any) => ({
+      id: c.id,
+      session_name: c.name,
+      status: c.status === "connected" ? "connected" : "disconnected",
+      phone_number: c.phone_number,
+      connection_type: "meta",
+    }));
+
+    setSessions([...visibleEvolution, ...metaSessions]);
   }, [tenantId, user, isAdmin, adminUserIds]);
 
   useEffect(() => { loadSessions(); }, [loadSessions]);
 
-  // Load contacts with tags and status
   const loadContactsImmediate = useCallback(async () => {
     if (!selectedSessionId) { setContacts([]); return; }
-    const { data: contactsData } = await supabase
-      .from("whatsapp_contacts")
-      .select("*")
-      .eq("session_id", selectedSessionId)
-      .order("last_message_at", { ascending: false });
 
+    // Verificar se é sessão Meta
+    const selectedSession = sessions.find((s: any) => s.id === selectedSessionId);
+    if (selectedSession?.connection_type === "meta") {
+      // Para conexões Meta, carregar mensagens da tabela meta
+      setContacts([]);
+      return;
+    }
+
+    const { data: contactsData } = await supabase.from("whatsapp_contacts").select("*").eq("session_id", selectedSessionId).order("last_message_at", { ascending: false });
     if (!contactsData) { setContacts([]); return; }
 
-    // Load tags and status for all contacts
     const contactIds = contactsData.map((c: any) => c.id);
     const [{ data: tagsData }, { data: statusData }] = await Promise.all([
       supabase.from("whatsapp_contact_tags").select("*").in("contact_id", contactIds),
@@ -137,118 +131,71 @@ export default function WhatsApp() {
       contact_status: (statusData || []).find((s: any) => s.contact_id === c.id) || null,
     }));
 
-    // Visibility filter: consider session ownership + assignment
-    const selectedSession = sessions.find((s: any) => s.id === selectedSessionId);
-    const sessionOwner = selectedSession?.owner_user_id;
-    const isOtherAdminSession = sessionOwner && sessionOwner !== user?.id && adminUserIds.includes(sessionOwner);
-
     const visible = enriched.filter((c: any) => {
       const assignedTo = c.contact_status?.assigned_to;
-      if (assignedTo === user?.id) return true; // assigned to me = always visible
-      if (isAdmin && assignedTo && adminUserIds.includes(assignedTo)) return false; // other admin's = hidden
-      if (!assignedTo && isOtherAdminSession) return false; // unassigned in another admin's session = hidden
-      if (!assignedTo) return true; // unassigned in my/unowned session = visible
-      return true; // non-admin's = visible
+      if (assignedTo === user?.id) return true;
+      if (isAdmin && assignedTo && adminUserIds.includes(assignedTo)) return false;
+      if (!assignedTo && selectedSession?.owner_user_id && selectedSession.owner_user_id !== user?.id && adminUserIds.includes(selectedSession.owner_user_id)) return false;
+      return true;
     });
 
     setContacts(visible);
-  }, [selectedSessionId, user?.id, isAdmin, adminUserIds]);
+  }, [selectedSessionId, sessions, user?.id, isAdmin, adminUserIds]);
 
   const loadContacts = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      loadContactsImmediate();
-    }, 300);
+    debounceRef.current = setTimeout(() => { loadContactsImmediate(); }, 300);
   }, [loadContactsImmediate]);
 
   useEffect(() => { loadContacts(); }, [loadContacts]);
 
-  // Realtime sessions
   useEffect(() => {
     if (!tenantId) return;
-    const channel = supabase
-      .channel("whatsapp-sessions-rt")
-      .on("postgres_changes", { event: "*", schema: "public", table: "whatsapp_sessions" }, (payload) => {
-        loadSessions();
-        if (payload.eventType === "UPDATE" && (payload.new as any).status === "connected") {
-          if (qrSession?.id === (payload.new as any).id) {
-            setShowQR(false);
-            toast({ title: "WhatsApp conectado!" });
-          }
-          if (selectedSessionId === (payload.new as any).id) {
-            loadContacts();
-          }
-        }
-      })
+    const channel = supabase.channel("whatsapp-sessions-rt")
+      .on("postgres_changes", { event: "*", schema: "public", table: "whatsapp_sessions" }, () => { loadSessions(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "whatsapp_meta_connections" }, () => { loadSessions(); })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [tenantId, loadSessions, loadContacts, qrSession, selectedSessionId, toast]);
+  }, [tenantId, loadSessions]);
 
-  // Load messages for selected contact
   useEffect(() => {
     if (!selectedContact || !selectedSessionId) { setMessages([]); return; }
-    supabase
-      .from("whatsapp_messages")
-      .select("*")
-      .eq("session_id", selectedSessionId)
-      .eq("contact_phone", selectedContact.phone_number)
-      .order("created_at", { ascending: true })
-      .limit(200)
-      .then(({ data }) => { if (data) setMessages(data); });
-
-    // Zero unread and refresh contacts list
-    supabase
-      .from("whatsapp_contacts")
-      .update({ unread_count: 0 })
-      .eq("id", selectedContact.id)
-      .then(() => {
-        loadContacts();
-        setSelectedContact((prev: any) => prev ? { ...prev, unread_count: 0 } : prev);
-      });
+    supabase.from("whatsapp_messages").select("*").eq("session_id", selectedSessionId).eq("contact_phone", selectedContact.phone_number).order("created_at", { ascending: true }).limit(200).then(({ data }) => { if (data) setMessages(data); });
+    supabase.from("whatsapp_contacts").update({ unread_count: 0 }).eq("id", selectedContact.id).then(() => {
+      loadContacts();
+      setSelectedContact((prev: any) => prev ? { ...prev, unread_count: 0 } : prev);
+    });
   }, [selectedContact?.id, selectedSessionId]);
 
-  // Realtime messages
   useEffect(() => {
     if (!tenantId) return;
-    const channel = supabase
-      .channel("whatsapp-messages-rt")
+    const channel = supabase.channel("whatsapp-messages-rt")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "whatsapp_messages" }, (payload) => {
         const newMsg = payload.new as any;
         if (selectedContact && newMsg.contact_phone === selectedContact.phone_number && newMsg.session_id === selectedSessionId) {
           setMessages((prev) => [...prev, newMsg]);
         }
-        if (newMsg.session_id === selectedSessionId) {
-          loadContacts();
-        }
+        if (newMsg.session_id === selectedSessionId) loadContacts();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [tenantId, selectedContact, selectedSessionId, loadContacts]);
 
-  // Load settings
   useEffect(() => {
     if (!tenantId) return;
-    supabase.from("whatsapp_settings").select("*").eq("tenant_id", tenantId).single().then(({ data }) => {
-      if (data) setSettings(data);
-    });
+    supabase.from("whatsapp_settings").select("*").eq("tenant_id", tenantId).single().then(({ data }) => { if (data) setSettings(data); });
   }, [tenantId]);
 
-  // Polling for QR updates
   useEffect(() => {
     if (!showQR || !qrSession) return;
     const interval = setInterval(async () => {
-      const { data } = await supabase
-        .from("whatsapp_sessions")
-        .select("qr_code, status, phone_number")
-        .eq("id", qrSession.id)
-        .single();
+      const { data } = await supabase.from("whatsapp_sessions").select("qr_code, status, phone_number").eq("id", qrSession.id).single();
       if (data) {
         setQrSession((prev: any) => ({ ...prev, ...data }));
         if (data.status === "connected") {
           setShowQR(false);
           toast({ title: "WhatsApp conectado!" });
-          loadSessions();
-          loadContacts();
+          loadSessions(); loadContacts();
           clearInterval(interval);
         }
       }
@@ -256,23 +203,16 @@ export default function WhatsApp() {
     return () => clearInterval(interval);
   }, [showQR, qrSession, toast, loadSessions, loadContacts]);
 
-  // Create session
   const handleCreateSession = async () => {
     if (!newSessionName.trim()) return;
     setCreatingSession(true);
     try {
-      const { data, error } = await supabase.functions.invoke("create-whatsapp-session", {
-        body: { session_name: newSessionName.trim() },
-      });
+      const { data, error } = await supabase.functions.invoke("create-whatsapp-session", { body: { session_name: newSessionName.trim() } });
       if (error) throw error;
       setShowNewSession(false);
       setNewSessionName("");
       await loadSessions();
-      if (data?.session) {
-        setSelectedSessionId(data.session.id);
-        setQrSession(data.session);
-        setShowQR(true);
-      }
+      if (data?.session) { setSelectedSessionId(data.session.id); setQrSession(data.session); setShowQR(true); }
       toast({ title: "Sessão criada!" });
     } catch (err: any) {
       toast({ title: "Erro ao criar sessão", description: err.message, variant: "destructive" });
@@ -282,125 +222,65 @@ export default function WhatsApp() {
   };
 
   const handleConnect = async (session: any) => {
-    setQrSession(session);
-    setShowQR(true);
+    if (session.connection_type === "meta") return;
+    setQrSession(session); setShowQR(true);
     try {
-      const { data } = await supabase.functions.invoke("get-whatsapp-qr", {
-        body: { session_id: session.id },
-      });
-      if (data?.status === "connected") {
-        setShowQR(false);
-        toast({ title: "WhatsApp já está conectado!" });
-        loadSessions();
-        loadContacts();
-      } else if (data?.qr_code) {
-        setQrSession((prev: any) => ({ ...prev, qr_code: data.qr_code }));
-      }
-    } catch (err) {
-      console.error("QR fetch error:", err);
-    }
+      const { data } = await supabase.functions.invoke("get-whatsapp-qr", { body: { session_id: session.id } });
+      if (data?.status === "connected") { setShowQR(false); toast({ title: "WhatsApp já está conectado!" }); loadSessions(); loadContacts(); }
+      else if (data?.qr_code) { setQrSession((prev: any) => ({ ...prev, qr_code: data.qr_code })); }
+    } catch (err) { console.error("QR fetch error:", err); }
   };
 
   const handleCheckStatus = async (session: any) => {
+    if (session.connection_type === "meta") return;
     try {
-      const { data } = await supabase.functions.invoke("get-whatsapp-qr", {
-        body: { session_id: session.id },
-      });
+      const { data } = await supabase.functions.invoke("get-whatsapp-qr", { body: { session_id: session.id } });
       loadSessions();
-      if (data?.status === "connected") {
-        toast({ title: "Sessão conectada!" });
-        loadContacts();
-      } else {
-        toast({ title: `Status: ${data?.status || "desconhecido"}` });
-      }
-    } catch {
-      toast({ title: "Erro ao verificar status", variant: "destructive" });
-    }
+      if (data?.status === "connected") { toast({ title: "Sessão conectada!" }); loadContacts(); }
+      else { toast({ title: `Status: ${data?.status || "desconhecido"}` }); }
+    } catch { toast({ title: "Erro ao verificar status", variant: "destructive" }); }
   };
 
   const handleSend = async (text: string) => {
     if (!selectedContact || !selectedSessionId) return;
     setSending(true);
     try {
-      const { error } = await supabase.functions.invoke("send-whatsapp-message", {
-        body: {
-          session_id: selectedSessionId,
-          phone: selectedContact.phone_number,
-          message: text,
-          contact_id: selectedContact.id,
-        },
-      });
+      const { error } = await supabase.functions.invoke("send-whatsapp-message", { body: { session_id: selectedSessionId, phone: selectedContact.phone_number, message: text, contact_id: selectedContact.id } });
       if (error) throw error;
       await autoAssignOnSend();
     } catch (err: any) {
       toast({ title: "Erro ao enviar", description: err.message, variant: "destructive" });
-    } finally {
-      setSending(false);
-    }
+    } finally { setSending(false); }
   };
 
   const handleSendMedia = async (file: File, mediaType: string, caption?: string) => {
     if (!selectedContact || !selectedSessionId || !tenantId) return;
     setSending(true);
     try {
-      // Upload file to whatsapp-media bucket
       const ext = file.name.split(".").pop() || "bin";
       const filePath = `${tenantId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from("whatsapp-media")
-        .upload(filePath, file, { contentType: file.type });
+      const { error: uploadError } = await supabase.storage.from("whatsapp-media").upload(filePath, file, { contentType: file.type });
       if (uploadError) throw uploadError;
-
-      const { data: publicUrlData } = supabase.storage
-        .from("whatsapp-media")
-        .getPublicUrl(filePath);
-      const mediaUrl = publicUrlData.publicUrl;
-
-      const { error } = await supabase.functions.invoke("send-whatsapp-message", {
-        body: {
-          session_id: selectedSessionId,
-          phone: selectedContact.phone_number,
-          contact_id: selectedContact.id,
-          media_url: mediaUrl,
-          media_type: mediaType,
-          file_name: file.name,
-          caption: caption || "",
-        },
-      });
+      const { data: publicUrlData } = supabase.storage.from("whatsapp-media").getPublicUrl(filePath);
+      const { error } = await supabase.functions.invoke("send-whatsapp-message", { body: { session_id: selectedSessionId, phone: selectedContact.phone_number, contact_id: selectedContact.id, media_url: publicUrlData.publicUrl, media_type: mediaType, file_name: file.name, caption: caption || "" } });
       if (error) throw error;
       await autoAssignOnSend();
     } catch (err: any) {
       toast({ title: "Erro ao enviar mídia", description: err.message, variant: "destructive" });
-    } finally {
-      setSending(false);
-    }
+    } finally { setSending(false); }
   };
 
   const autoAssignOnSend = async () => {
     if (!selectedContact || selectedContact.is_group || !tenantId || !user) return;
     const currentStatus = selectedContact.contact_status?.status;
     if (currentStatus === "waiting" || currentStatus === "open" || !selectedContact.contact_status?.assigned_to) {
-      const { data: statusRow } = await supabase
-        .from("whatsapp_contact_status")
-        .select("id")
-        .eq("contact_id", selectedContact.id)
-        .single();
+      const { data: statusRow } = await supabase.from("whatsapp_contact_status").select("id").eq("contact_id", selectedContact.id).single();
       if (statusRow) {
-        await supabase.from("whatsapp_contact_status")
-          .update({ status: "attending", assigned_to: user.id, last_status_change: new Date().toISOString() })
-          .eq("id", statusRow.id);
+        await supabase.from("whatsapp_contact_status").update({ status: "attending", assigned_to: user.id, last_status_change: new Date().toISOString() }).eq("id", statusRow.id);
       } else {
-        await supabase.from("whatsapp_contact_status").insert({
-          tenant_id: tenantId,
-          contact_id: selectedContact.id,
-          status: "attending",
-          assigned_to: user.id,
-        });
+        await supabase.from("whatsapp_contact_status").insert({ tenant_id: tenantId, contact_id: selectedContact.id, status: "attending", assigned_to: user.id });
       }
-      setSelectedContact((prev: any) => ({
-        ...prev,
-        contact_status: { ...(prev?.contact_status || {}), status: "attending", assigned_to: user.id },
-      }));
+      setSelectedContact((prev: any) => ({ ...prev, contact_status: { ...(prev?.contact_status || {}), status: "attending", assigned_to: user.id } }));
       loadContacts();
     }
   };
@@ -410,75 +290,49 @@ export default function WhatsApp() {
     setSavingSettings(true);
     try {
       const payload = { ...newSettings, tenant_id: tenantId };
-      delete payload.id;
-      delete payload.created_at;
-      delete payload.updated_at;
-      if (settings?.id) {
-        await supabase.from("whatsapp_settings").update(payload).eq("id", settings.id);
-      } else {
-        await supabase.from("whatsapp_settings").insert(payload);
-      }
+      delete payload.id; delete payload.created_at; delete payload.updated_at;
+      if (settings?.id) { await supabase.from("whatsapp_settings").update(payload).eq("id", settings.id); }
+      else { await supabase.from("whatsapp_settings").insert(payload); }
       setSettings({ ...settings, ...newSettings });
       setShowSettings(false);
       toast({ title: "Configurações salvas!" });
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
-    } finally {
-      setSavingSettings(false);
-    }
+    } finally { setSavingSettings(false); }
   };
 
   const handleDeleteSession = async (id: string) => {
-    await supabase.from("whatsapp_sessions").delete().eq("id", id);
-    if (selectedSessionId === id) {
-      setSelectedSessionId(undefined);
-      setSelectedContact(null);
+    const session = sessions.find((s) => s.id === id);
+    if (session?.connection_type === "meta") {
+      await supabase.functions.invoke(`whatsapp-meta-connections/${id}`, { method: "DELETE" });
+    } else {
+      await supabase.from("whatsapp_sessions").delete().eq("id", id);
     }
+    if (selectedSessionId === id) { setSelectedSessionId(undefined); setSelectedContact(null); }
     loadSessions();
   };
 
-  // Delete chat (contact + messages)
   const handleDeleteChat = async () => {
     if (!selectedContact) return;
-    // Delete messages first, then contact (cascade handles tags/status)
     await supabase.from("whatsapp_messages").delete().eq("contact_id", selectedContact.id);
     await supabase.from("whatsapp_contact_tags").delete().eq("contact_id", selectedContact.id);
     await supabase.from("whatsapp_contact_status").delete().eq("contact_id", selectedContact.id);
     await supabase.from("whatsapp_contacts").delete().eq("id", selectedContact.id);
-    setSelectedContact(null);
-    setMessages([]);
-    loadContacts();
+    setSelectedContact(null); setMessages([]); loadContacts();
     toast({ title: "Conversa apagada!" });
   };
 
-  // Change contact status
   const handleStatusChange = async (newStatus: string) => {
     if (!selectedContact || !tenantId) return;
-    const { data: existing } = await supabase
-      .from("whatsapp_contact_status")
-      .select("id")
-      .eq("contact_id", selectedContact.id)
-      .single();
-
-    if (existing) {
-      await supabase.from("whatsapp_contact_status")
-        .update({ status: newStatus, last_status_change: new Date().toISOString() })
-        .eq("id", existing.id);
-    } else {
-      await supabase.from("whatsapp_contact_status").insert({
-        tenant_id: tenantId,
-        contact_id: selectedContact.id,
-        status: newStatus,
-      });
-    }
-
-    // Update local state
-    setSelectedContact((prev: any) => ({
-      ...prev,
-      contact_status: { ...(prev?.contact_status || {}), status: newStatus },
-    }));
+    const { data: existing } = await supabase.from("whatsapp_contact_status").select("id").eq("contact_id", selectedContact.id).single();
+    if (existing) { await supabase.from("whatsapp_contact_status").update({ status: newStatus, last_status_change: new Date().toISOString() }).eq("id", existing.id); }
+    else { await supabase.from("whatsapp_contact_status").insert({ tenant_id: tenantId, contact_id: selectedContact.id, status: newStatus }); }
+    setSelectedContact((prev: any) => ({ ...prev, contact_status: { ...(prev?.contact_status || {}), status: newStatus } }));
     loadContacts();
   };
+
+  const selectedSession = sessions.find((s) => s.id === selectedSessionId);
+  const isMetaSession = selectedSession?.connection_type === "meta";
 
   return (
     <div className="h-[calc(100vh-4rem)]">
@@ -496,25 +350,17 @@ export default function WhatsApp() {
             selectedId={selectedSessionId}
             onSelect={setSelectedSessionId}
             onNewSession={() => setShowNewSession(true)}
+            onNewMetaSession={() => { setEditingMetaConnection(null); setShowMetaModal(true); }}
             onConnect={handleConnect}
             onDelete={handleDeleteSession}
             onCheckStatus={handleCheckStatus}
           />
         </ResizablePanel>
-
         <ResizableHandle withHandle />
-
         <ResizablePanel defaultSize={25} minSize={15}>
-          <WhatsAppContactList
-            contacts={contacts}
-            selectedId={selectedContact?.id}
-            onSelect={(c) => setSelectedContact(c)}
-            profilesMap={profilesMap}
-          />
+          <WhatsAppContactList contacts={contacts} selectedId={selectedContact?.id} onSelect={(c) => setSelectedContact(c)} profilesMap={profilesMap} />
         </ResizablePanel>
-
         <ResizableHandle withHandle />
-
         <ResizablePanel defaultSize={60} minSize={30}>
           <WhatsAppChat
             messages={messages}
@@ -534,21 +380,14 @@ export default function WhatsApp() {
         </ResizablePanel>
       </ResizablePanelGroup>
 
-      {/* New Session Dialog */}
+      {/* Nova Sessão Evolution */}
       <Dialog open={showNewSession} onOpenChange={setShowNewSession}>
         <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Nova Sessão WhatsApp</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Nova Sessão WhatsApp</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Nome da sessão</Label>
-              <Input
-                value={newSessionName}
-                onChange={(e) => setNewSessionName(e.target.value)}
-                placeholder="Ex: Vendas, Suporte..."
-                onKeyDown={(e) => e.key === "Enter" && handleCreateSession()}
-              />
+              <Input value={newSessionName} onChange={(e) => setNewSessionName(e.target.value)} placeholder="Ex: Vendas, Suporte..." onKeyDown={(e) => e.key === "Enter" && handleCreateSession()} />
             </div>
           </div>
           <DialogFooter>
@@ -560,57 +399,29 @@ export default function WhatsApp() {
         </DialogContent>
       </Dialog>
 
-      <WhatsAppQRDialog
-        open={showQR}
-        onOpenChange={setShowQR}
-        qrCode={qrSession?.qr_code}
-        sessionName={qrSession?.session_name}
-        status={qrSession?.status}
+      <WhatsAppQRDialog open={showQR} onOpenChange={setShowQR} qrCode={qrSession?.qr_code} sessionName={qrSession?.session_name} status={qrSession?.status} />
+      <WhatsAppSettingsDialog open={showSettings} onOpenChange={setShowSettings} settings={settings} onSave={handleSaveSettings} saving={savingSettings} />
+
+      {/* Modal Meta API */}
+      <MetaConnectionModal
+        open={showMetaModal}
+        onOpenChange={setShowMetaModal}
+        onSuccess={() => { setShowMetaModal(false); loadSessions(); }}
+        editingConnection={editingMetaConnection}
       />
 
-      <WhatsAppSettingsDialog
-        open={showSettings}
-        onOpenChange={setShowSettings}
-        settings={settings}
-        onSave={handleSaveSettings}
-        saving={savingSettings}
-      />
-
-      {/* Tag Manager */}
       {selectedContact && tenantId && (
-        <WhatsAppTagManager
-          open={showTagManager}
-          onOpenChange={setShowTagManager}
-          contactId={selectedContact.id}
-          tenantId={tenantId}
-          tags={selectedContact.tags || []}
+        <WhatsAppTagManager open={showTagManager} onOpenChange={setShowTagManager} contactId={selectedContact.id} tenantId={tenantId} tags={selectedContact.tags || []}
           onTagsChanged={() => {
             loadContacts();
-            // Refresh selected contact tags
-            supabase.from("whatsapp_contact_tags")
-              .select("*")
-              .eq("contact_id", selectedContact.id)
-              .then(({ data }) => {
-                if (data) setSelectedContact((prev: any) => ({ ...prev, tags: data }));
-              });
+            supabase.from("whatsapp_contact_tags").select("*").eq("contact_id", selectedContact.id).then(({ data }) => { if (data) setSelectedContact((prev: any) => ({ ...prev, tags: data })); });
           }}
         />
       )}
 
-      {/* Transfer Modal */}
       {selectedContact && tenantId && user && (
-        <TransferConversationModal
-          open={showTransfer}
-          onOpenChange={setShowTransfer}
-          contactId={selectedContact.id}
-          contactName={selectedContact.display_name}
-          tenantId={tenantId}
-          currentUserId={user.id}
-          onTransferred={() => {
-            loadContacts();
-            setSelectedContact(null);
-            setMessages([]);
-          }}
+        <TransferConversationModal open={showTransfer} onOpenChange={setShowTransfer} contactId={selectedContact.id} contactName={selectedContact.display_name} tenantId={tenantId} currentUserId={user.id}
+          onTransferred={() => { loadContacts(); setSelectedContact(null); setMessages([]); }}
         />
       )}
     </div>
