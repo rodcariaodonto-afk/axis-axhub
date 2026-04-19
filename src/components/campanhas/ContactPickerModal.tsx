@@ -9,7 +9,8 @@ import { Search, Check, Users } from "lucide-react";
 
 interface Contact {
   id: string;
-  name: string;
+  first_name: string;
+  last_name?: string;
   email?: string;
   phone?: string;
 }
@@ -31,7 +32,7 @@ export function ContactPickerModal({ open, onOpenChange, onConfirm, alreadySelec
     setLoading(true);
     const { data } = await supabase
       .from("contacts")
-      .select("id, name, email, phone")
+      .select("id, first_name, last_name, email, phone")
       .not("phone", "is", null)
       .neq("phone", "")
       .order("name", { ascending: true })
@@ -48,11 +49,12 @@ export function ContactPickerModal({ open, onOpenChange, onConfirm, alreadySelec
     }
   }, [open, loadContacts]);
 
-  const filtered = contacts.filter((c) =>
-    c.name?.toLowerCase().includes(search.toLowerCase()) ||
-    c.phone?.includes(search) ||
-    c.email?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = contacts.filter((c) => {
+    const fullName = `${c.first_name || ""} ${c.last_name || ""}`.toLowerCase();
+    return fullName.includes(search.toLowerCase()) ||
+      c.phone?.includes(search) ||
+      c.email?.toLowerCase().includes(search.toLowerCase());
+  });
 
   const toggle = (phone: string) => {
     setSelected((prev) => {
@@ -141,7 +143,7 @@ export function ContactPickerModal({ open, onOpenChange, onConfirm, alreadySelec
                         {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{c.name}</p>
+                        <p className="text-sm font-medium truncate">{c.first_name} {c.last_name || ""}</p>
                         <p className="text-xs text-muted-foreground font-mono">{phone}</p>
                       </div>
                       {c.email && (
