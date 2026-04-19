@@ -12,6 +12,17 @@ function normalizePhone(phone: string): string {
   return `+${digits}`;
 }
 
+async function sendMessage(phoneNumberId: string, accessToken: string, to: string, body: any) {
+  const res = await fetch(`https://graph.facebook.com/v18.0/${phoneNumberId}/messages`, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to, ...body }),
+  });
+  const data = await res.json();
+  if (!res.ok) return { success: false, error: data.error?.message || "Erro desconhecido" };
+  return { success: true, messageId: data.messages?.[0]?.id };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -43,11 +54,8 @@ Deno.serve(async (req) => {
     if (!profile) return new Response(JSON.stringify({ error: "Profile not found" }), { status: 404, headers: corsHeaders });
     const tenantId = profile.tenant_id;
 
-    const { connection_id, phone_number, message_type = "text", message_content, template_name, language_code = "pt_BR", media_url, media_type } = await req.json();
-
-    if (!connection_id || !phone_number) {
-      return new Response(JSON.stringify({ error: "connection_id e phone_number são obrigatórios" }), { status: 400, headers: corsHeaders });
-    }
+    const payload = await req.json();
+    const { connection_id, message_type = "text", message_content, template_name, language_code = "pt_BR", media_url, media_type, _action, recipients } = payload;
 
     // Buscar conexão
     const { data: conn, error: connError } = await supabase
@@ -62,69 +70,102 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Conexão não encontrada ou inativa" }), { status: 404, headers: corsHeaders });
     }
 
+    // DISPARO EM MASSA
+    if (_action === "bulk" && Array.isArray(recipients)) {
+      if (recipients.length > 1000) {
+        return new Response(JSON.stringify({ error: "Máximo de 1.000 destinatários" }), { status: 400, headers: corsHeaders });
+      }
+
+      const results = [];
+      const BATCH_SIZE = 10;
+
+      for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
+        const batch = recipients.slice(i, i + BATCH_SIZE);
+        const batchPromises = batch.map(async (phone: string) => {
+          const to = normalizePhone(phone);
+          let msgBody: any;
+
+          if (message_type === "template") {
+            msgBody = { type: "template", template: { name: template_name, language: { code: language_code } } };
+          } else {
+            msgBody = { type: "text", text: { body: message_content } };
+          }
+
+          const result = await sendMessage(conn.phone_number_id, conn.access_token, to, msgBody);
+
+          await serviceClient.from("whatsapp_meta_messages").insert({
+            connection_id,
+            tenant_id: tenantId,
+            message_id: result.messageId,
+            phone_number: to,
+            message_type,
+            message_content: message_content || template_name,
+            direction: "outbound",
+            status: result.success ? "sent" : "failed",
+            error_message: result.error || null,
+          });
+
+          return { phone: to, success: result.success, error: result.error };
+        });
+
+        const batchResults = await Promise.allSettled(batchPromises);
+        batchResults.forEach((r) => {
+          if (r.status === "fulfilled") results.push(r.value);
+          else results.push({ phone: "", success: false, error: r.reason?.message });
+        });
+
+        if (i + BATCH_SIZE < recipients.length) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+      }
+
+      const successCount = results.filter((r) => r.success).length;
+      return new Response(
+        JSON.stringify({ total: recipients.length, sent: successCount, failed: recipients.length - successCount, results }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ENVIO INDIVIDUAL
+    const { phone_number } = payload;
+    if (!phone_number) {
+      return new Response(JSON.stringify({ error: "phone_number é obrigatório" }), { status: 400, headers: corsHeaders });
+    }
+
     const to = normalizePhone(phone_number);
-    let body: any = { messaging_product: "whatsapp", recipient_type: "individual", to };
+    let msgBody: any;
 
     if (message_type === "text") {
-      body.type = "text";
-      body.text = { body: message_content };
+      msgBody = { type: "text", text: { body: message_content } };
     } else if (message_type === "template") {
-      body.type = "template";
-      body.template = { name: template_name, language: { code: language_code } };
+      msgBody = { type: "template", template: { name: template_name, language: { code: language_code } } };
     } else if (message_type === "media") {
-      body.type = media_type || "image";
-      body[media_type || "image"] = { link: media_url, caption: message_content || "" };
+      msgBody = { type: media_type || "image", [media_type || "image"]: { link: media_url, caption: message_content || "" } };
     } else {
       return new Response(JSON.stringify({ error: `message_type inválido: ${message_type}` }), { status: 400, headers: corsHeaders });
     }
 
-    // Enviar via Meta Graph API
-    const metaRes = await fetch(
-      `https://graph.facebook.com/v18.0/${conn.phone_number_id}/messages`,
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${conn.access_token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      }
-    );
+    const result = await sendMessage(conn.phone_number_id, conn.access_token, to, msgBody);
 
-    const metaData = await metaRes.json();
-
-    if (!metaRes.ok) {
-      // Salvar como failed
-      await serviceClient.from("whatsapp_meta_messages").insert({
-        connection_id,
-        tenant_id: tenantId,
-        phone_number: to,
-        message_type,
-        message_content: message_content || template_name,
-        direction: "outbound",
-        status: "failed",
-        error_message: metaData.error?.message || "Erro desconhecido",
-      });
-      return new Response(JSON.stringify({ error: metaData.error?.message || "Erro ao enviar" }), { status: 502, headers: corsHeaders });
-    }
-
-    const messageId = metaData.messages?.[0]?.id;
-
-    // Salvar mensagem enviada
     await serviceClient.from("whatsapp_meta_messages").insert({
       connection_id,
       tenant_id: tenantId,
-      message_id: messageId,
+      message_id: result.messageId,
       phone_number: to,
       message_type,
       message_content: message_content || template_name,
       media_url: media_url || null,
       direction: "outbound",
-      status: "sent",
+      status: result.success ? "sent" : "failed",
+      error_message: result.error || null,
     });
 
+    if (!result.success) {
+      return new Response(JSON.stringify({ error: result.error }), { status: 502, headers: corsHeaders });
+    }
+
     return new Response(
-      JSON.stringify({ success: true, message_id: messageId, status: "sent", timestamp: new Date().toISOString() }),
+      JSON.stringify({ success: true, message_id: result.messageId, status: "sent", timestamp: new Date().toISOString() }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
