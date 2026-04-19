@@ -116,8 +116,17 @@ export default function WhatsApp() {
     // Verificar se é sessão Meta
     const selectedSession = sessions.find((s: any) => s.id === selectedSessionId);
     if (selectedSession?.connection_type === "meta") {
-      // Para conexões Meta, carregar mensagens da tabela meta
-      setContacts([]);
+      const { data: metaMsgs } = await supabase
+        .from("whatsapp_meta_messages")
+        .select("phone_number, message_content, created_at, direction")
+        .eq("connection_id", selectedSessionId)
+        .order("created_at", { ascending: false });
+      if (!metaMsgs) { setContacts([]); return; }
+      const seen = new Set<string>();
+      const uniqueContacts = metaMsgs
+        .filter((m: any) => { if (seen.has(m.phone_number)) return false; seen.add(m.phone_number); return true; })
+        .map((m: any) => ({ id: m.phone_number, phone_number: m.phone_number, display_name: m.phone_number, last_message_at: m.created_at, last_message: m.message_content, tags: [], contact_status: null, is_meta: true }));
+      setContacts(uniqueContacts);
       return;
     }
 
@@ -165,12 +174,31 @@ export default function WhatsApp() {
 
   useEffect(() => {
     if (!selectedContact || !selectedSessionId) { setMessages([]); return; }
+    const selectedSession = sessions.find((s: any) => s.id === selectedSessionId);
+    if (selectedSession?.connection_type === "meta") {
+      supabase
+        .from("whatsapp_meta_messages")
+        .select("*")
+        .eq("connection_id", selectedSessionId)
+        .eq("phone_number", selectedContact.phone_number)
+        .order("created_at", { ascending: true })
+        .limit(200)
+        .then(({ data }) => {
+          if (data) setMessages(data.map((m: any) => ({
+            ...m,
+            content: m.message_content,
+            direction: m.direction,
+            message_type: m.message_type || "text",
+          })));
+        });
+      return;
+    }
     supabase.from("whatsapp_messages").select("*").eq("session_id", selectedSessionId).eq("contact_phone", selectedContact.phone_number).order("created_at", { ascending: true }).limit(200).then(({ data }) => { if (data) setMessages(data); });
     supabase.from("whatsapp_contacts").update({ unread_count: 0 }).eq("id", selectedContact.id).then(() => {
       loadContacts();
       setSelectedContact((prev: any) => prev ? { ...prev, unread_count: 0 } : prev);
     });
-  }, [selectedContact?.id, selectedSessionId]);
+  }, [selectedContact?.id, selectedSessionId, sessions]);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -181,6 +209,13 @@ export default function WhatsApp() {
           setMessages((prev) => [...prev, newMsg]);
         }
         if (newMsg.session_id === selectedSessionId) loadContacts();
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "whatsapp_meta_messages" }, (payload) => {
+        const newMsg = payload.new as any;
+        if (selectedContact && newMsg.phone_number === selectedContact.phone_number && newMsg.connection_id === selectedSessionId) {
+          setMessages((prev) => [...prev, { ...newMsg, content: newMsg.message_content }]);
+        }
+        if (newMsg.connection_id === selectedSessionId) loadContacts();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -250,9 +285,20 @@ export default function WhatsApp() {
     if (!selectedContact || !selectedSessionId) return;
     setSending(true);
     try {
-      const { error } = await supabase.functions.invoke("send-whatsapp-message", { body: { session_id: selectedSessionId, phone: selectedContact.phone_number, message: text, contact_id: selectedContact.id } });
-      if (error) throw error;
-      await autoAssignOnSend();
+      const selectedSession = sessions.find((s: any) => s.id === selectedSessionId);
+      if (selectedSession?.connection_type === "meta") {
+        const { error } = await supabase.functions.invoke("send-whatsapp-meta-message", {
+          body: { connection_id: selectedSessionId, phone_number: selectedContact.phone_number, message_type: "text", message_content: text },
+        });
+        if (error) throw error;
+        // Atualizar mensagens localmente
+        setMessages((prev: any) => [...prev, { id: Date.now().toString(), content: text, message_content: text, direction: "outbound", message_type: "text", created_at: new Date().toISOString() }]);
+        loadContacts();
+      } else {
+        const { error } = await supabase.functions.invoke("send-whatsapp-message", { body: { session_id: selectedSessionId, phone: selectedContact.phone_number, message: text, contact_id: selectedContact.id } });
+        if (error) throw error;
+        await autoAssignOnSend();
+      }
     } catch (err: any) {
       toast({ title: "Erro ao enviar", description: err.message, variant: "destructive" });
     } finally { setSending(false); }
