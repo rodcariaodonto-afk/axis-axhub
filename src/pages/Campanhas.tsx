@@ -14,6 +14,7 @@ import { Plus, Play, Pause, Trash2, Settings, Users, BarChart3, GitBranch, FileT
 import { CampaignSettings } from "@/components/campanhas/CampaignSettings";
 import { CampaignContactList } from "@/components/campanhas/CampaignContactList";
 import { CampaignDashboard } from "@/components/campanhas/CampaignDashboard";
+import { MetaCampaign } from "@/components/campanhas/MetaCampaign";
 
 interface Campaign {
   id: string;
@@ -155,6 +156,20 @@ export default function Campanhas() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div><h1 className="text-2xl font-bold tracking-tight">Campanhas WhatsApp</h1><p className="text-muted-foreground">Gerencie campanhas de envio em massa</p></div>
+      </div>
+
+      <Tabs defaultValue="evolution">
+        <TabsList className="w-full max-w-sm">
+          <TabsTrigger value="evolution" className="flex-1">Evolution API</TabsTrigger>
+          <TabsTrigger value="meta" className="flex-1">Meta API</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="meta" className="mt-4">
+          <MetaCampaign />
+        </TabsContent>
+
+        <TabsContent value="evolution" className="mt-4">
+      <div className="flex justify-end mb-4">
         <Button onClick={() => { setForm({ nome: "", descricao: "", mensagem_template: "", session_id: sessions[0]?.id || "", funil_id: "none" }); setCreateOpen(true); }}>
           <Plus className="mr-2 h-4 w-4" />Nova Campanha
         </Button>
@@ -180,6 +195,9 @@ export default function Campanhas() {
           ))}
         </div>
       )}
+
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="bg-card border-border">
