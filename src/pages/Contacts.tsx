@@ -94,7 +94,13 @@ export default function Contacts() {
       first_name: form.first_name,
       last_name: form.last_name || null,
       email: form.email || null,
-      phone: form.phone || null,
+      phone: form.phone ? (() => {
+        const digits = form.phone.replace(/\D/g, "");
+        if (digits.length > 15 || digits.length < 8) return form.phone;
+        if (digits.startsWith("55") && digits.length >= 12) return `+${digits}`;
+        if (digits.length === 11 || digits.length === 10) return `+55${digits}`;
+        return `+${digits}`;
+      })() : null,
       position: form.position || null,
       account_id: form.account_id,
       is_primary: form.is_primary,
@@ -131,7 +137,13 @@ export default function Contacts() {
       first_name: editForm.first_name,
       last_name: editForm.last_name || null,
       email: editForm.email || null,
-      phone: editForm.phone || null,
+      phone: editForm.phone ? (() => {
+        const digits = editForm.phone.replace(/\D/g, "");
+        if (digits.length > 15 || digits.length < 8) return editForm.phone;
+        if (digits.startsWith("55") && digits.length >= 12) return `+${digits}`;
+        if (digits.length === 11 || digits.length === 10) return `+55${digits}`;
+        return `+${digits}`;
+      })() : null,
       position: editForm.position || null,
       account_id: editForm.account_id,
       is_primary: editForm.is_primary,

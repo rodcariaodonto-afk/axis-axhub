@@ -273,10 +273,18 @@ export default function Leads() {
       if (!name) { ignored++; continue; }
       const email = emailIdx >= 0 ? row[emailIdx]?.trim() : null;
       if (email && !emailRegex.test(email)) { ignored++; continue; }
+      const rawPhone = phoneIdx >= 0 ? row[phoneIdx]?.trim() || null : null;
+      const normalizePhone = (p: string): string => {
+        const digits = p.replace(/\D/g, "");
+        if (digits.length > 15 || digits.length < 8) return p;
+        if (digits.startsWith("55") && digits.length >= 12) return `+${digits}`;
+        if (digits.length === 11 || digits.length === 10) return `+55${digits}`;
+        return `+${digits}`;
+      };
       validRows.push({
         tenant_id: profile.tenant_id, name,
         email: email || null,
-        phone: phoneIdx >= 0 ? row[phoneIdx]?.trim() || null : null,
+        phone: rawPhone ? normalizePhone(rawPhone) : null,
         source: sourceIdx >= 0 ? row[sourceIdx]?.trim() || "manual" : "manual",
         tags: csvTags.length > 0 ? csvTags : [],
       });

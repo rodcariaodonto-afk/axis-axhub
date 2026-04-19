@@ -75,8 +75,25 @@ export function ContactPickerModal({ open, onOpenChange, onConfirm, alreadySelec
     }
   };
 
+  const normalizePhone = (phone: string): string => {
+    const digits = phone.replace(/\D/g, "");
+    // Ignorar números claramente inválidos (muito longos ou curtos)
+    if (digits.length > 15 || digits.length < 8) return phone;
+    if (digits.startsWith("55") && digits.length >= 12) return `+${digits}`;
+    if (digits.length === 11 || digits.length === 10) return `+55${digits}`;
+    return `+${digits}`;
+  };
+
+  const isValidPhone = (phone: string): boolean => {
+    const digits = phone.replace(/\D/g, "");
+    return digits.length >= 8 && digits.length <= 15;
+  };
+
   const handleConfirm = () => {
-    onConfirm(Array.from(selected));
+    const normalized = Array.from(selected)
+      .filter(isValidPhone)
+      .map(normalizePhone);
+    onConfirm(normalized);
     onOpenChange(false);
   };
 
@@ -147,6 +164,9 @@ export function ContactPickerModal({ open, onOpenChange, onConfirm, alreadySelec
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{c.first_name} {c.last_name || ""}</p>
                         <p className="text-xs text-muted-foreground font-mono">{phone}</p>
+                        {phone.replace(/\D/g, "").length > 15 && (
+                          <p className="text-[10px] text-destructive">⚠️ Número inválido</p>
+                        )}
                       </div>
                       {c.email && (
                         <p className="text-xs text-muted-foreground truncate max-w-32 hidden sm:block">{c.email}</p>
