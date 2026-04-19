@@ -46,7 +46,6 @@ export function AppSidebar() {
     {
       label: "CRM",
       icon: BarChart3,
-      defaultOpen: true,
       children: [
         { title: "Dashboard", url: "/crm-dashboard", icon: Gauge, module: "dashboard" },
         { title: "Leads", url: "/leads", icon: UserPlus, module: "crm" },
@@ -63,7 +62,6 @@ export function AppSidebar() {
     {
       label: "ERP",
       icon: Package,
-      defaultOpen: true,
       children: [
         { title: "Produtos", url: "/products", icon: Package, module: "produtos" },
         { title: "Estoque", url: "/stock", icon: Warehouse, module: "produtos" },
