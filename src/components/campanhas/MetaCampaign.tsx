@@ -9,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Smartphone, Send, Users, FileText, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { Smartphone, Send, Users, FileText, CheckCircle, XCircle, Loader2, UserPlus } from "lucide-react";
+import { ContactPickerModal } from "@/components/campanhas/ContactPickerModal";
 
 interface MetaConnection {
   id: string;
@@ -43,6 +44,7 @@ export function MetaCampaign() {
   const [sending, setSending] = useState(false);
   const [results, setResults] = useState<SendResult[]>([]);
   const [progress, setProgress] = useState(0);
+  const [showContactPicker, setShowContactPicker] = useState(false);
 
   useEffect(() => {
     loadConnections();
@@ -81,6 +83,12 @@ export function MetaCampaign() {
     } finally {
       setSendingTemplate(false);
     }
+  };
+
+  const handleContactsSelected = (phones: string[]) => {
+    const existing = bulkNumbers.trim();
+    const newNumbers = phones.join("\n");
+    setBulkNumbers(existing ? existing + "\n" + newNumbers : newNumbers);
   };
 
   const handleBulkSend = async () => {
@@ -166,6 +174,7 @@ export function MetaCampaign() {
   const failCount = results.filter((r) => !r.success).length;
 
   return (
+    <>
     <div className="space-y-6">
       {/* Seleção de Conexão */}
       <Card>
@@ -323,7 +332,12 @@ export function MetaCampaign() {
               )}
 
               <div className="space-y-1">
+                <div className="flex items-center justify-between">
                 <Label>Números de Destino * <span className="text-muted-foreground font-normal">(um por linha)</span></Label>
+                <Button type="button" variant="outline" size="sm" className="gap-1.5 h-7 text-xs" onClick={() => setShowContactPicker(true)}>
+                  <UserPlus className="h-3 w-3" /> Adicionar Contatos
+                </Button>
+              </div>
                 <Textarea
                   value={bulkNumbers}
                   onChange={(e) => setBulkNumbers(e.target.value)}
@@ -376,5 +390,12 @@ export function MetaCampaign() {
         </TabsContent>
       </Tabs>
     </div>
+
+      <ContactPickerModal
+        open={showContactPicker}
+        onOpenChange={setShowContactPicker}
+        onConfirm={handleContactsSelected}
+      />
+    </>
   );
 }
