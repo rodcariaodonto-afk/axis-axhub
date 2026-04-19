@@ -30,14 +30,16 @@ export function ContactPickerModal({ open, onOpenChange, onConfirm, alreadySelec
 
   const loadContacts = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("contacts")
       .select("id, first_name, last_name, email, phone")
-      .not("phone", "is", null)
-      .neq("phone", "")
-      .order("name", { ascending: true })
+      .order("first_name", { ascending: true })
       .limit(500);
-    if (data) setContacts(data);
+    console.log("[ContactPicker] data:", data, "error:", error);
+    if (data) {
+      const withPhone = data.filter((c: any) => c.phone && c.phone.trim() !== "");
+      setContacts(withPhone);
+    }
     setLoading(false);
   }, []);
 
