@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, CheckCircle, Pencil, Trash2 } from "lucide-react";
+import { Plus, CheckCircle, Pencil, Trash2, Repeat } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import PasswordConfirmDialog from "@/components/finance/PasswordConfirmDialog";
 import PaymentConfirmDialog from "@/components/finance/PaymentConfirmDialog";
 
@@ -23,7 +24,13 @@ export default function Payables() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
-  const [form, setForm] = useState({ description: "", amount: "", due_date: "", supplier_id: "", category_id: "" });
+  const [form, setForm] = useState({
+    description: "", amount: "", due_date: "", supplier_id: "", category_id: "",
+    is_recurring: false,
+    frequency_type: "monthly" as "monthly" | "weekly" | "daily",
+    frequency_interval: 1,
+    end_date: "",
+  });
   const [categories, setCategories] = useState<any[]>([]);
   const [passwordDialog, setPasswordDialog] = useState<{ open: boolean; title: string; description: string; variant: "default" | "destructive"; onConfirm: () => Promise<void> }>({ open: false, title: "", description: "", variant: "default", onConfirm: async () => {} });
   const [paymentDialog, setPaymentDialog] = useState<{ open: boolean; itemId: string; amount: number; description: string }>({ open: false, itemId: "", amount: 0, description: "" });
@@ -50,14 +57,21 @@ export default function Payables() {
   const openCreate = async () => {
     await Promise.all([loadSuppliers(), loadCategories()]);
     setEditItem(null);
-    setForm({ description: "", amount: "", due_date: "", supplier_id: "", category_id: "" });
+    setForm({
+      description: "", amount: "", due_date: "", supplier_id: "", category_id: "",
+      is_recurring: false, frequency_type: "monthly", frequency_interval: 1, end_date: "",
+    });
     setDialogOpen(true);
   };
 
   const openEdit = async (item: any) => {
     await Promise.all([loadSuppliers(), loadCategories()]);
     setEditItem(item);
-    setForm({ description: item.description, amount: String(item.amount), due_date: item.due_date, supplier_id: item.supplier_id || "", category_id: item.category_id || "" });
+    setForm({
+      description: item.description, amount: String(item.amount), due_date: item.due_date,
+      supplier_id: item.supplier_id || "", category_id: item.category_id || "",
+      is_recurring: false, frequency_type: "monthly", frequency_interval: 1, end_date: "",
+    });
     setPasswordDialog({
       open: true, title: "Editar Conta a Pagar", description: "Confirme sua senha para editar este lançamento.", variant: "default",
       onConfirm: async () => { setDialogOpen(true); },
@@ -94,9 +108,36 @@ export default function Payables() {
       if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
       else { toast({ title: "Conta atualizada!" }); setDialogOpen(false); setEditItem(null); fetchData(); }
     } else {
-      const { error } = await supabase.from("payables").insert({ tenant_id: profile.tenant_id, description: form.description, amount: parseFloat(form.amount), due_date: form.due_date, supplier_id: form.supplier_id || null, category_id: form.category_id || null });
-      if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
-      else { toast({ title: "Conta a pagar criada!" }); setDialogOpen(false); fetchData(); }
+      if (form.is_recurring) {
+        // Criar conta + recorrência via RPC atômica
+        const { data, error } = await supabase.rpc("create_payable_with_recurrence", {
+          p_tenant_id: profile.tenant_id,
+          p_description: form.description,
+          p_amount: parseFloat(form.amount),
+          p_due_date: form.due_date,
+          p_supplier_id: form.supplier_id || null,
+          p_category_id: form.category_id || null,
+          p_frequency_type: form.frequency_type,
+          p_frequency_interval: form.frequency_interval,
+          p_end_date: form.end_date || null,
+        });
+        if (error) {
+          toast({ title: "Erro", description: error.message, variant: "destructive" });
+        } else {
+          await supabase.from("audit_logs").insert({
+            tenant_id: profile.tenant_id, entity: "payment_recurrence", action: "create",
+            entity_id: data, actor_user_id: user.id,
+            after_json: { description: form.description, frequency_type: form.frequency_type, frequency_interval: form.frequency_interval },
+          });
+          toast({ title: "Conta recorrente criada!", description: "A próxima conta será gerada automaticamente." });
+          setDialogOpen(false);
+          fetchData();
+        }
+      } else {
+        const { error } = await supabase.from("payables").insert({ tenant_id: profile.tenant_id, description: form.description, amount: parseFloat(form.amount), due_date: form.due_date, supplier_id: form.supplier_id || null, category_id: form.category_id || null });
+        if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
+        else { toast({ title: "Conta a pagar criada!" }); setDialogOpen(false); fetchData(); }
+      }
     }
   };
 
@@ -181,6 +222,62 @@ export default function Payables() {
                 </SelectContent>
               </Select>
             </div>
+
+            {!editItem && (
+              <div className="space-y-3 rounded-lg border border-border p-3 bg-muted/30">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Repeat className="h-4 w-4 text-muted-foreground" />
+                    <Label htmlFor="is-recurring" className="cursor-pointer">Tornar conta recorrente</Label>
+                  </div>
+                  <Switch
+                    id="is-recurring"
+                    checked={form.is_recurring}
+                    onCheckedChange={(v) => setForm({ ...form, is_recurring: v })}
+                  />
+                </div>
+
+                {form.is_recurring && (
+                  <div className="space-y-3 pt-2 border-t border-border">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Frequência</Label>
+                        <Select
+                          value={form.frequency_type}
+                          onValueChange={(v: any) => setForm({ ...form, frequency_type: v })}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="monthly">Mensal</SelectItem>
+                            <SelectItem value="weekly">Semanal</SelectItem>
+                            <SelectItem value="daily">Diária</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">A cada</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={form.frequency_interval}
+                          onChange={(e) => setForm({ ...form, frequency_interval: parseInt(e.target.value) || 1 })}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Data de término <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                      <Input
+                        type="date"
+                        value={form.end_date}
+                        onChange={(e) => setForm({ ...form, end_date: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground">Deixe vazio para recorrência infinita</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <Button type="submit" className="w-full">{editItem ? "Salvar" : "Criar"}</Button>
           </form>
         </DialogContent>
@@ -207,7 +304,17 @@ export default function Payables() {
               filtered.length === 0 ? <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhuma conta encontrada</TableCell></TableRow> :
               filtered.map((p) => (
                 <TableRow key={p.id} className={`border-border ${isOverdue(p) ? "bg-destructive/5" : ""}`}>
-                  <TableCell className="font-medium">{p.description}</TableCell>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2">
+                      {p.description}
+                      {p.recurrence_id && (
+                        <Badge variant="outline" className="text-[10px] gap-1 h-5">
+                          <Repeat className="h-2.5 w-2.5" />
+                          {p.is_recurring_template ? "Recorrente (Original)" : "Recorrente"}
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-muted-foreground">{p.suppliers?.name || "—"}</TableCell>
                   <TableCell>
                     {(p as any).finance_categories ? (
