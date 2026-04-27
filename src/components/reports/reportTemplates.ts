@@ -180,6 +180,31 @@ export const REPORT_TEMPLATES: ReportTemplate[] = [
       { value: 'month', label: 'Mês' },
     ],
   },
+  {
+    id: 'dre-detalhado',
+    name: 'DRE Detalhado',
+    description: 'Demonstração do Resultado do Exercício com classificação contábil',
+    category: 'financial',
+    icon: 'FileBarChart',
+    defaultChartType: 'bar',
+    defaultConfig: { group_by: 'month' },
+    availableGroupBy: [
+      { value: 'month', label: 'Mês' },
+      { value: 'accounting_type', label: 'Classificação Contábil' },
+    ],
+  },
+  {
+    id: 'balanco-resumo',
+    name: 'Balanço Patrimonial Resumido',
+    description: 'Visão consolidada de ativos, passivos e patrimônio líquido',
+    category: 'financial',
+    icon: 'Scale',
+    defaultChartType: 'bar',
+    defaultConfig: { group_by: 'entry_type' },
+    availableGroupBy: [
+      { value: 'entry_type', label: 'Tipo' },
+    ],
+  },
   // === OPERAÇÕES ===
   {
     id: 'critical-stock',

@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowUpCircle, ArrowDownCircle, Banknote, TrendingUp, TrendingDown } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import FinanceCategoryManager from "@/components/finance/FinanceCategoryManager";
+import { CashFlowProjectionTab } from "@/components/financial/CashFlowProjectionTab";
 
 export default function Finance() {
   const [totals, setTotals] = useState({ receivable: 0, payable: 0, bankBalance: 0, paidThisMonth: 0, receivedThisMonth: 0 });
@@ -85,6 +86,7 @@ export default function Finance() {
         <TabsList>
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="categories">Categorias</TabsTrigger>
+          <TabsTrigger value="projetado">Fluxo Projetado</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -194,6 +196,10 @@ export default function Finance() {
 
         <TabsContent value="categories">
           <FinanceCategoryManager />
+        </TabsContent>
+
+        <TabsContent value="projetado">
+          <CashFlowProjectionTab />
         </TabsContent>
       </Tabs>
     </div>
