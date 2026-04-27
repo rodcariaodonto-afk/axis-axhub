@@ -13,6 +13,8 @@ import { Plus, CheckCircle, Pencil, Trash2, Repeat } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import PasswordConfirmDialog from "@/components/finance/PasswordConfirmDialog";
 import PaymentConfirmDialog from "@/components/finance/PaymentConfirmDialog";
+import { AccountingTypeSelect } from "@/components/financial/AccountingTypeSelect";
+import { AccountingTypeBadge } from "@/components/financial/AccountingTypeBadge";
 
 const statusLabels: Record<string, string> = { pending: "Pendente", paid: "Pago", overdue: "Vencido", canceled: "Cancelado" };
 const statusFilter = ["all", "pending", "paid", "overdue", "canceled"];
@@ -26,6 +28,7 @@ export default function Payables() {
   const [editItem, setEditItem] = useState<any>(null);
   const [form, setForm] = useState({
     description: "", amount: "", due_date: "", supplier_id: "", category_id: "",
+    accounting_type: "", accounting_group: "",
     is_recurring: false,
     frequency_type: "monthly" as "monthly" | "weekly" | "daily",
     frequency_interval: 1,
@@ -59,6 +62,7 @@ export default function Payables() {
     setEditItem(null);
     setForm({
       description: "", amount: "", due_date: "", supplier_id: "", category_id: "",
+      accounting_type: "", accounting_group: "",
       is_recurring: false, frequency_type: "monthly", frequency_interval: 1, end_date: "",
     });
     setDialogOpen(true);
@@ -70,6 +74,7 @@ export default function Payables() {
     setForm({
       description: item.description, amount: String(item.amount), due_date: item.due_date,
       supplier_id: item.supplier_id || "", category_id: item.category_id || "",
+      accounting_type: item.accounting_type || "", accounting_group: item.accounting_group || "",
       is_recurring: false, frequency_type: "monthly", frequency_interval: 1, end_date: "",
     });
     setPasswordDialog({
@@ -102,7 +107,7 @@ export default function Payables() {
     if (!profile || !user) return;
 
     if (editItem) {
-      const updatedFields = { description: form.description, amount: parseFloat(form.amount), due_date: form.due_date, supplier_id: form.supplier_id || null, category_id: form.category_id || null };
+      const updatedFields = { description: form.description, amount: parseFloat(form.amount), due_date: form.due_date, supplier_id: form.supplier_id || null, category_id: form.category_id || null, accounting_type: form.accounting_type || null, accounting_group: form.accounting_group || null };
       await supabase.from("audit_logs").insert({ tenant_id: profile.tenant_id, entity: "payable", action: "update", entity_id: editItem.id, actor_user_id: user.id, before_json: editItem, after_json: { ...editItem, ...updatedFields } });
       const { error } = await supabase.from("payables").update(updatedFields).eq("id", editItem.id);
       if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
@@ -120,6 +125,8 @@ export default function Payables() {
           p_frequency_type: form.frequency_type,
           p_frequency_interval: form.frequency_interval,
           p_end_date: form.end_date || null,
+          p_accounting_type: form.accounting_type || null,
+          p_accounting_group: form.accounting_group || null,
         });
         if (error) {
           toast({ title: "Erro", description: error.message, variant: "destructive" });
@@ -134,7 +141,7 @@ export default function Payables() {
           fetchData();
         }
       } else {
-        const { error } = await supabase.from("payables").insert({ tenant_id: profile.tenant_id, description: form.description, amount: parseFloat(form.amount), due_date: form.due_date, supplier_id: form.supplier_id || null, category_id: form.category_id || null });
+        const { error } = await supabase.from("payables").insert({ tenant_id: profile.tenant_id, description: form.description, amount: parseFloat(form.amount), due_date: form.due_date, supplier_id: form.supplier_id || null, category_id: form.category_id || null, accounting_type: form.accounting_type || null, accounting_group: form.accounting_group || null });
         if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
         else { toast({ title: "Conta a pagar criada!" }); setDialogOpen(false); fetchData(); }
       }
@@ -223,6 +230,21 @@ export default function Payables() {
               </Select>
             </div>
 
+            <AccountingTypeSelect
+              kind="payable"
+              value={form.accounting_type}
+              onChange={(v) => setForm({ ...form, accounting_type: v })}
+            />
+
+            <div className="space-y-2">
+              <Label>Grupo Contábil <span className="text-muted-foreground text-xs font-normal">(opcional)</span></Label>
+              <Input
+                value={form.accounting_group}
+                onChange={(e) => setForm({ ...form, accounting_group: e.target.value })}
+                placeholder="Ex: Pessoal, Marketing, Infraestrutura"
+              />
+            </div>
+
             {!editItem && (
               <div className="space-y-3 rounded-lg border border-border p-3 bg-muted/30">
                 <div className="flex items-center justify-between">
@@ -296,12 +318,12 @@ export default function Payables() {
           <Table>
             <TableHeader>
               <TableRow className="border-border">
-                <TableHead>Descrição</TableHead><TableHead>Fornecedor</TableHead><TableHead>Categoria</TableHead><TableHead>Vencimento</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Valor</TableHead><TableHead className="w-28" />
+                <TableHead>Descrição</TableHead><TableHead>Fornecedor</TableHead><TableHead>Categoria</TableHead><TableHead>Classif. Contábil</TableHead><TableHead>Vencimento</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Valor</TableHead><TableHead className="w-28" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loading ? <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow> :
-              filtered.length === 0 ? <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhuma conta encontrada</TableCell></TableRow> :
+              {loading ? <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow> :
+              filtered.length === 0 ? <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhuma conta encontrada</TableCell></TableRow> :
               filtered.map((p) => (
                 <TableRow key={p.id} className={`border-border ${isOverdue(p) ? "bg-destructive/5" : ""}`}>
                   <TableCell className="font-medium">
@@ -324,6 +346,7 @@ export default function Payables() {
                       </span>
                     ) : "—"}
                   </TableCell>
+                  <TableCell><AccountingTypeBadge type={p.accounting_type} /></TableCell>
                   <TableCell className={isOverdue(p) ? "text-destructive font-medium" : ""}>{new Date(p.due_date).toLocaleDateString("pt-BR")}</TableCell>
                   <TableCell><Badge variant={p.status === "paid" ? "default" : isOverdue(p) ? "destructive" : "secondary"}>{isOverdue(p) ? "Vencido" : statusLabels[p.status] || p.status}</Badge></TableCell>
                   <TableCell className="text-right font-medium">R$ {Number(p.amount).toFixed(2)}</TableCell>

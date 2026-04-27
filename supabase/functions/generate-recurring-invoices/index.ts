@@ -79,6 +79,7 @@ Deno.serve(async (req) => {
         billing_period_start: billingStart,
         billing_period_end: billingEnd,
         customer_id: null,
+        accounting_type: "receita_operacional",
       });
 
       if (insertError) {

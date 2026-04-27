@@ -12,6 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, CheckCircle, Pencil, Trash2, RefreshCw } from "lucide-react";
 import PasswordConfirmDialog from "@/components/finance/PasswordConfirmDialog";
 import PaymentConfirmDialog from "@/components/finance/PaymentConfirmDialog";
+import { AccountingTypeSelect } from "@/components/financial/AccountingTypeSelect";
+import { AccountingTypeBadge } from "@/components/financial/AccountingTypeBadge";
 
 const statusLabels: Record<string, string> = { pending: "Pendente", paid: "Pago", overdue: "Vencido", canceled: "Cancelado" };
 const statusFilter = ["all", "pending", "paid", "overdue", "canceled"];
@@ -23,7 +25,7 @@ export default function Receivables() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
-  const [form, setForm] = useState({ description: "", amount: "", due_date: "", customer_id: "", installments: "1", category_id: "" });
+  const [form, setForm] = useState({ description: "", amount: "", due_date: "", customer_id: "", installments: "1", category_id: "", accounting_type: "", accounting_group: "" });
   const [categories, setCategories] = useState<any[]>([]);
   const [passwordDialog, setPasswordDialog] = useState<{ open: boolean; title: string; description: string; variant: "default" | "destructive"; onConfirm: () => Promise<void> }>({ open: false, title: "", description: "", variant: "default", onConfirm: async () => {} });
   const [paymentDialog, setPaymentDialog] = useState<{ open: boolean; itemId: string; amount: number; description: string }>({ open: false, itemId: "", amount: 0, description: "" });
@@ -50,14 +52,14 @@ export default function Receivables() {
   const openCreate = async () => {
     await Promise.all([loadCustomers(), loadCategories()]);
     setEditItem(null);
-    setForm({ description: "", amount: "", due_date: "", customer_id: "", installments: "1", category_id: "" });
+    setForm({ description: "", amount: "", due_date: "", customer_id: "", installments: "1", category_id: "", accounting_type: "", accounting_group: "" });
     setDialogOpen(true);
   };
 
   const openEdit = async (item: any) => {
     await Promise.all([loadCustomers(), loadCategories()]);
     setEditItem(item);
-    setForm({ description: item.description, amount: String(item.amount), due_date: item.due_date, customer_id: item.customer_id || "", installments: "1", category_id: item.category_id || "" });
+    setForm({ description: item.description, amount: String(item.amount), due_date: item.due_date, customer_id: item.customer_id || "", installments: "1", category_id: item.category_id || "", accounting_type: item.accounting_type || "", accounting_group: item.accounting_group || "" });
     setPasswordDialog({
       open: true, title: "Editar Recebível", description: "Confirme sua senha para editar este lançamento.", variant: "default",
       onConfirm: async () => { setDialogOpen(true); },
@@ -88,7 +90,7 @@ export default function Receivables() {
     if (!profile || !user) return;
 
     if (editItem) {
-      const updatedFields = { description: form.description, amount: parseFloat(form.amount), due_date: form.due_date, customer_id: form.customer_id || null, category_id: form.category_id || null };
+      const updatedFields = { description: form.description, amount: parseFloat(form.amount), due_date: form.due_date, customer_id: form.customer_id || null, category_id: form.category_id || null, accounting_type: form.accounting_type || null, accounting_group: form.accounting_group || null };
       await supabase.from("audit_logs").insert({ tenant_id: profile.tenant_id, entity: "receivable", action: "update", entity_id: editItem.id, actor_user_id: user.id, before_json: editItem, after_json: { ...editItem, ...updatedFields } });
       const { error } = await supabase.from("receivables").update(updatedFields).eq("id", editItem.id);
       if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
@@ -102,7 +104,7 @@ export default function Receivables() {
         const dueDate = new Date(baseDate);
         dueDate.setMonth(dueDate.getMonth() + i);
         const description = numInstallments > 1 ? `${form.description} (${i + 1}/${numInstallments})` : form.description;
-        records.push({ tenant_id: profile.tenant_id, description, amount, due_date: dueDate.toISOString().split("T")[0], customer_id: form.customer_id || null, category_id: form.category_id || null });
+        records.push({ tenant_id: profile.tenant_id, description, amount, due_date: dueDate.toISOString().split("T")[0], customer_id: form.customer_id || null, category_id: form.category_id || null, accounting_type: form.accounting_type || null, accounting_group: form.accounting_group || null });
       }
       const { error } = await supabase.from("receivables").insert(records);
       if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
@@ -203,6 +205,22 @@ export default function Receivables() {
                 </SelectContent>
               </Select>
             </div>
+
+            <AccountingTypeSelect
+              kind="receivable"
+              value={form.accounting_type}
+              onChange={(v) => setForm({ ...form, accounting_type: v })}
+            />
+
+            <div className="space-y-2">
+              <Label>Grupo Contábil <span className="text-muted-foreground text-xs font-normal">(opcional)</span></Label>
+              <Input
+                value={form.accounting_group}
+                onChange={(e) => setForm({ ...form, accounting_group: e.target.value })}
+                placeholder="Ex: Recorrente, Avulso, Curso"
+              />
+            </div>
+
             <Button type="submit" className="w-full">{editItem ? "Salvar" : "Criar"}</Button>
           </form>
         </DialogContent>
@@ -221,12 +239,12 @@ export default function Receivables() {
           <Table>
             <TableHeader>
               <TableRow className="border-border">
-                <TableHead>Descrição</TableHead><TableHead>Cliente</TableHead><TableHead>Deal</TableHead><TableHead>Pedido</TableHead><TableHead>Categoria</TableHead><TableHead>Vencimento</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Valor</TableHead><TableHead className="w-28" />
+                <TableHead>Descrição</TableHead><TableHead>Cliente</TableHead><TableHead>Deal</TableHead><TableHead>Pedido</TableHead><TableHead>Categoria</TableHead><TableHead>Classif. Contábil</TableHead><TableHead>Vencimento</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Valor</TableHead><TableHead className="w-28" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loading ? <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow> :
-              filtered.length === 0 ? <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum recebível encontrado</TableCell></TableRow> :
+              {loading ? <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow> :
+              filtered.length === 0 ? <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">Nenhum recebível encontrado</TableCell></TableRow> :
               filtered.map((r) => (
                 <TableRow key={r.id} className={`border-border ${isOverdue(r) ? "bg-destructive/5" : ""}`}>
                   <TableCell className="font-medium">{r.description}</TableCell>
@@ -241,6 +259,7 @@ export default function Receivables() {
                       </span>
                     ) : "—"}
                   </TableCell>
+                  <TableCell><AccountingTypeBadge type={r.accounting_type} /></TableCell>
                   <TableCell className={isOverdue(r) ? "text-destructive font-medium" : ""}>{new Date(r.due_date).toLocaleDateString("pt-BR")}</TableCell>
                   <TableCell><Badge variant={r.status === "paid" ? "default" : isOverdue(r) ? "destructive" : "secondary"}>{isOverdue(r) ? "Vencido" : statusLabels[r.status] || r.status}</Badge></TableCell>
                   <TableCell className="text-right font-medium">R$ {Number(r.amount).toFixed(2)}</TableCell>

@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
     // Buscar recorrências ativas que devem gerar hoje
     const { data: recurrences, error: fetchError } = await serviceClient
       .from("payment_recurrences")
-      .select("*, payables!payment_recurrences_original_account_id_fkey(description, amount, supplier_id, category_id)")
+      .select("*, payables!payment_recurrences_original_account_id_fkey(description, amount, supplier_id, category_id, accounting_type, accounting_group)")
       .eq("status", "active")
       .lte("next_generation_date", today);
 
@@ -56,6 +56,8 @@ Deno.serve(async (req) => {
             due_date: rec.next_generation_date,
             supplier_id: template.supplier_id,
             category_id: template.category_id,
+            accounting_type: template.accounting_type,
+            accounting_group: template.accounting_group,
             recurrence_id: rec.id,
             is_recurring_template: false,
             status: "pending",
