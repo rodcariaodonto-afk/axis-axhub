@@ -1,7 +1,7 @@
 import axisLogo from "@/assets/axis-logo.png";
 import {
   BarChart3, Package, Banknote, MessageCircle, Zap, BrainCircuit, Settings,
-  Gauge, UserPlus, Building2, Contact, TrendingUp, FileText, CalendarCheck, FileBarChart,
+  Gauge, UserPlus, Building2, Contact, TrendingUp, FileText, CalendarCheck, FileBarChart, Scale,
   Warehouse, Users, ShoppingCart, ArrowDownCircle, Truck,
   ArrowUpCircle, LogOut,
   MessageSquare, Megaphone, CalendarDays,
@@ -80,6 +80,7 @@ export function AppSidebar() {
         { title: "Contas Bancárias", url: "/bank-accounts", icon: Building2, module: "financeiro" },
         { title: "Fluxo de Caixa", url: "/finance", icon: Banknote, module: "financeiro" },
         { title: "DRE", url: "/dre", icon: FileBarChart, module: "financeiro" },
+        { title: "Balanço Patrimonial", url: "/balanco-patrimonial", icon: Scale, module: "financeiro" },
       ],
     },
     {
