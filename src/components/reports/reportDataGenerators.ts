@@ -472,6 +472,105 @@ export async function generateReportData(templateId: string, config: ReportConfi
       };
     }
 
+    case 'dre-detalhado': {
+      const [recRes, payRes] = await Promise.all([
+        supabase
+          .from('receivables')
+          .select('amount, accounting_type, paid_at')
+          .eq('status', 'paid')
+          .gte('paid_at', start)
+          .lte('paid_at', end),
+        supabase
+          .from('payables')
+          .select('amount, accounting_type, paid_at')
+          .eq('status', 'paid')
+          .gte('paid_at', start)
+          .lte('paid_at', end),
+      ]);
+      const recItems = recRes.data || [];
+      const payItems = payRes.data || [];
+      const sumByType = (arr: any[], type: string) =>
+        arr.filter((x) => x.accounting_type === type).reduce((s, x) => s + Number(x.amount || 0), 0);
+      const receitaOp = sumByType(recItems, 'receita_operacional');
+      const receitaNaoOp = sumByType(recItems, 'receita_nao_operacional');
+      const receitaFin = sumByType(recItems, 'receita_financeira');
+      const receitaBruta = receitaOp + receitaNaoOp;
+      const custoOp = sumByType(payItems, 'custo_operacional');
+      const despAdmin = sumByType(payItems, 'despesa_administrativa');
+      const despCom = sumByType(payItems, 'despesa_comercial');
+      const despFin = sumByType(payItems, 'despesa_financeira');
+      const investimentos = sumByType(payItems, 'investimento');
+      const lucroBruto = receitaBruta - custoOp;
+      const despesasOp = despAdmin + despCom + despFin;
+      const resultadoOp = lucroBruto - despesasOp;
+      const resultadoLiquido = resultadoOp - investimentos + receitaFin;
+      const margemBruta = receitaBruta > 0 ? (lucroBruto / receitaBruta) * 100 : null;
+      return {
+        labels: ['Receita Bruta', 'Custos Op.', 'Lucro Bruto', 'Desp. Adm.', 'Desp. Com.', 'Desp. Fin.', 'Result. Líquido'],
+        datasets: [
+          {
+            label: 'Valor (R$)',
+            data: [receitaBruta, custoOp, lucroBruto, despAdmin, despCom, despFin, resultadoLiquido],
+          },
+        ],
+        summary: [
+          { label: 'Receita Bruta', value: fmt(receitaBruta) },
+          { label: 'Lucro Bruto', value: fmt(lucroBruto) },
+          { label: 'Margem Bruta', value: margemBruta !== null ? margemBruta.toFixed(1) + '%' : '—' },
+          { label: 'Resultado Líquido', value: fmt(resultadoLiquido) },
+        ],
+      };
+    }
+
+    case 'balanco-resumo': {
+      const [bankRes, recRes, payRes, manualRes] = await Promise.all([
+        supabase.from('bank_accounts').select('balance'),
+        supabase.from('receivables').select('amount, status, accounting_type'),
+        supabase.from('payables').select('amount, status, accounting_type, paid_at'),
+        supabase.from('balance_sheet_entries').select('amount, entry_type'),
+      ]);
+      const banks = bankRes.data || [];
+      const recs = recRes.data || [];
+      const pays = payRes.data || [];
+      const manual = manualRes.data || [];
+
+      const caixa = banks.reduce((s, b: any) => s + Number(b.balance || 0), 0);
+      const contasReceber = recs
+        .filter((r: any) => r.status === 'pending' || r.status === 'overdue')
+        .reduce((s, r: any) => s + Number(r.amount || 0), 0);
+      const investimentos = pays
+        .filter((p: any) => p.accounting_type === 'investimento' && p.status === 'paid')
+        .reduce((s, p: any) => s + Number(p.amount || 0), 0);
+      const sumManual = (type: string) =>
+        manual.filter((m: any) => m.entry_type === type).reduce((s, m: any) => s + Number(m.amount || 0), 0);
+
+      const ativoCirc = caixa + contasReceber + sumManual('ativo_circulante');
+      const ativoNaoCirc = investimentos + sumManual('ativo_nao_circulante');
+      const ativoTotal = ativoCirc + ativoNaoCirc;
+
+      const contasPagar = pays
+        .filter((p: any) => p.status === 'pending' || p.status === 'overdue')
+        .reduce((s, p: any) => s + Number(p.amount || 0), 0);
+      const passivoCirc = contasPagar + sumManual('passivo_circulante');
+      const passivoNaoCirc = sumManual('passivo_nao_circulante');
+      const passivoTotal = passivoCirc + passivoNaoCirc;
+
+      const totalRecPagos = recs.filter((r: any) => r.status === 'paid').reduce((s, r: any) => s + Number(r.amount || 0), 0);
+      const totalPayPagos = pays.filter((p: any) => p.status === 'paid').reduce((s, p: any) => s + Number(p.amount || 0), 0);
+      const pl = (totalRecPagos - totalPayPagos) + sumManual('patrimonio_liquido');
+
+      return {
+        labels: ['Ativo Total', 'Passivo Total', 'Patrimônio Líquido'],
+        datasets: [{ label: 'Valor (R$)', data: [ativoTotal, passivoTotal, pl] }],
+        summary: [
+          { label: 'Ativo Total', value: fmt(ativoTotal) },
+          { label: 'Passivo Total', value: fmt(passivoTotal) },
+          { label: 'Patrimônio Líquido', value: fmt(pl) },
+          { label: 'Equilíbrio', value: Math.abs(ativoTotal - passivoTotal - pl) <= 0.01 ? 'OK' : 'Divergência ' + fmt(ativoTotal - passivoTotal - pl) },
+        ],
+      };
+    }
+
     default:
       return { labels: [], datasets: [], summary: [{ label: 'Erro', value: 'Template não encontrado' }] };
   }
