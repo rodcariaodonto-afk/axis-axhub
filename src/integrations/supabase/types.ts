@@ -256,6 +256,59 @@ export type Database = {
           },
         ]
       }
+      balance_sheet_entries: {
+        Row: {
+          account_code: string | null
+          account_name: string
+          amount: number
+          created_at: string | null
+          created_by: string | null
+          entry_type: string
+          id: string
+          notes: string | null
+          reference_date: string
+          source: string | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          account_code?: string | null
+          account_name: string
+          amount?: number
+          created_at?: string | null
+          created_by?: string | null
+          entry_type: string
+          id?: string
+          notes?: string | null
+          reference_date: string
+          source?: string | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          account_code?: string | null
+          account_name?: string
+          amount?: number
+          created_at?: string | null
+          created_by?: string | null
+          entry_type?: string
+          id?: string
+          notes?: string | null
+          reference_date?: string
+          source?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "balance_sheet_entries_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bank_accounts: {
         Row: {
           account_number: string | null
@@ -1116,6 +1169,62 @@ export type Database = {
           },
           {
             foreignKeyName: "campanhas_historico_envios_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cash_flow_projections: {
+        Row: {
+          actual_amount: number | null
+          category: string
+          created_at: string | null
+          created_by: string | null
+          description: string
+          flow_type: string
+          id: string
+          is_recurring: boolean | null
+          notes: string | null
+          projected_amount: number
+          reference_month: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          actual_amount?: number | null
+          category: string
+          created_at?: string | null
+          created_by?: string | null
+          description: string
+          flow_type: string
+          id?: string
+          is_recurring?: boolean | null
+          notes?: string | null
+          projected_amount?: number
+          reference_month: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          actual_amount?: number | null
+          category?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string
+          flow_type?: string
+          id?: string
+          is_recurring?: boolean | null
+          notes?: string | null
+          projected_amount?: number
+          reference_month?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_flow_projections_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -4379,6 +4488,8 @@ export type Database = {
       }
       payables: {
         Row: {
+          accounting_group: string | null
+          accounting_type: string | null
           amount: number
           bank_account_id: string | null
           category_id: string | null
@@ -4386,14 +4497,18 @@ export type Database = {
           description: string
           due_date: string
           id: string
+          is_recurring_template: boolean | null
           paid_at: string | null
           payment_method: string | null
           po_id: string | null
+          recurrence_id: string | null
           status: string
           supplier_id: string | null
           tenant_id: string
         }
         Insert: {
+          accounting_group?: string | null
+          accounting_type?: string | null
           amount: number
           bank_account_id?: string | null
           category_id?: string | null
@@ -4401,14 +4516,18 @@ export type Database = {
           description: string
           due_date: string
           id?: string
+          is_recurring_template?: boolean | null
           paid_at?: string | null
           payment_method?: string | null
           po_id?: string | null
+          recurrence_id?: string | null
           status?: string
           supplier_id?: string | null
           tenant_id: string
         }
         Update: {
+          accounting_group?: string | null
+          accounting_type?: string | null
           amount?: number
           bank_account_id?: string | null
           category_id?: string | null
@@ -4416,9 +4535,11 @@ export type Database = {
           description?: string
           due_date?: string
           id?: string
+          is_recurring_template?: boolean | null
           paid_at?: string | null
           payment_method?: string | null
           po_id?: string | null
+          recurrence_id?: string | null
           status?: string
           supplier_id?: string | null
           tenant_id?: string
@@ -4446,6 +4567,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "payables_recurrence_id_fkey"
+            columns: ["recurrence_id"]
+            isOneToOne: false
+            referencedRelation: "payment_recurrences"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "payables_supplier_id_fkey"
             columns: ["supplier_id"]
             isOneToOne: false
@@ -4457,6 +4585,56 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_recurrences: {
+        Row: {
+          created_at: string | null
+          end_date: string | null
+          frequency_interval: number
+          frequency_type: string
+          id: string
+          next_generation_date: string
+          original_account_id: string
+          start_date: string
+          status: string | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          end_date?: string | null
+          frequency_interval?: number
+          frequency_type: string
+          id?: string
+          next_generation_date: string
+          original_account_id: string
+          start_date: string
+          status?: string | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          end_date?: string | null
+          frequency_interval?: number
+          frequency_type?: string
+          id?: string
+          next_generation_date?: string
+          original_account_id?: string
+          start_date?: string
+          status?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_recurrences_original_account_id_fkey"
+            columns: ["original_account_id"]
+            isOneToOne: false
+            referencedRelation: "payables"
             referencedColumns: ["id"]
           },
         ]
@@ -5123,6 +5301,8 @@ export type Database = {
       }
       receivables: {
         Row: {
+          accounting_group: string | null
+          accounting_type: string | null
           amount: number
           bank_account_id: string | null
           billing_period_end: string | null
@@ -5143,6 +5323,8 @@ export type Database = {
           tenant_id: string
         }
         Insert: {
+          accounting_group?: string | null
+          accounting_type?: string | null
           amount: number
           bank_account_id?: string | null
           billing_period_end?: string | null
@@ -5163,6 +5345,8 @@ export type Database = {
           tenant_id: string
         }
         Update: {
+          accounting_group?: string | null
+          accounting_type?: string | null
           amount?: number
           bank_account_id?: string | null
           billing_period_end?: string | null
@@ -6786,6 +6970,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_next_recurrence_date: {
+        Args: { base_date: string; freq_interval: number; freq_type: string }
+        Returns: string
+      }
       count_leads_by_source: {
         Args: never
         Returns: {
@@ -6803,6 +6991,22 @@ export type Database = {
       create_default_bi_dashboards: {
         Args: { p_tenant_id: string; p_user_id: string }
         Returns: undefined
+      }
+      create_payable_with_recurrence: {
+        Args: {
+          p_accounting_group?: string
+          p_accounting_type?: string
+          p_amount: number
+          p_category_id: string
+          p_description: string
+          p_due_date: string
+          p_end_date?: string
+          p_frequency_interval: number
+          p_frequency_type: string
+          p_supplier_id: string
+          p_tenant_id: string
+        }
+        Returns: string
       }
       execute_bi_widget_query: {
         Args: {
