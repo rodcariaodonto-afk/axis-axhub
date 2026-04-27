@@ -79,6 +79,7 @@ export function AppSidebar() {
         { title: "Contas a Pagar", url: "/payables", icon: ArrowDownCircle, module: "financeiro" },
         { title: "Contas Bancárias", url: "/bank-accounts", icon: Building2, module: "financeiro" },
         { title: "Fluxo de Caixa", url: "/finance", icon: Banknote, module: "financeiro" },
+        { title: "DRE", url: "/dre", icon: FileBarChart, module: "financeiro" },
       ],
     },
     {

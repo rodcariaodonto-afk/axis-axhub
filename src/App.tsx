@@ -21,6 +21,7 @@ const Receivables = lazy(() => import("./pages/Receivables"));
 const Payables = lazy(() => import("./pages/Payables"));
 const BankAccounts = lazy(() => import("./pages/BankAccounts"));
 const Finance = lazy(() => import("./pages/Finance"));
+const DRE = lazy(() => import("./pages/DRE"));
 const Leads = lazy(() => import("./pages/Leads"));
 const Pipeline = lazy(() => import("./pages/Pipeline"));
 const DealDetail = lazy(() => import("./pages/DealDetail"));
@@ -101,6 +102,7 @@ const App = () => (
               <Route path="/payables" element={<ProtectedRoute><Payables /></ProtectedRoute>} />
               <Route path="/bank-accounts" element={<ProtectedRoute><BankAccounts /></ProtectedRoute>} />
               <Route path="/finance" element={<ProtectedRoute><Finance /></ProtectedRoute>} />
+              <Route path="/dre" element={<ProtectedRoute><DRE /></ProtectedRoute>} />
               <Route path="/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
               <Route path="/pipeline" element={<ProtectedRoute><Pipeline /></ProtectedRoute>} />
               <Route path="/deals/:id" element={<ProtectedRoute><DealDetail /></ProtectedRoute>} />
