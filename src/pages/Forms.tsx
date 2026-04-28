@@ -14,7 +14,9 @@ import { toast } from "@/hooks/use-toast";
 import { Plus, Search, Pencil, Eye, MessageSquare, Share2, Trash2, FileText, ClipboardList, BarChart3, CheckCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { EDUCATION_FORM_CONFIG } from "@/components/forms/formSeedData";
+import { DISCOVERY_IA_FORM_CONFIG } from "@/components/forms/discoverySeedData";
 import { FormShareDialog } from "@/components/forms/FormShareDialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 export default function Forms() {
   const navigate = useNavigate();
@@ -74,22 +76,39 @@ export default function Forms() {
     qc.invalidateQueries({ queryKey: ["forms-stats"] });
   };
 
-  const handleSeedForm = async () => {
+  const handleSeedForm = async (template: "education" | "discovery") => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { toast({ title: "Erro", description: "Usuário não autenticado.", variant: "destructive" }); return; }
     const { data: profile } = await supabase.from("profiles").select("tenant_id, id").eq("id", user.id).maybeSingle();
     if (!profile) { toast({ title: "Erro", description: "Perfil não encontrado. Verifique se seu usuário está configurado corretamente.", variant: "destructive" }); return; }
+
+    const templates = {
+      education: {
+        name: "Avaliação de Educação Inclusiva",
+        description: "Formulário para avaliar necessidades e oportunidades em educação inclusiva",
+        category: "prospecting",
+        config: EDUCATION_FORM_CONFIG,
+      },
+      discovery: {
+        name: "Questionário de Discovery — Solução de IA para Transcrição e Análise Comercial de Chamadas",
+        description: "Levantamento técnico, operacional e de negócio para solução de IA de transcrição e análise de chamadas (Yeastar + Microsoft).",
+        category: "prospecting",
+        config: DISCOVERY_IA_FORM_CONFIG,
+      },
+    };
+    const t = templates[template];
+
     const { error } = await supabase.from("forms").insert({
       tenant_id: profile.tenant_id,
       user_id: profile.id,
-      name: "Avaliação de Educação Inclusiva",
-      description: "Formulário para avaliar necessidades e oportunidades em educação inclusiva",
-      category: "prospecting",
-      form_config: EDUCATION_FORM_CONFIG as any,
+      name: t.name,
+      description: t.description,
+      category: t.category,
+      form_config: t.config as any,
       status: "published",
     });
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
-    toast({ title: "Formulário pré-criado com sucesso!" });
+    toast({ title: "Formulário modelo criado!" });
     qc.invalidateQueries({ queryKey: ["forms"] });
     qc.invalidateQueries({ queryKey: ["forms-stats"] });
   };
@@ -123,9 +142,21 @@ export default function Forms() {
           <p className="text-muted-foreground">Crie e gerencie formulários para coletar informações</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleSeedForm}>
-            <FileText className="mr-2 h-4 w-4" />Criar Formulário Modelo
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <FileText className="mr-2 h-4 w-4" />Criar Formulário Modelo
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              <DropdownMenuItem onClick={() => handleSeedForm("education")}>
+                Avaliação de Educação Inclusiva
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleSeedForm("discovery")}>
+                Questionário de Discovery — IA para Chamadas
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button onClick={() => setCreateOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />Criar Novo Formulário
           </Button>
