@@ -15,6 +15,7 @@ import { Plus, Search, Pencil, Eye, MessageSquare, Share2, Trash2, FileText, Cli
 import { useNavigate } from "react-router-dom";
 import { EDUCATION_FORM_CONFIG } from "@/components/forms/formSeedData";
 import { DISCOVERY_IA_FORM_CONFIG } from "@/components/forms/discoverySeedData";
+import { DISCOVERY_EXECUTIVO_FORM_CONFIG } from "@/components/forms/discoveryExecutivoSeedData";
 import { FormShareDialog } from "@/components/forms/FormShareDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
