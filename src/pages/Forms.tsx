@@ -15,6 +15,7 @@ import { Plus, Search, Pencil, Eye, MessageSquare, Share2, Trash2, FileText, Cli
 import { useNavigate } from "react-router-dom";
 import { EDUCATION_FORM_CONFIG } from "@/components/forms/formSeedData";
 import { DISCOVERY_IA_FORM_CONFIG } from "@/components/forms/discoverySeedData";
+import { DISCOVERY_EXECUTIVO_FORM_CONFIG } from "@/components/forms/discoveryExecutivoSeedData";
 import { FormShareDialog } from "@/components/forms/FormShareDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -76,7 +77,7 @@ export default function Forms() {
     qc.invalidateQueries({ queryKey: ["forms-stats"] });
   };
 
-  const handleSeedForm = async (template: "education" | "discovery") => {
+  const handleSeedForm = async (template: "education" | "discovery" | "discovery_exec") => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { toast({ title: "Erro", description: "Usuário não autenticado.", variant: "destructive" }); return; }
     const { data: profile } = await supabase.from("profiles").select("tenant_id, id").eq("id", user.id).maybeSingle();
@@ -94,6 +95,12 @@ export default function Forms() {
         description: "Levantamento técnico, operacional e de negócio para solução de IA de transcrição e análise de chamadas (Yeastar + Microsoft).",
         category: "prospecting",
         config: DISCOVERY_IA_FORM_CONFIG,
+      },
+      discovery_exec: {
+        name: "Questionário Executivo — IA para Transcrição e Análise de Chamadas",
+        description: "Versão executiva enxuta (múltipla escolha) para levantamento rápido com o cliente.",
+        category: "prospecting",
+        config: DISCOVERY_EXECUTIVO_FORM_CONFIG,
       },
     };
     const t = templates[template];
@@ -154,6 +161,9 @@ export default function Forms() {
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleSeedForm("discovery")}>
                 Questionário de Discovery — IA para Chamadas
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleSeedForm("discovery_exec")}>
+                Questionário Executivo — IA para Chamadas
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
