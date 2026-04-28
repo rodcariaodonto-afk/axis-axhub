@@ -162,6 +162,9 @@ export default function Forms() {
               <DropdownMenuItem onClick={() => handleSeedForm("discovery")}>
                 Questionário de Discovery — IA para Chamadas
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleSeedForm("discovery_exec")}>
+                Questionário Executivo — IA para Chamadas
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <Button onClick={() => setCreateOpen(true)}>
