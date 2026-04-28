@@ -14,7 +14,9 @@ import { toast } from "@/hooks/use-toast";
 import { Plus, Search, Pencil, Eye, MessageSquare, Share2, Trash2, FileText, ClipboardList, BarChart3, CheckCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { EDUCATION_FORM_CONFIG } from "@/components/forms/formSeedData";
+import { DISCOVERY_IA_FORM_CONFIG } from "@/components/forms/discoverySeedData";
 import { FormShareDialog } from "@/components/forms/FormShareDialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 export default function Forms() {
   const navigate = useNavigate();
