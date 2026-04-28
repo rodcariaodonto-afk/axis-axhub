@@ -142,9 +142,21 @@ export default function Forms() {
           <p className="text-muted-foreground">Crie e gerencie formulários para coletar informações</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleSeedForm}>
-            <FileText className="mr-2 h-4 w-4" />Criar Formulário Modelo
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <FileText className="mr-2 h-4 w-4" />Criar Formulário Modelo
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              <DropdownMenuItem onClick={() => handleSeedForm("education")}>
+                Avaliação de Educação Inclusiva
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleSeedForm("discovery")}>
+                Questionário de Discovery — IA para Chamadas
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button onClick={() => setCreateOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />Criar Novo Formulário
           </Button>
