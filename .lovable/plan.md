@@ -1,103 +1,66 @@
+## Objetivo
 
+Popular o formulário existente **"Questionário de Discovery — Solução de IA para Transcrição e Análise Comercial de Chamadas"** (id `bffad3cc...`, atualmente vazio / status `draft`) com todas as perguntas do PDF anexado e disponibilizá-lo como **modelo reutilizável** dentro da aba Formulários.
 
-## Módulo de Assinatura Eletrônica com Validade Legal (OTP + Trilha de Auditoria)
+## Estrutura das perguntas (10 seções, ~70 perguntas)
 
-### Contexto atual
-O sistema já possui tabelas `contracts`, `contract_signatures` e `contract_versions`, além de assinatura via Canvas. A proposta é adicionar um fluxo de assinatura eletrônica avançada com OTP por e-mail, trilha de auditoria completa e conformidade com a Lei 14.063/2020.
+Mapeadas diretamente do PDF, mantendo a numeração e títulos das seções:
 
----
+1. **Objetivo de negócio e escopo esperado** (7 perguntas)
+2. **Ambiente Yeastar/PABX** (14 perguntas)
+3. **Ambiente Microsoft e sistemas existentes** (10 perguntas)
+4. **Dados, gravações e qualidade do áudio** (7 perguntas)
+5. **Critérios de análise comercial** (10 perguntas)
+6. **Relatórios, dashboards e usuários** (7 perguntas)
+7. **Integrações e automações** (6 perguntas)
+8. **Segurança, LGPD e governança** (8 perguntas)
+9. **Volumetria e dimensionamento financeiro** (7 perguntas)
+10. **Piloto, sucesso e próximos passos** (6 perguntas)
+11. **Informações mínimas para estimativa** (12 campos resumo — seção opcional)
 
-### 1. Banco de Dados — Nova tabela + alterações
+Tipos atribuídos com base no conteúdo:
+- `textarea` para perguntas abertas/descritivas
+- `radio` para Sim/Não e escolhas exclusivas (gravação, idiomas, tempo real vs lote, etc.)
+- `checkbox` para múltipla escolha (áreas que usarão a solução, tipos de necessidades, formatos de exportação)
+- `text` para versões/modelos curtos
+- `number` para volumetria (chamadas/mês, horas/mês, qtd vendedores, duração média)
+- Todas as perguntas com `required: false` por padrão (questionário de discovery aceita "a confirmar"), exceto algumas-chave (objetivo principal, modelo Yeastar, gravação, volume)
 
-**Nova tabela `signature_audit_logs`** (trilha de auditoria legal):
-- `id` UUID PK
-- `tenant_id` UUID (FK tenants, RLS)
-- `contract_id` UUID (FK contracts)
-- `signer_email` TEXT NOT NULL
-- `signer_name` TEXT
-- `otp_hash` TEXT (hash SHA-256 do OTP)
-- `otp_expires_at` TIMESTAMPTZ
-- `otp_verified` BOOLEAN DEFAULT false
-- `ip_address` TEXT
-- `user_agent` TEXT
-- `status` TEXT (pending, verified, expired, failed)
-- `signed_at` TIMESTAMPTZ
-- `created_at` TIMESTAMPTZ DEFAULT now()
+## Implementação
 
-**RLS em `signature_audit_logs`:**
-- SELECT: somente tenant do usuário autenticado (`get_user_tenant_id()`)
-- INSERT: bloqueado via RLS (apenas Edge Functions com service role)
-- UPDATE/DELETE: bloqueado
+### 1. Criar novo seed (`src/components/forms/discoverySeedData.ts`)
 
-**Alterações na tabela `contracts`:**
-- Adicionar coluna `signer_email` TEXT (e-mail do signatário externo)
-- Adicionar coluna `signer_name` TEXT
+Novo arquivo exportando `DISCOVERY_IA_FORM_CONFIG: FormQuestion[]` com todas as ~70 perguntas mapeadas conforme acima. Mantém a interface `FormQuestion` existente (importada de `formSeedData.ts`).
 
-**Novo storage bucket `axis-contracts`** (privado, para PDFs gerados)
+### 2. Popular o formulário existente no banco
 
----
+Migration SQL atualizando o registro `bffad3cc-c113-4d8a-b00a-7641d91bde7c`:
+- `form_config` ← array completo de perguntas
+- `description` ← objetivo conforme PDF
+- `status` ← mantém `draft` (usuário publica quando quiser)
 
-### 2. Edge Functions (3 funções)
+### 3. Disponibilizar como modelo na aba Formulários
 
-**`generate-contract`**
-- Valida JWT do usuário autenticado via `getClaims()`
-- Recebe `contract_id`, busca dados do contrato
-- Gera PDF simples com os dados do contrato (usando texto formatado, não biblioteca pesada)
-- Salva no bucket `axis-contracts` (privado)
-- Atualiza `contracts.document_url` com o path do storage
-- Retorna URL assinada temporária (60min)
+Em `src/pages/Forms.tsx`, transformar o botão único "Criar Formulário Modelo" em um **dropdown** (ou substituir por um seletor) com 2 opções:
+- "Avaliação de Educação Inclusiva" (existente)
+- "Questionário de Discovery — IA para Chamadas" (novo)
 
-**`request-otp`**
-- Valida JWT do usuário autenticado
-- Recebe `contract_id` e `signer_email`
-- Gera OTP de 6 dígitos, salva hash SHA-256 em `signature_audit_logs` com expiração de 15min
-- Envia OTP via Resend (API key já configurada nos secrets)
-- Atualiza `contracts.signature_status` para "Pending"
-- Retorna confirmação
+Ao escolher, insere uma nova cópia do modelo no tenant atual (mesmo padrão do `handleSeedForm` atual, com `form_config: DISCOVERY_IA_FORM_CONFIG`).
 
-**`verify-and-sign`**
-- Valida JWT do usuário autenticado
-- Recebe `contract_id`, `otp_code`, captura IP e User-Agent do request
-- Valida OTP contra hash no banco (verifica expiração)
-- Se válido: marca `otp_verified = true`, registra IP/User-Agent/signed_at
-- Atualiza `contracts.signature_status` para "Signed" e `signed_at`
-- Retorna sucesso com dados da trilha de auditoria
+## Arquivos afetados
 
----
+```text
+src/components/forms/discoverySeedData.ts   (novo)
+src/pages/Forms.tsx                         (botão modelo → dropdown com 2 opções)
+supabase/migrations/<timestamp>_*.sql       (popula form_config do form existente)
+```
 
-### 3. Frontend — Componentes React
+## Detalhes técnicos
 
-**Atualização do `ContractDetail.tsx` — tab Assinatura:**
-- Seção "Solicitar Assinatura": campos para e-mail e nome do signatário + botão "Enviar OTP"
-- Seção "Verificar OTP": input de 6 dígitos (usando `InputOTP` já existente) + botão "Verificar e Assinar"
-- Tabela de trilha de auditoria mostrando logs de assinatura do contrato
-- Botão "Gerar PDF" que invoca `generate-contract` e mostra link para download
-- Botão "Exportar Auditoria (JSON)" para conformidade LGPD
+- IDs das perguntas: `disc_q1` … `disc_q70` para evitar colisão com outros seeds
+- Seções nomeadas exatamente como no PDF (incluindo numeração "1. Objetivo…") para refletir no editor visual
+- Sem `subsection` (PDF não usa subsecções relevantes)
+- Reutiliza o `FormQuestion` interface — sem novos tipos
+- Migration usa `UPDATE forms SET form_config = '[...]'::jsonb WHERE id = 'bffad3cc...'`
 
-**Fluxo visual:**
-1. Criador clica "Gerar PDF" → documento é gerado e salvo
-2. Criador preenche e-mail do signatário → clica "Enviar Código OTP"
-3. Signatário recebe OTP por e-mail
-4. Criador (ou signatário com acesso) insere o OTP → clica "Verificar e Assinar"
-5. Status muda para "Assinado" com trilha de auditoria completa
-
----
-
-### 4. Segurança e Conformidade
-
-- Toda validação de OTP ocorre exclusivamente no backend (Edge Functions)
-- OTP armazenado como hash SHA-256 (nunca em texto plano)
-- Trilha de auditoria imutável (sem UPDATE/DELETE via RLS)
-- IP e User-Agent capturados no servidor
-- Exportação JSON da trilha para atendimento a requisições LGPD
-- Frontend usa apenas `supabase.functions.invoke()`, sem chaves de API expostas
-- Mensagens de erro genéricas no frontend
-
-### Arquivos criados/modificados
-- Migration SQL (nova tabela, bucket, RLS)
-- `supabase/functions/generate-contract/index.ts` (novo)
-- `supabase/functions/request-otp/index.ts` (novo)
-- `supabase/functions/verify-and-sign/index.ts` (novo)
-- `src/pages/ContractDetail.tsx` (atualização da tab Assinatura)
-- `supabase/config.toml` (config das novas funções)
-
+Após aprovação eu implemento direto: criar o seed, rodar a migration e atualizar o botão de modelo.
