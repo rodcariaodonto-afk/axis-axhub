@@ -76,22 +76,39 @@ export default function Forms() {
     qc.invalidateQueries({ queryKey: ["forms-stats"] });
   };
 
-  const handleSeedForm = async () => {
+  const handleSeedForm = async (template: "education" | "discovery") => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { toast({ title: "Erro", description: "Usuário não autenticado.", variant: "destructive" }); return; }
     const { data: profile } = await supabase.from("profiles").select("tenant_id, id").eq("id", user.id).maybeSingle();
     if (!profile) { toast({ title: "Erro", description: "Perfil não encontrado. Verifique se seu usuário está configurado corretamente.", variant: "destructive" }); return; }
+
+    const templates = {
+      education: {
+        name: "Avaliação de Educação Inclusiva",
+        description: "Formulário para avaliar necessidades e oportunidades em educação inclusiva",
+        category: "prospecting",
+        config: EDUCATION_FORM_CONFIG,
+      },
+      discovery: {
+        name: "Questionário de Discovery — Solução de IA para Transcrição e Análise Comercial de Chamadas",
+        description: "Levantamento técnico, operacional e de negócio para solução de IA de transcrição e análise de chamadas (Yeastar + Microsoft).",
+        category: "prospecting",
+        config: DISCOVERY_IA_FORM_CONFIG,
+      },
+    };
+    const t = templates[template];
+
     const { error } = await supabase.from("forms").insert({
       tenant_id: profile.tenant_id,
       user_id: profile.id,
-      name: "Avaliação de Educação Inclusiva",
-      description: "Formulário para avaliar necessidades e oportunidades em educação inclusiva",
-      category: "prospecting",
-      form_config: EDUCATION_FORM_CONFIG as any,
+      name: t.name,
+      description: t.description,
+      category: t.category,
+      form_config: t.config as any,
       status: "published",
     });
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
-    toast({ title: "Formulário pré-criado com sucesso!" });
+    toast({ title: "Formulário modelo criado!" });
     qc.invalidateQueries({ queryKey: ["forms"] });
     qc.invalidateQueries({ queryKey: ["forms-stats"] });
   };
