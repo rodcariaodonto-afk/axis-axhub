@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Building2, Users, Key, Settings2, ScrollText, Tag, Warehouse, Plug, UserCircle, Bell, FileText, ListChecks } from "lucide-react";
+import { Building2, Users, Key, Settings2, ScrollText, Tag, Warehouse, Plug, UserCircle, Bell, FileText, ListChecks, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type SettingsSection =
   | "profile"
   | "notifications"
   | "company"
+  | "fiscal"
   | "users"
   | "api-keys"
   | "custom-fields"
@@ -38,6 +39,10 @@ const menuGroups: MenuGroup[] = [
   {
     title: "EMPRESA",
     items: [{ id: "company", label: "Geral", icon: Building2 }],
+  },
+  {
+    title: "FISCAL",
+    items: [{ id: "fiscal", label: "Fiscal (NF-e/NFS-e)", icon: Receipt }],
   },
   {
     title: "SISTEMA",

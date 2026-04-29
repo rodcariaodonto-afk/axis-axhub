@@ -14,11 +14,13 @@ import IntegrationsSettings from "./settings/IntegrationsSettings";
 import MessageTemplatesSettings from "./settings/MessageTemplatesSettings";
 import GenericCustomFieldsSettings from "./settings/GenericCustomFieldsSettings";
 import NotificationPreferences from "./NotificationPreferences";
+import FiscalSettings from "./settings/FiscalSettings";
 
 const SECTION_MAP: Record<SettingsSection, React.ComponentType> = {
   profile: ProfileSettings,
   notifications: NotificationPreferences,
   company: CompanyGeneral,
+  fiscal: FiscalSettings,
   users: UsersManagement,
   "api-keys": ApiKeysManagement,
   "custom-fields": CustomFieldsSettings,

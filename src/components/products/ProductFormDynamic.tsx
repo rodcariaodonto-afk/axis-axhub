@@ -33,6 +33,15 @@ const parseBRCurrency = (v: string): number => {
 export default function ProductFormDynamic({ categories, customFields, onSuccess, onClose }: ProductFormDynamicProps) {
   const [productType, setProductType] = useState<ProductType>("simple_product");
   const [form, setForm] = useState({ sku: "", name: "", price: "", cost: "", category: "", description: "" });
+  const [fiscal, setFiscal] = useState({
+    ncm: "",
+    cfop: "",
+    cfop_custom: "",
+    cst: "",
+    unidade_fiscal: "",
+    unidade_custom: "",
+    origem_icms: "",
+  });
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
   const [variationConfigs, setVariationConfigs] = useState<VariationConfig[]>([]);
   const [generatedVariations, setGeneratedVariations] = useState<GeneratedVariation[]>([]);
@@ -92,6 +101,9 @@ export default function ProductFormDynamic({ categories, customFields, onSuccess
     const dbType = productType === "service" ? "service" : "product";
     const isSaas = productType === "saas";
 
+    const cfopFinal = fiscal.cfop === "outro" ? fiscal.cfop_custom.trim() : fiscal.cfop;
+    const unidadeFinal = fiscal.unidade_fiscal === "outro" ? fiscal.unidade_custom.trim() : fiscal.unidade_fiscal;
+
     const { data: product, error } = await supabase.from("products").insert({
       tenant_id: profile.tenant_id,
       sku: finalSku,
@@ -102,6 +114,11 @@ export default function ProductFormDynamic({ categories, customFields, onSuccess
       cost: isSaas ? 0 : parseBRCurrency(form.cost),
       is_parent: isSaas,
       is_subscription: isSaas,
+      ncm: fiscal.ncm || null,
+      cfop: cfopFinal || null,
+      cst: fiscal.cst || null,
+      unidade_fiscal: unidadeFinal || null,
+      origem_icms: fiscal.origem_icms || null,
     } as any).select().single();
 
     if (error || !product) {
@@ -369,6 +386,101 @@ export default function ProductFormDynamic({ categories, customFields, onSuccess
           ))}
         </div>
       )}
+
+      {/* Dados Fiscais */}
+      <div className="space-y-3 pt-3 border-t border-border">
+        <div>
+          <Label className="text-base font-semibold">Dados Fiscais</Label>
+          <p className="text-xs text-muted-foreground">Informações para emissão de NF-e/NFS-e (opcional para produto simples).</p>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label>NCM</Label>
+            <Input
+              value={fiscal.ncm}
+              onChange={(e) => setFiscal({ ...fiscal, ncm: e.target.value.replace(/\D/g, "").slice(0, 8) })}
+              maxLength={8}
+              placeholder="00000000"
+            />
+            <p className="text-[10px] text-muted-foreground">Nomenclatura Comum do Mercosul (8 dígitos)</p>
+          </div>
+          <div className="space-y-1">
+            <Label>CFOP</Label>
+            <Select value={fiscal.cfop} onValueChange={(v) => setFiscal({ ...fiscal, cfop: v })}>
+              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="5101">5101 — Venda de produção do estabelecimento</SelectItem>
+                <SelectItem value="5102">5102 — Venda de mercadoria adquirida</SelectItem>
+                <SelectItem value="5403">5403 — Venda de mercadoria com ST</SelectItem>
+                <SelectItem value="5933">5933 — Prestação de serviço de comunicação</SelectItem>
+                <SelectItem value="6101">6101 — Venda de produção (interestadual)</SelectItem>
+                <SelectItem value="6102">6102 — Venda de mercadoria adquirida (interestadual)</SelectItem>
+                <SelectItem value="6403">6403 — Venda de mercadoria com ST (interestadual)</SelectItem>
+                <SelectItem value="outro">Outro (digitar)</SelectItem>
+              </SelectContent>
+            </Select>
+            {fiscal.cfop === "outro" && (
+              <Input
+                value={fiscal.cfop_custom}
+                onChange={(e) => setFiscal({ ...fiscal, cfop_custom: e.target.value.replace(/\D/g, "").slice(0, 4) })}
+                placeholder="CFOP personalizado"
+                className="mt-1"
+              />
+            )}
+          </div>
+          <div className="space-y-1">
+            <Label>CST / CSOSN</Label>
+            <Input
+              value={fiscal.cst}
+              onChange={(e) => setFiscal({ ...fiscal, cst: e.target.value.replace(/\D/g, "").slice(0, 3) })}
+              maxLength={3}
+              placeholder="000"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Simples Nacional usa CSOSN (3 dígitos: 102, 400). Regime Normal usa CST (2 dígitos: 00, 41).
+            </p>
+          </div>
+          <div className="space-y-1">
+            <Label>Unidade Fiscal</Label>
+            <Select value={fiscal.unidade_fiscal} onValueChange={(v) => setFiscal({ ...fiscal, unidade_fiscal: v })}>
+              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="UN">UN (Unidade)</SelectItem>
+                <SelectItem value="KG">KG (Quilograma)</SelectItem>
+                <SelectItem value="L">L (Litro)</SelectItem>
+                <SelectItem value="M">M (Metro)</SelectItem>
+                <SelectItem value="M2">M² (Metro quadrado)</SelectItem>
+                <SelectItem value="M3">M³ (Metro cúbico)</SelectItem>
+                <SelectItem value="CX">CX (Caixa)</SelectItem>
+                <SelectItem value="PC">PC (Peça)</SelectItem>
+                <SelectItem value="outro">Outro (digitar)</SelectItem>
+              </SelectContent>
+            </Select>
+            {fiscal.unidade_fiscal === "outro" && (
+              <Input
+                value={fiscal.unidade_custom}
+                onChange={(e) => setFiscal({ ...fiscal, unidade_custom: e.target.value.toUpperCase().slice(0, 6) })}
+                placeholder="Unidade personalizada"
+                className="mt-1"
+              />
+            )}
+          </div>
+          <div className="space-y-1 col-span-2">
+            <Label>Origem ICMS</Label>
+            <Select value={fiscal.origem_icms} onValueChange={(v) => setFiscal({ ...fiscal, origem_icms: v })}>
+              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0">0 — Nacional</SelectItem>
+                <SelectItem value="1">1 — Estrangeira (importação direta)</SelectItem>
+                <SelectItem value="2">2 — Estrangeira (mercado interno)</SelectItem>
+                <SelectItem value="3">3 — Nacional com mais de 40% conteúdo estrangeiro</SelectItem>
+                <SelectItem value="4">4 — Nacional via processos produtivos básicos</SelectItem>
+                <SelectItem value="5">5 — Nacional com menos de 40% conteúdo estrangeiro</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
 
       <Button type="submit" className="w-full" disabled={uploading}>
         {uploading ? "Criando..." : "Criar Produto"}

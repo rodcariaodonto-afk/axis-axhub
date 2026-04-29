@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Trash2, MoreHorizontal, CalendarIcon } from "lucide-react";
+import { Plus, Search, Trash2, MoreHorizontal, CalendarIcon, FileText, Download, Receipt } from "lucide-react";
 import { format, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
@@ -63,11 +63,29 @@ export default function Orders() {
   const [itemQty, setItemQty] = useState("1");
   const [notes, setNotes] = useState("");
   const [payments, setPayments] = useState<PaymentEntry[]>([{ method: "pix", amount: "", installments: 1, first_due_date: undefined }]);
+  const [invoiceMap, setInvoiceMap] = useState<Record<string, any>>({});
+  const [emittingId, setEmittingId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchOrders = useCallback(async () => {
     const { data } = await supabase.from("orders").select("*, customers(name), deals(name)").order("created_at", { ascending: false });
     setOrders(data || []);
+    // Buscar notas fiscais mais recentes por pedido
+    if (data && data.length > 0) {
+      const orderIds = data.map((o: any) => o.id);
+      const { data: invoices } = await supabase
+        .from("fiscal_invoices")
+        .select("*")
+        .in("order_id", orderIds)
+        .order("created_at", { ascending: false });
+      const map: Record<string, any> = {};
+      (invoices || []).forEach((inv: any) => {
+        if (inv.order_id && !map[inv.order_id]) map[inv.order_id] = inv;
+      });
+      setInvoiceMap(map);
+    } else {
+      setInvoiceMap({});
+    }
     setLoading(false);
   }, []);
 
@@ -216,6 +234,83 @@ export default function Orders() {
     fetchOrders();
   };
 
+  const emitInvoice = async (orderId: string, type: "nfe" | "nfse") => {
+    setEmittingId(orderId);
+    try {
+      // Validar fiscal_settings
+      const { data: { user: u } } = await supabase.auth.getUser();
+      if (!u) throw new Error("Não autenticado");
+      const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", u.id).single();
+      if (!profile) throw new Error("Perfil não encontrado");
+      const { data: settings } = await supabase
+        .from("fiscal_settings")
+        .select("*")
+        .eq("tenant_id", profile.tenant_id)
+        .maybeSingle();
+      if (!settings) {
+        toast({ title: "Configure os dados fiscais antes de emitir", description: "Acesse Configurações → Fiscal", variant: "destructive" });
+        return;
+      }
+      if (type === "nfe" && !settings.habilita_nfe) {
+        toast({ title: "NF-e não habilitada", description: "Habilite em Configurações → Fiscal → Dados da Empresa", variant: "destructive" });
+        return;
+      }
+      if (type === "nfse" && !settings.habilita_nfse) {
+        toast({ title: "NFS-e não habilitada", description: "Habilite em Configurações → Fiscal → Dados da Empresa", variant: "destructive" });
+        return;
+      }
+      // Para NF-e, validar NCM/CFOP nos itens
+      if (type === "nfe") {
+        const { data: orderItems } = await supabase
+          .from("order_items")
+          .select("product_id, products(ncm, cfop, name)")
+          .eq("order_id", orderId);
+        const missing = (orderItems || []).filter((it: any) => !it.products?.ncm || !it.products?.cfop);
+        if (missing.length > 0) {
+          toast({
+            title: "Produtos sem NCM/CFOP",
+            description: `Cadastre NCM e CFOP nos produtos antes de emitir NF-e (${missing.length} item(ns) pendente(s)).`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+      const { data, error } = await supabase.functions.invoke("process-fiscal-invoice", {
+        body: { order_id: orderId, type },
+      });
+      if (error) throw error;
+      toast({ title: "Nota enviada para processamento", description: data?.message || `Status: ${data?.status || "processando"}` });
+      fetchOrders();
+    } catch (err: any) {
+      toast({ title: "Erro ao emitir nota", description: err.message || "Falha desconhecida", variant: "destructive" });
+    } finally {
+      setEmittingId(null);
+    }
+  };
+
+  const downloadDocument = (invoice: any, kind: "danfe" | "xml") => {
+    const path = kind === "danfe" ? invoice.caminho_danfe : invoice.caminho_xml;
+    if (!path) {
+      toast({ title: "Documento ainda não disponível", variant: "destructive" });
+      return;
+    }
+    const base = invoice.focus_environment === "producao"
+      ? "https://api.focusnfe.com.br"
+      : "https://homologacao.focusnfe.com.br";
+    const url = path.startsWith("http") ? path : `${base}${path.startsWith("/") ? "" : "/"}${path}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const renderInvoiceBadge = (orderId: string) => {
+    const inv = invoiceMap[orderId];
+    if (!inv) return <Badge variant="secondary" className="text-muted-foreground">—</Badge>;
+    const status = (inv.status || "").toLowerCase();
+    if (status === "autorizada") return <Badge className="bg-green-600 hover:bg-green-700">Autorizada</Badge>;
+    if (status === "cancelada") return <Badge variant="secondary">Cancelada</Badge>;
+    if (["erro", "rejeitada"].includes(status)) return <Badge variant="destructive">Erro</Badge>;
+    return <Badge className="bg-amber-500 hover:bg-amber-600">Processando</Badge>;
+  };
+
   const filtered = orders.filter((o) => o.number.toLowerCase().includes(search.toLowerCase()) || (o.customers?.name || "").toLowerCase().includes(search.toLowerCase()));
 
   return (
@@ -334,12 +429,14 @@ export default function Orders() {
       <Card className="border-border bg-card">
         <CardContent className="p-0">
           <Table>
-            <TableHeader><TableRow className="border-border"><TableHead>Nº Pedido</TableHead><TableHead>Cliente</TableHead><TableHead>Deal</TableHead><TableHead>Status</TableHead><TableHead>Forma Pgto</TableHead><TableHead>Pagamento</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="w-10" /></TableRow></TableHeader>
+            <TableHeader><TableRow className="border-border"><TableHead>Nº Pedido</TableHead><TableHead>Cliente</TableHead><TableHead>Deal</TableHead><TableHead>Status</TableHead><TableHead>Forma Pgto</TableHead><TableHead>Pagamento</TableHead><TableHead>Nota Fiscal</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="w-10" /></TableRow></TableHeader>
             <TableBody>
-              {loading ? <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow> :
-              filtered.length === 0 ? <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum pedido encontrado</TableCell></TableRow> :
+              {loading ? <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow> :
+              filtered.length === 0 ? <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum pedido encontrado</TableCell></TableRow> :
               filtered.map((o) => {
                 const pm = (o as any).payment_method || "pix";
+                const inv = invoiceMap[o.id];
+                const canDownload = inv?.status === "autorizada";
                 return (
                 <TableRow key={o.id} className="border-border">
                   <TableCell className="font-mono text-xs">{o.number}</TableCell>
@@ -348,6 +445,7 @@ export default function Orders() {
                   <TableCell><Badge variant={statusColors[o.status] as any || "secondary"}>{statusLabels[o.status] || o.status}</Badge></TableCell>
                   <TableCell className="text-sm max-w-[200px] truncate">{pm}</TableCell>
                   <TableCell><Badge variant={o.paid_status === "paid" ? "default" : "secondary"}>{o.paid_status === "paid" ? "Pago" : o.paid_status === "partial" ? "Parcial" : "Pendente"}</Badge></TableCell>
+                  <TableCell>{renderInvoiceBadge(o.id)}</TableCell>
                   <TableCell className="text-right font-medium">R$ {Number(o.total).toFixed(2)}</TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -356,6 +454,22 @@ export default function Orders() {
                         {transitions[o.status]?.map((t) => (
                           <DropdownMenuItem key={t.to} onClick={() => changeStatus(o.id, t.to)}>{t.label}</DropdownMenuItem>
                         ))}
+                        <DropdownMenuItem onClick={() => emitInvoice(o.id, "nfe")} disabled={emittingId === o.id}>
+                          <Receipt className="mr-2 h-4 w-4" />Emitir NF-e
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => emitInvoice(o.id, "nfse")} disabled={emittingId === o.id}>
+                          <Receipt className="mr-2 h-4 w-4" />Emitir NFS-e
+                        </DropdownMenuItem>
+                        {canDownload && inv?.caminho_danfe && (
+                          <DropdownMenuItem onClick={() => downloadDocument(inv, "danfe")}>
+                            <Download className="mr-2 h-4 w-4" />Baixar DANFE
+                          </DropdownMenuItem>
+                        )}
+                        {canDownload && inv?.caminho_xml && (
+                          <DropdownMenuItem onClick={() => downloadDocument(inv, "xml")}>
+                            <FileText className="mr-2 h-4 w-4" />Baixar XML
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => deleteOrder(o.id)}>
                           <Trash2 className="mr-2 h-4 w-4" />Excluir Pedido
                         </DropdownMenuItem>

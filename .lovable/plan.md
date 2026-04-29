@@ -1,44 +1,61 @@
-## Aplicar migration `20260429170927_fiscal_integration.sql`
+# Plano — Módulo Fiscal Focus NFe (UI completa)
 
-A migration já está sincronizada via GitHub (commit `ca1ac03`) e o arquivo está presente em `supabase/migrations/`. Não vou gerar SQL novo nem alterar outros arquivos — apenas executar o conteúdo existente contra o banco da Lovable Cloud.
+Backend já pronto (tabelas `fiscal_settings`, `fiscal_invoices`, campos fiscais em `products`, bucket `fiscal-certificates`, edge functions `process-fiscal-invoice` e `focus-nfe-webhook` em mock mode). Vou construir apenas a interface, seguindo padrões existentes (react-query, shadcn/ui, hooks `useAuth` + `get_user_tenant_id`, toasts via `@/hooks/use-toast`).
 
-### O que será aplicado (conteúdo do arquivo, sem modificações)
+## Slice 1 — Configurações Fiscais (`/settings` → seção "Fiscal")
 
-1. **Extensão**: `CREATE EXTENSION IF NOT EXISTS btree_gist` (necessária para a constraint `EXCLUDE` em `fiscal_invoices`).
-2. **Tabela `public.fiscal_settings`** (1 por tenant, UNIQUE em `tenant_id`) com:
-   - Dados da empresa: `company_name`, `cnpj`, `ie`, `im`, `regime_tributario` (1/2/3).
-   - Endereço completo + `codigo_municipio_ibge`.
-   - Tokens Focus NFe (homologação/produção), `focus_environment`, IDs de empresa Focus.
-   - Metadados do certificado (`certificate_path`, `certificate_uploaded_at`, `certificate_registered_on_focus`) — sem armazenar senha.
-   - Flags `habilita_nfe/nfse/nfce`.
-   - Índice `idx_fiscal_settings_tenant`.
-3. **Tabela `public.fiscal_invoices`** com:
-   - FK opcional para `orders` (`ON DELETE SET NULL`).
-   - `type` (`nfe|nfse|nfce`), `status` (`pendente|processando|autorizada|cancelada|erro|rejeitada`).
-   - `focus_ref UNIQUE`, `focus_environment`, chave/numero/serie/protocolo, caminhos XML/DANFE.
-   - `payload_enviado` e `resposta_focus` em JSONB.
-   - Constraint `EXCLUDE USING gist` impedindo duas NFs ativas (pendente/processando/autorizada) para o mesmo `order_id` + `type`.
-   - 4 índices: tenant, order, status, focus_ref.
-4. **Campos fiscais em `public.products`**: `ncm`, `cfop`, `cst`, `unidade_fiscal` (default `'UN'`), `origem_icms` (default `0`).
-5. **RLS**:
-   - Habilitado em ambas as tabelas.
-   - 4 policies em `fiscal_settings` (SELECT/INSERT/UPDATE/DELETE) isolando por `get_user_tenant_id()`.
-   - 3 policies em `fiscal_invoices` (SELECT/INSERT/UPDATE) isolando por tenant.
-6. **Triggers `updated_at`**: função `public.update_fiscal_updated_at()` + 2 triggers `BEFORE UPDATE`.
-7. **Storage bucket `fiscal-certificates`**:
-   - Privado, limite 5 MB, MIME `application/x-pkcs12` e `application/octet-stream`.
-   - 4 policies em `storage.objects` isolando por pasta (`tenant_id` no primeiro nível do path).
+**Novo:** `src/pages/settings/FiscalSettings.tsx` com 3 abas (`Tabs` shadcn).
 
-### Verificação pós-aplicação
+- **Aba "Dados da Empresa"**: form react-hook-form com Razão Social, CNPJ (máscara via `formatDocument`), IE, IM, Regime Tributário (Select 1/2/3), bloco de Endereço Fiscal (CEP com máscara + ViaCEP via `useAddressCep`, logradouro, número, complemento, bairro, município, UF (Select com 27 estados), código IBGE 7 dígitos), 3 Switches (`habilita_nfe`, `habilita_nfse`, `habilita_nfce`). Botão Salvar → `upsert` em `fiscal_settings` por `tenant_id`.
+- **Aba "Focus NFe"**: Select `focus_environment` (homologacao/producao) com Alert vermelho ao escolher produção; inputs password para `focus_token_homologacao` e `focus_token_producao`; botão Salvar; botão "Testar Conexão" → toast "Funcionalidade em construção".
+- **Aba "Certificado Digital"**: Card explicativo; estado atual (Alert "nenhum certificado" ou data + Badge Pendente/Registrado); input file `.pfx` (validação extensão + 5MB), upload em `fiscal-certificates/{tenant_id}/certificado.pfx` com `upsert: true`, atualiza `certificate_path`/`certificate_uploaded_at`/`certificate_registered_on_focus=false`; botão "Registrar empresa na Focus NFe" abre Dialog com input password e toast "Funcionalidade em construção" (placeholder).
 
-Após o `apply`, vou confirmar via `supabase--read_query`:
-- Contagem das tabelas criadas (`fiscal_settings`, `fiscal_invoices`) em `information_schema.tables`.
-- Presença do bucket em `storage.buckets`.
-- RLS ativa (`pg_class.relrowsecurity`) e listagem das 7 policies em `pg_policies` para as duas tabelas + 4 policies de storage.
-- Colunas novas em `products` via `information_schema.columns`.
+**Edita:**
+- `src/pages/settings/SettingsLayout.tsx`: novo grupo "FISCAL" com item `fiscal` e ícone `Receipt` (lucide).
+- `src/pages/Settings.tsx`: registra `fiscal: FiscalSettings` no `SECTION_MAP` e expande o tipo em `SettingsLayout`.
 
-### O que NÃO será feito
+(O sidebar principal já leva a `/settings`; não precisa adicionar item separado em `AppSidebar`.)
 
-- Nenhuma edição em código TypeScript/React.
-- Nenhuma nova migration ou ajuste de SQL.
-- Nenhum seed de dados nem deploy de edge function.
+## Slice 2 — Aba "Dados Fiscais" no formulário de Produtos
+
+**Edita:** `src/components/products/ProductFormDynamic.tsx`
+
+- Reorganizar conteúdo do form atual em `Tabs`: aba "Geral" (campos atuais) e nova aba "Dados Fiscais".
+- Aba Dados Fiscais: NCM (Input, helper 8 dígitos), CFOP (Select com 5101/5102/5403/5933/6101/6102/6403 + opção "Outro" liberando Input livre), CST (Input com helper sobre CSOSN/CST), `unidade_fiscal` (Select UN/KG/L/M/M2/M3/CX/PC/Outro), `origem_icms` (Select 0–5 com labels descritivas).
+- Persistir esses 5 campos no `insert` em `products` (colunas já existem).
+
+## Slice 3 — Emissão de NF em Pedidos
+
+**Edita:** `src/pages/Orders.tsx`
+
+- Buscar `fiscal_invoices` agrupadas por `order_id` no fetch (uma query auxiliar) e indexar por order_id.
+- Nova coluna "Nota Fiscal" na tabela com Badge colorida conforme status (`—` cinza / `Processando` amarela / `Autorizada` verde / `Cancelada` cinza / `Erro` vermelha).
+- No `DropdownMenu` de cada linha, adicionar ações:
+  - **Emitir NF-e / Emitir NFS-e** → `supabase.functions.invoke('process-fiscal-invoice', { body: { order_id, type } })`. Antes da chamada, validar via query: `fiscal_settings` existe e o `habilita_nfe`/`habilita_nfse` correspondente está true; para NF-e validar se itens do pedido têm NCM e CFOP. Toast amigável de sucesso/erro e refetch.
+  - **Baixar DANFE** (visível só se `status='autorizada'` e `caminho_danfe`): abre URL `https://api.focusnfe.com.br` ou `https://homologacao.focusnfe.com.br` + caminho, em nova aba.
+  - **Baixar XML**: idem com `caminho_xml`.
+
+## Slice 4 — Listagem `/erp/notas-fiscais`
+
+**Novo:** `src/pages/erp/FiscalInvoices.tsx` listando `fiscal_invoices` do tenant com join (`orders(number, total, customers(name))`).
+
+- Filtros topo: Período (Popover + Calendar range), Status (Select), Tipo (NF-e/NFS-e), Ambiente (Homologação/Produção).
+- Busca por número da nota ou nome do cliente (debounced).
+- Tabela: Data emissão, Tipo (Badge), Número/Série, Pedido (link `/orders` ou modal), Cliente, Valor, Status (Badge), Ambiente (Badge), Ações (Baixar DANFE, Baixar XML, Cancelar — placeholder com toast).
+- Loading e empty state amigáveis ("Nenhuma nota fiscal emitida ainda").
+
+**Edita:**
+- `src/App.tsx`: rota `/erp/notas-fiscais` (lazy, dentro de `ProtectedRoute`).
+- `src/components/AppSidebar.tsx`: item "Notas Fiscais" no grupo ERP, ícone `FileText`, módulo `produtos`.
+
+## Detalhes técnicos
+
+- Reuso: `useAuth`, RPC `get_user_tenant_id`, `formatDocument`/`stripDocument`, `useAddressCep`, `useToast`, react-query `useQuery`/`useMutation`, padrões shadcn (`Card`, `Tabs`, `Select`, `Switch`, `Dialog`, `Alert`, `Badge`, `Table`, `Popover`, `Calendar`).
+- Validação client-side com mensagens em português; nenhuma alteração em RLS, Edge Functions, Storage policies ou tabelas.
+- Tipos: como `fiscal_settings`/`fiscal_invoices` foram regenerados em `supabase/types.ts`, usar tipagem direta; se algum campo não estiver tipado, fazer cast pontual `as any` no insert/update.
+- Identidade visual AXIS preservada (cores, espaçamentos, tipografia das páginas existentes).
+
+## Entrega esperada
+1. Lista de arquivos criados/modificados.
+2. Confirmação: item Fiscal aparece em /settings, aba Dados Fiscais aparece no form de produtos, botões de NF aparecem em /orders, listagem /erp/notas-fiscais acessível.
+3. Sem erros de TypeScript/ESLint.

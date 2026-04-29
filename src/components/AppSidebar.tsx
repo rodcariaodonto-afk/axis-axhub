@@ -10,6 +10,7 @@ import {
   ChevronRight,
   ClipboardList,
   Sparkles,
+  Receipt,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -69,6 +70,7 @@ export function AppSidebar() {
         { title: "Pedidos", url: "/orders", icon: ShoppingCart, module: "produtos" },
         { title: "Compras", url: "/purchases", icon: ArrowDownCircle, module: "produtos" },
         { title: "Fornecedores", url: "/suppliers", icon: Truck, module: "produtos" },
+        { title: "Notas Fiscais", url: "/erp/notas-fiscais", icon: Receipt, module: "produtos" },
       ],
     },
     {
