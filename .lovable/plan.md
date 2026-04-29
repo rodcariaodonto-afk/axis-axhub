@@ -1,44 +1,44 @@
-# Novo Modelo: Questionário Executivo — IA para Chamadas
+## Aplicar migration `20260429170927_fiscal_integration.sql`
 
-Adicionar um terceiro template de formulário com as 21 perguntas em múltipla escolha do PDF anexado, mantendo o padrão dos modelos existentes (Educação Inclusiva e Discovery IA).
+A migration já está sincronizada via GitHub (commit `ca1ac03`) e o arquivo está presente em `supabase/migrations/`. Não vou gerar SQL novo nem alterar outros arquivos — apenas executar o conteúdo existente contra o banco da Lovable Cloud.
 
-## Diferença x Discovery IA
-O modelo "Discovery IA" já existente é o questionário **longo/detalhado** (102 perguntas, textarea/text). Este novo é a versão **executiva enxuta** (21 perguntas), 100% em opções selecionáveis (radio/checkbox), feita para preenchimento rápido por clientes finais.
+### O que será aplicado (conteúdo do arquivo, sem modificações)
 
-## Mudanças
+1. **Extensão**: `CREATE EXTENSION IF NOT EXISTS btree_gist` (necessária para a constraint `EXCLUDE` em `fiscal_invoices`).
+2. **Tabela `public.fiscal_settings`** (1 por tenant, UNIQUE em `tenant_id`) com:
+   - Dados da empresa: `company_name`, `cnpj`, `ie`, `im`, `regime_tributario` (1/2/3).
+   - Endereço completo + `codigo_municipio_ibge`.
+   - Tokens Focus NFe (homologação/produção), `focus_environment`, IDs de empresa Focus.
+   - Metadados do certificado (`certificate_path`, `certificate_uploaded_at`, `certificate_registered_on_focus`) — sem armazenar senha.
+   - Flags `habilita_nfe/nfse/nfce`.
+   - Índice `idx_fiscal_settings_tenant`.
+3. **Tabela `public.fiscal_invoices`** com:
+   - FK opcional para `orders` (`ON DELETE SET NULL`).
+   - `type` (`nfe|nfse|nfce`), `status` (`pendente|processando|autorizada|cancelada|erro|rejeitada`).
+   - `focus_ref UNIQUE`, `focus_environment`, chave/numero/serie/protocolo, caminhos XML/DANFE.
+   - `payload_enviado` e `resposta_focus` em JSONB.
+   - Constraint `EXCLUDE USING gist` impedindo duas NFs ativas (pendente/processando/autorizada) para o mesmo `order_id` + `type`.
+   - 4 índices: tenant, order, status, focus_ref.
+4. **Campos fiscais em `public.products`**: `ncm`, `cfop`, `cst`, `unidade_fiscal` (default `'UN'`), `origem_icms` (default `0`).
+5. **RLS**:
+   - Habilitado em ambas as tabelas.
+   - 4 policies em `fiscal_settings` (SELECT/INSERT/UPDATE/DELETE) isolando por `get_user_tenant_id()`.
+   - 3 policies em `fiscal_invoices` (SELECT/INSERT/UPDATE) isolando por tenant.
+6. **Triggers `updated_at`**: função `public.update_fiscal_updated_at()` + 2 triggers `BEFORE UPDATE`.
+7. **Storage bucket `fiscal-certificates`**:
+   - Privado, limite 5 MB, MIME `application/x-pkcs12` e `application/octet-stream`.
+   - 4 policies em `storage.objects` isolando por pasta (`tenant_id` no primeiro nível do path).
 
-### 1. Novo arquivo de seed
-`src/components/forms/discoveryExecutivoSeedData.ts`
+### Verificação pós-aplicação
 
-Exporta `DISCOVERY_EXECUTIVO_FORM_CONFIG: FormQuestion[]` com as 21 perguntas mapeadas:
+Após o `apply`, vou confirmar via `supabase--read_query`:
+- Contagem das tabelas criadas (`fiscal_settings`, `fiscal_invoices`) em `information_schema.tables`.
+- Presença do bucket em `storage.buckets`.
+- RLS ativa (`pg_class.relrowsecurity`) e listagem das 7 policies em `pg_policies` para as duas tabelas + 4 policies de storage.
+- Colunas novas em `products` via `information_schema.columns`.
 
-- **Q1–Q3** (Objetivo / áreas / volume de usuários) — `radio` e `checkbox`
-- **Q4–Q12** (Ambiente Yeastar: edição, firmware, gravações, armazenamento, acesso, CDR, volume, tipo de chamada, qualidade) — `radio` (com texto auxiliar onde houver "Outro")
-- **Q13–Q16** (Microsoft Teams, licenças MS, CRM, integração CRM) — `radio` e `checkbox`
-- **Q17–Q19** (Critérios de avaliação IA, escala de nota, indicadores do dashboard) — `checkbox` e `radio`
-- **Q20** (LGPD / restrições) — `checkbox`
-- **Q21** (PoC / próximo passo — pergunta final) — `radio`
+### O que NÃO será feito
 
-Sections (4 grupos) para melhor organização visual:
-1. "Objetivo e Escopo" (Q1–Q3)
-2. "Ambiente Yeastar / Telefonia" (Q4–Q12)
-3. "Ambiente Microsoft e CRM" (Q13–Q16)
-4. "Análise Comercial, Indicadores e LGPD" (Q17–Q20)
-5. "Próximo passo (PoC)" (Q21)
-
-### 2. `src/pages/Forms.tsx` — atualizar template selector
-
-- Importar `DISCOVERY_EXECUTIVO_FORM_CONFIG`.
-- Estender `template: "education" | "discovery"` → adicionar `"discovery_exec"`.
-- Adicionar entrada no `templates` map com nome:
-  *"Questionário Executivo — IA para Transcrição e Análise de Chamadas"*
-  e descrição: *"Versão executiva enxuta (múltipla escolha) para levantamento rápido com o cliente."*
-- Adicionar 3º `DropdownMenuItem` no dropdown "Criar Formulário Modelo".
-
-### 3. Provisionar para o tenant atual
-Após o build, inserir uma linha em `public.forms` para o tenant `rodrigo.axhub@gmail.com` (status `published`, `form_config` = novo array, categoria `prospecting`), via insert tool — assim o formulário já aparece na aba Formulários sem precisar clicar no botão modelo.
-
-## Notas técnicas
-- Reutilizamos o tipo `FormQuestion` de `formSeedData.ts` — sem mudanças no FormEditor/PublicForm.
-- Onde o PDF tem "Outro: ______", mantemos como opção do checkbox/radio (sem campo texto extra) para manter consistência com os modelos atuais; o usuário pode complementar via observação no preenchimento.
-- Nenhuma migração de schema; nenhuma edge function alterada.
+- Nenhuma edição em código TypeScript/React.
+- Nenhuma nova migration ou ajuste de SQL.
+- Nenhum seed de dados nem deploy de edge function.

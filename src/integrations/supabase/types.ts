@@ -2826,6 +2826,188 @@ export type Database = {
           },
         ]
       }
+      fiscal_invoices: {
+        Row: {
+          caminho_danfe: string | null
+          caminho_xml: string | null
+          chave_nfe: string | null
+          created_at: string
+          focus_environment: string
+          focus_ref: string
+          id: string
+          mensagem_sefaz: string | null
+          numero: string | null
+          order_id: string | null
+          payload_enviado: Json | null
+          protocolo: string | null
+          resposta_focus: Json | null
+          serie: string | null
+          status: string
+          status_sefaz: string | null
+          tenant_id: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          caminho_danfe?: string | null
+          caminho_xml?: string | null
+          chave_nfe?: string | null
+          created_at?: string
+          focus_environment: string
+          focus_ref: string
+          id?: string
+          mensagem_sefaz?: string | null
+          numero?: string | null
+          order_id?: string | null
+          payload_enviado?: Json | null
+          protocolo?: string | null
+          resposta_focus?: Json | null
+          serie?: string | null
+          status?: string
+          status_sefaz?: string | null
+          tenant_id: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          caminho_danfe?: string | null
+          caminho_xml?: string | null
+          chave_nfe?: string | null
+          created_at?: string
+          focus_environment?: string
+          focus_ref?: string
+          id?: string
+          mensagem_sefaz?: string | null
+          numero?: string | null
+          order_id?: string | null
+          payload_enviado?: Json | null
+          protocolo?: string | null
+          resposta_focus?: Json | null
+          serie?: string | null
+          status?: string
+          status_sefaz?: string | null
+          tenant_id?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fiscal_invoices_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fiscal_invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fiscal_settings: {
+        Row: {
+          certificate_path: string | null
+          certificate_registered_on_focus: boolean
+          certificate_uploaded_at: string | null
+          cnpj: string
+          codigo_municipio_ibge: string | null
+          company_name: string
+          created_at: string
+          endereco_bairro: string | null
+          endereco_cep: string | null
+          endereco_complemento: string | null
+          endereco_logradouro: string | null
+          endereco_municipio: string | null
+          endereco_numero: string | null
+          endereco_uf: string | null
+          focus_empresa_id_homologacao: string | null
+          focus_empresa_id_producao: string | null
+          focus_environment: string
+          focus_token_homologacao: string | null
+          focus_token_producao: string | null
+          habilita_nfce: boolean
+          habilita_nfe: boolean
+          habilita_nfse: boolean
+          id: string
+          ie: string | null
+          im: string | null
+          regime_tributario: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          certificate_path?: string | null
+          certificate_registered_on_focus?: boolean
+          certificate_uploaded_at?: string | null
+          cnpj: string
+          codigo_municipio_ibge?: string | null
+          company_name: string
+          created_at?: string
+          endereco_bairro?: string | null
+          endereco_cep?: string | null
+          endereco_complemento?: string | null
+          endereco_logradouro?: string | null
+          endereco_municipio?: string | null
+          endereco_numero?: string | null
+          endereco_uf?: string | null
+          focus_empresa_id_homologacao?: string | null
+          focus_empresa_id_producao?: string | null
+          focus_environment?: string
+          focus_token_homologacao?: string | null
+          focus_token_producao?: string | null
+          habilita_nfce?: boolean
+          habilita_nfe?: boolean
+          habilita_nfse?: boolean
+          id?: string
+          ie?: string | null
+          im?: string | null
+          regime_tributario: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          certificate_path?: string | null
+          certificate_registered_on_focus?: boolean
+          certificate_uploaded_at?: string | null
+          cnpj?: string
+          codigo_municipio_ibge?: string | null
+          company_name?: string
+          created_at?: string
+          endereco_bairro?: string | null
+          endereco_cep?: string | null
+          endereco_complemento?: string | null
+          endereco_logradouro?: string | null
+          endereco_municipio?: string | null
+          endereco_numero?: string | null
+          endereco_uf?: string | null
+          focus_empresa_id_homologacao?: string | null
+          focus_empresa_id_producao?: string | null
+          focus_environment?: string
+          focus_token_homologacao?: string | null
+          focus_token_producao?: string | null
+          habilita_nfce?: boolean
+          habilita_nfe?: boolean
+          habilita_nfse?: boolean
+          id?: string
+          ie?: string | null
+          im?: string | null
+          regime_tributario?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fiscal_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fluxo_recebimento_logs: {
         Row: {
           campanha_id: string
@@ -5059,8 +5241,10 @@ export type Database = {
           annual_discount_percent: number | null
           billing_cycle: string | null
           category: string | null
+          cfop: string | null
           cost: number | null
           created_at: string
+          cst: string | null
           description: string | null
           id: string
           image_url: string | null
@@ -5068,6 +5252,8 @@ export type Database = {
           is_parent: boolean
           is_subscription: boolean
           name: string
+          ncm: string | null
+          origem_icms: number | null
           parent_id: string | null
           plan_tier: string | null
           price: number
@@ -5076,13 +5262,16 @@ export type Database = {
           tenant_id: string
           trial_days: number | null
           type: string
+          unidade_fiscal: string | null
         }
         Insert: {
           annual_discount_percent?: number | null
           billing_cycle?: string | null
           category?: string | null
+          cfop?: string | null
           cost?: number | null
           created_at?: string
+          cst?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
@@ -5090,6 +5279,8 @@ export type Database = {
           is_parent?: boolean
           is_subscription?: boolean
           name: string
+          ncm?: string | null
+          origem_icms?: number | null
           parent_id?: string | null
           plan_tier?: string | null
           price?: number
@@ -5098,13 +5289,16 @@ export type Database = {
           tenant_id: string
           trial_days?: number | null
           type?: string
+          unidade_fiscal?: string | null
         }
         Update: {
           annual_discount_percent?: number | null
           billing_cycle?: string | null
           category?: string | null
+          cfop?: string | null
           cost?: number | null
           created_at?: string
+          cst?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
@@ -5112,6 +5306,8 @@ export type Database = {
           is_parent?: boolean
           is_subscription?: boolean
           name?: string
+          ncm?: string | null
+          origem_icms?: number | null
           parent_id?: string | null
           plan_tier?: string | null
           price?: number
@@ -5120,6 +5316,7 @@ export type Database = {
           tenant_id?: string
           trial_days?: number | null
           type?: string
+          unidade_fiscal?: string | null
         }
         Relationships: [
           {
