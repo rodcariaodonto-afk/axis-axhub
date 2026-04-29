@@ -101,19 +101,43 @@ export default function PublicForm() {
 
   const handleIdentify = (e: React.FormEvent) => {
     e.preventDefault();
+    const result = identifySchema.safeParse(identify);
+    if (!result.success) {
+      const errs: Partial<Record<keyof IdentifyState, string>> = {};
+      for (const issue of result.error.issues) {
+        const key = issue.path[0] as keyof IdentifyState;
+        if (key && !errs[key]) errs[key] = issue.message;
+      }
+      setIdentifyErrors(errs);
+      return;
+    }
+    setIdentifyErrors({});
     setStep("form");
   };
 
   const handleSubmit = async () => {
     setSubmitting(true);
     const responseId = crypto.randomUUID();
+    const cleanDoc = stripDocument(identify.documento);
+    const cleanPhone = identify.telefone.replace(/\D/g, "");
+    const enrichedAnswers = {
+      ...answers,
+      __identificacao: {
+        nome: identify.nome.trim(),
+        documento: cleanDoc,
+        documento_tipo: detectDocumentType(cleanDoc),
+        empresa: identify.empresa.trim(),
+        telefone: cleanPhone,
+        email: identify.email.trim(),
+      },
+    };
     const { error } = await supabase.from("form_responses").insert({
       id: responseId,
       form_id: form.id,
       tenant_id: form.tenant_id,
-      respondent_name: respondentName,
-      respondent_email: respondentEmail,
-      response_data: answers,
+      respondent_name: identify.nome.trim(),
+      respondent_email: identify.email.trim(),
+      response_data: enrichedAnswers,
       completed: true,
     });
     if (error) { setSubmitting(false); toast({ title: "Erro ao enviar", description: error.message, variant: "destructive" }); return; }
