@@ -429,12 +429,14 @@ export default function Orders() {
       <Card className="border-border bg-card">
         <CardContent className="p-0">
           <Table>
-            <TableHeader><TableRow className="border-border"><TableHead>Nº Pedido</TableHead><TableHead>Cliente</TableHead><TableHead>Deal</TableHead><TableHead>Status</TableHead><TableHead>Forma Pgto</TableHead><TableHead>Pagamento</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="w-10" /></TableRow></TableHeader>
+            <TableHeader><TableRow className="border-border"><TableHead>Nº Pedido</TableHead><TableHead>Cliente</TableHead><TableHead>Deal</TableHead><TableHead>Status</TableHead><TableHead>Forma Pgto</TableHead><TableHead>Pagamento</TableHead><TableHead>Nota Fiscal</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="w-10" /></TableRow></TableHeader>
             <TableBody>
-              {loading ? <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow> :
-              filtered.length === 0 ? <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum pedido encontrado</TableCell></TableRow> :
+              {loading ? <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow> :
+              filtered.length === 0 ? <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum pedido encontrado</TableCell></TableRow> :
               filtered.map((o) => {
                 const pm = (o as any).payment_method || "pix";
+                const inv = invoiceMap[o.id];
+                const canDownload = inv?.status === "autorizada";
                 return (
                 <TableRow key={o.id} className="border-border">
                   <TableCell className="font-mono text-xs">{o.number}</TableCell>
@@ -443,6 +445,7 @@ export default function Orders() {
                   <TableCell><Badge variant={statusColors[o.status] as any || "secondary"}>{statusLabels[o.status] || o.status}</Badge></TableCell>
                   <TableCell className="text-sm max-w-[200px] truncate">{pm}</TableCell>
                   <TableCell><Badge variant={o.paid_status === "paid" ? "default" : "secondary"}>{o.paid_status === "paid" ? "Pago" : o.paid_status === "partial" ? "Parcial" : "Pendente"}</Badge></TableCell>
+                  <TableCell>{renderInvoiceBadge(o.id)}</TableCell>
                   <TableCell className="text-right font-medium">R$ {Number(o.total).toFixed(2)}</TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -451,6 +454,22 @@ export default function Orders() {
                         {transitions[o.status]?.map((t) => (
                           <DropdownMenuItem key={t.to} onClick={() => changeStatus(o.id, t.to)}>{t.label}</DropdownMenuItem>
                         ))}
+                        <DropdownMenuItem onClick={() => emitInvoice(o.id, "nfe")} disabled={emittingId === o.id}>
+                          <Receipt className="mr-2 h-4 w-4" />Emitir NF-e
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => emitInvoice(o.id, "nfse")} disabled={emittingId === o.id}>
+                          <Receipt className="mr-2 h-4 w-4" />Emitir NFS-e
+                        </DropdownMenuItem>
+                        {canDownload && inv?.caminho_danfe && (
+                          <DropdownMenuItem onClick={() => downloadDocument(inv, "danfe")}>
+                            <Download className="mr-2 h-4 w-4" />Baixar DANFE
+                          </DropdownMenuItem>
+                        )}
+                        {canDownload && inv?.caminho_xml && (
+                          <DropdownMenuItem onClick={() => downloadDocument(inv, "xml")}>
+                            <FileText className="mr-2 h-4 w-4" />Baixar XML
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => deleteOrder(o.id)}>
                           <Trash2 className="mr-2 h-4 w-4" />Excluir Pedido
                         </DropdownMenuItem>
