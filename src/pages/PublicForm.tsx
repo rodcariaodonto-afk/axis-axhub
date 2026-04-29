@@ -259,7 +259,7 @@ export default function PublicForm() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div className="text-sm text-muted-foreground">
-                Respondendo como: <strong>{respondentName}</strong>
+                Respondendo como: <strong>{identify.nome}</strong>
                 <Button variant="link" size="sm" className="ml-1 h-auto p-0" onClick={() => setStep("identify")}>
                   <Pencil className="h-3 w-3 mr-1" />Editar
                 </Button>
