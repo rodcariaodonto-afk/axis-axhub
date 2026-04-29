@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
+import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -14,14 +15,57 @@ import { toast } from "@/hooks/use-toast";
 import { CheckCircle, ArrowRight, ArrowLeft, Pencil } from "lucide-react";
 import axisLogo from "@/assets/axis-logo.png";
 import type { FormQuestion } from "@/components/forms/formSeedData";
+import { formatDocument, stripDocument, detectDocumentType } from "@/lib/documentMask";
 
 type Step = "identify" | "form" | "success";
+
+type IdentifyState = {
+  nome: string;
+  documento: string;
+  empresa: string;
+  telefone: string;
+  email: string;
+};
+
+const EMPTY_IDENTIFY: IdentifyState = {
+  nome: "",
+  documento: "",
+  empresa: "",
+  telefone: "",
+  email: "",
+};
+
+function formatPhoneBR(value: string): string {
+  const d = (value || "").replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 2) return d.length ? `(${d}` : "";
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
+const identifySchema = z.object({
+  nome: z.string().trim().min(3, "Informe seu nome completo (mínimo 3 caracteres)").max(120),
+  documento: z
+    .string()
+    .transform((v) => v.replace(/\D/g, ""))
+    .refine((v) => v.length === 11 || v.length === 14, {
+      message: "CPF deve ter 11 dígitos ou CNPJ 14 dígitos",
+    }),
+  empresa: z.string().trim().min(1, "Empresa é obrigatória").max(120),
+  telefone: z
+    .string()
+    .transform((v) => v.replace(/\D/g, ""))
+    .refine((v) => v.length === 10 || v.length === 11, {
+      message: "Telefone deve ter DDD + número (10 ou 11 dígitos)",
+    }),
+  email: z.string().trim().email("E-mail inválido").max(255),
+});
 
 export default function PublicForm() {
   const { code } = useParams();
   const [step, setStep] = useState<Step>("identify");
-  const [respondentName, setRespondentName] = useState("");
-  const [respondentEmail, setRespondentEmail] = useState("");
+  const [identify, setIdentify] = useState<IdentifyState>(EMPTY_IDENTIFY);
+  const [identifyErrors, setIdentifyErrors] = useState<Partial<Record<keyof IdentifyState, string>>>({});
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [currentSection, setCurrentSection] = useState(0);
   const [submitting, setSubmitting] = useState(false);
