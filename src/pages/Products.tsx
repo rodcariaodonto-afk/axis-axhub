@@ -238,6 +238,11 @@ export default function Products() {
       category: p.category || "",
       price: String(p.price),
       cost: String(p.cost || ""),
+      ncm: (p as any).ncm || "",
+      cfop: (p as any).cfop || "",
+      cst: (p as any).cst || "",
+      unidade_fiscal: (p as any).unidade_fiscal || "",
+      origem_icms: (p as any).origem_icms || "",
     });
     setEditDialogOpen(true);
   };
