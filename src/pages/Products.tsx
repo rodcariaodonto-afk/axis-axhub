@@ -603,6 +603,82 @@ export default function Products() {
                 <Input type="text" inputMode="decimal" placeholder="0,00" value={editForm.cost} onChange={(e) => setEditForm({ ...editForm, cost: e.target.value.replace(/[^0-9.,]/g, "") })} />
               </div>
             </div>
+            {/* Dados Fiscais */}
+            <div className="space-y-3 pt-3 border-t border-border">
+              <div>
+                <Label className="text-base font-semibold">Dados Fiscais</Label>
+                <p className="text-xs text-muted-foreground">Informações para emissão de NF-e/NFS-e.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>NCM</Label>
+                  <Input
+                    value={editForm.ncm}
+                    onChange={(e) => setEditForm({ ...editForm, ncm: e.target.value.replace(/\D/g, "").slice(0, 8) })}
+                    maxLength={8}
+                    placeholder="00000000"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>CFOP</Label>
+                  <Select value={editForm.cfop || "__none__"} onValueChange={(v) => setEditForm({ ...editForm, cfop: v === "__none__" ? "" : v })}>
+                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Nenhum</SelectItem>
+                      <SelectItem value="5101">5101 — Venda de produção</SelectItem>
+                      <SelectItem value="5102">5102 — Venda de mercadoria adquirida</SelectItem>
+                      <SelectItem value="5403">5403 — Venda com ST</SelectItem>
+                      <SelectItem value="5933">5933 — Prestação de serviço de comunicação</SelectItem>
+                      <SelectItem value="6101">6101 — Venda de produção (interestadual)</SelectItem>
+                      <SelectItem value="6102">6102 — Venda mercadoria (interestadual)</SelectItem>
+                      <SelectItem value="6403">6403 — Venda com ST (interestadual)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>CST / CSOSN</Label>
+                  <Input
+                    value={editForm.cst}
+                    onChange={(e) => setEditForm({ ...editForm, cst: e.target.value.replace(/\D/g, "").slice(0, 3) })}
+                    maxLength={3}
+                    placeholder="000"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Unidade Fiscal</Label>
+                  <Select value={editForm.unidade_fiscal || "__none__"} onValueChange={(v) => setEditForm({ ...editForm, unidade_fiscal: v === "__none__" ? "" : v })}>
+                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Nenhuma</SelectItem>
+                      <SelectItem value="UN">UN (Unidade)</SelectItem>
+                      <SelectItem value="KG">KG (Quilograma)</SelectItem>
+                      <SelectItem value="L">L (Litro)</SelectItem>
+                      <SelectItem value="M">M (Metro)</SelectItem>
+                      <SelectItem value="M2">M² (Metro quadrado)</SelectItem>
+                      <SelectItem value="M3">M³ (Metro cúbico)</SelectItem>
+                      <SelectItem value="CX">CX (Caixa)</SelectItem>
+                      <SelectItem value="PC">PC (Peça)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <Label>Origem ICMS</Label>
+                  <Select value={editForm.origem_icms || "__none__"} onValueChange={(v) => setEditForm({ ...editForm, origem_icms: v === "__none__" ? "" : v })}>
+                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Nenhuma</SelectItem>
+                      <SelectItem value="0">0 — Nacional</SelectItem>
+                      <SelectItem value="1">1 — Estrangeira (importação direta)</SelectItem>
+                      <SelectItem value="2">2 — Estrangeira (mercado interno)</SelectItem>
+                      <SelectItem value="3">3 — Nacional &gt;40% conteúdo estrangeiro</SelectItem>
+                      <SelectItem value="4">4 — Nacional via PPB</SelectItem>
+                      <SelectItem value="5">5 — Nacional &lt;40% conteúdo estrangeiro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
             <Button className="w-full" onClick={handleEditSave} disabled={editUploading}>
               {editUploading ? "Salvando..." : "Salvar Alterações"}
             </Button>
