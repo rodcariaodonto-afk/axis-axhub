@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Trash2, MoreHorizontal, CalendarIcon } from "lucide-react";
+import { Plus, Search, Trash2, MoreHorizontal, CalendarIcon, FileText, Download, Receipt } from "lucide-react";
 import { format, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
@@ -63,11 +63,29 @@ export default function Orders() {
   const [itemQty, setItemQty] = useState("1");
   const [notes, setNotes] = useState("");
   const [payments, setPayments] = useState<PaymentEntry[]>([{ method: "pix", amount: "", installments: 1, first_due_date: undefined }]);
+  const [invoiceMap, setInvoiceMap] = useState<Record<string, any>>({});
+  const [emittingId, setEmittingId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchOrders = useCallback(async () => {
     const { data } = await supabase.from("orders").select("*, customers(name), deals(name)").order("created_at", { ascending: false });
     setOrders(data || []);
+    // Buscar notas fiscais mais recentes por pedido
+    if (data && data.length > 0) {
+      const orderIds = data.map((o: any) => o.id);
+      const { data: invoices } = await supabase
+        .from("fiscal_invoices")
+        .select("*")
+        .in("order_id", orderIds)
+        .order("created_at", { ascending: false });
+      const map: Record<string, any> = {};
+      (invoices || []).forEach((inv: any) => {
+        if (inv.order_id && !map[inv.order_id]) map[inv.order_id] = inv;
+      });
+      setInvoiceMap(map);
+    } else {
+      setInvoiceMap({});
+    }
     setLoading(false);
   }, []);
 
