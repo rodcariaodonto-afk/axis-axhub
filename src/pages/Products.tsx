@@ -258,7 +258,12 @@ export default function Products() {
       category: editForm.category || null,
       price: parseBRCurrency(editForm.price),
       cost: parseBRCurrency(editForm.cost),
-    }).eq("id", editProduct.id);
+      ncm: editForm.ncm || null,
+      cfop: editForm.cfop || null,
+      cst: editForm.cst || null,
+      unidade_fiscal: editForm.unidade_fiscal || null,
+      origem_icms: editForm.origem_icms || null,
+    } as any).eq("id", editProduct.id);
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } else {
