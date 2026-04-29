@@ -33,6 +33,15 @@ const parseBRCurrency = (v: string): number => {
 export default function ProductFormDynamic({ categories, customFields, onSuccess, onClose }: ProductFormDynamicProps) {
   const [productType, setProductType] = useState<ProductType>("simple_product");
   const [form, setForm] = useState({ sku: "", name: "", price: "", cost: "", category: "", description: "" });
+  const [fiscal, setFiscal] = useState({
+    ncm: "",
+    cfop: "",
+    cfop_custom: "",
+    cst: "",
+    unidade_fiscal: "",
+    unidade_custom: "",
+    origem_icms: "",
+  });
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
   const [variationConfigs, setVariationConfigs] = useState<VariationConfig[]>([]);
   const [generatedVariations, setGeneratedVariations] = useState<GeneratedVariation[]>([]);
@@ -92,6 +101,9 @@ export default function ProductFormDynamic({ categories, customFields, onSuccess
     const dbType = productType === "service" ? "service" : "product";
     const isSaas = productType === "saas";
 
+    const cfopFinal = fiscal.cfop === "outro" ? fiscal.cfop_custom.trim() : fiscal.cfop;
+    const unidadeFinal = fiscal.unidade_fiscal === "outro" ? fiscal.unidade_custom.trim() : fiscal.unidade_fiscal;
+
     const { data: product, error } = await supabase.from("products").insert({
       tenant_id: profile.tenant_id,
       sku: finalSku,
@@ -102,6 +114,11 @@ export default function ProductFormDynamic({ categories, customFields, onSuccess
       cost: isSaas ? 0 : parseBRCurrency(form.cost),
       is_parent: isSaas,
       is_subscription: isSaas,
+      ncm: fiscal.ncm || null,
+      cfop: cfopFinal || null,
+      cst: fiscal.cst || null,
+      unidade_fiscal: unidadeFinal || null,
+      origem_icms: fiscal.origem_icms || null,
     } as any).select().single();
 
     if (error || !product) {
