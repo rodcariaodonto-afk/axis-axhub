@@ -1,61 +1,75 @@
-# Plano — Módulo Fiscal Focus NFe (UI completa)
+# Identificação ampliada no formulário público
 
-Backend já pronto (tabelas `fiscal_settings`, `fiscal_invoices`, campos fiscais em `products`, bucket `fiscal-certificates`, edge functions `process-fiscal-invoice` e `focus-nfe-webhook` em mock mode). Vou construir apenas a interface, seguindo padrões existentes (react-query, shadcn/ui, hooks `useAuth` + `get_user_tenant_id`, toasts via `@/hooks/use-toast`).
+Hoje, o passo "Identifique-se" do formulário público (`/f/:code`) coleta apenas **Nome** e **E-mail**. Para o formulário **Inscrição Connect** é preciso coletar mais dados antes de o respondente acessar as perguntas.
 
-## Slice 1 — Configurações Fiscais (`/settings` → seção "Fiscal")
+## Escopo
 
-**Novo:** `src/pages/settings/FiscalSettings.tsx` com 3 abas (`Tabs` shadcn).
+A identificação ampliada será aplicada **a todos os formulários públicos** (não só ao Inscrição Connect). Vantagens:
 
-- **Aba "Dados da Empresa"**: form react-hook-form com Razão Social, CNPJ (máscara via `formatDocument`), IE, IM, Regime Tributário (Select 1/2/3), bloco de Endereço Fiscal (CEP com máscara + ViaCEP via `useAddressCep`, logradouro, número, complemento, bairro, município, UF (Select com 27 estados), código IBGE 7 dígitos), 3 Switches (`habilita_nfe`, `habilita_nfse`, `habilita_nfce`). Botão Salvar → `upsert` em `fiscal_settings` por `tenant_id`.
-- **Aba "Focus NFe"**: Select `focus_environment` (homologacao/producao) com Alert vermelho ao escolher produção; inputs password para `focus_token_homologacao` e `focus_token_producao`; botão Salvar; botão "Testar Conexão" → toast "Funcionalidade em construção".
-- **Aba "Certificado Digital"**: Card explicativo; estado atual (Alert "nenhum certificado" ou data + Badge Pendente/Registrado); input file `.pfx` (validação extensão + 5MB), upload em `fiscal-certificates/{tenant_id}/certificado.pfx` com `upsert: true`, atualiza `certificate_path`/`certificate_uploaded_at`/`certificate_registered_on_focus=false`; botão "Registrar empresa na Focus NFe" abre Dialog com input password e toast "Funcionalidade em construção" (placeholder).
+- Padroniza a coleta de dados de contato em todas as inscrições futuras.
+- Não exige nova coluna no banco nem alteração caso-a-caso por formulário.
+- O formulário "Inscrição Connect" já passa a coletar tudo automaticamente.
 
-**Edita:**
-- `src/pages/settings/SettingsLayout.tsx`: novo grupo "FISCAL" com item `fiscal` e ícone `Receipt` (lucide).
-- `src/pages/Settings.tsx`: registra `fiscal: FiscalSettings` no `SECTION_MAP` e expande o tipo em `SettingsLayout`.
+Se preferir aplicar **somente** ao Inscrição Connect, posso condicionar pelo `unique_code` — me avise antes da aprovação.
 
-(O sidebar principal já leva a `/settings`; não precisa adicionar item separado em `AppSidebar`.)
+## Campos solicitados
 
-## Slice 2 — Aba "Dados Fiscais" no formulário de Produtos
+| Campo | Tipo | Validação |
+|---|---|---|
+| Nome Completo | texto | mínimo 3 caracteres, obrigatório |
+| CPF ou CNPJ | texto com máscara automática | 11 dígitos (CPF) ou 14 dígitos (CNPJ), obrigatório |
+| Empresa | texto | obrigatório |
+| Telefone | texto com máscara `(XX) XXXXX-XXXX` | 10 ou 11 dígitos, obrigatório |
+| E-mail | email | formato de e-mail válido, obrigatório |
 
-**Edita:** `src/components/products/ProductFormDynamic.tsx`
+## Onde os dados ficam salvos
 
-- Reorganizar conteúdo do form atual em `Tabs`: aba "Geral" (campos atuais) e nova aba "Dados Fiscais".
-- Aba Dados Fiscais: NCM (Input, helper 8 dígitos), CFOP (Select com 5101/5102/5403/5933/6101/6102/6403 + opção "Outro" liberando Input livre), CST (Input com helper sobre CSOSN/CST), `unidade_fiscal` (Select UN/KG/L/M/M2/M3/CX/PC/Outro), `origem_icms` (Select 0–5 com labels descritivas).
-- Persistir esses 5 campos no `insert` em `products` (colunas já existem).
+A tabela `form_responses` só possui colunas nativas para `respondent_name` e `respondent_email`. Os demais campos serão persistidos dentro do JSONB `response_data` sob a chave reservada `__identificacao`:
 
-## Slice 3 — Emissão de NF em Pedidos
+```json
+{
+  "__identificacao": {
+    "nome": "Maria Silva",
+    "documento": "12345678900",
+    "documento_tipo": "cpf",
+    "empresa": "Acme Ltda",
+    "telefone": "11987654321",
+    "email": "maria@acme.com"
+  },
+  "<question_id_1>": "...",
+  "<question_id_2>": "..."
+}
+```
 
-**Edita:** `src/pages/Orders.tsx`
+Os campos `respondent_name` e `respondent_email` continuam sendo preenchidos (nome e e-mail) para compatibilidade com a listagem existente em `/forms/:id/responses`.
 
-- Buscar `fiscal_invoices` agrupadas por `order_id` no fetch (uma query auxiliar) e indexar por order_id.
-- Nova coluna "Nota Fiscal" na tabela com Badge colorida conforme status (`—` cinza / `Processando` amarela / `Autorizada` verde / `Cancelada` cinza / `Erro` vermelha).
-- No `DropdownMenu` de cada linha, adicionar ações:
-  - **Emitir NF-e / Emitir NFS-e** → `supabase.functions.invoke('process-fiscal-invoice', { body: { order_id, type } })`. Antes da chamada, validar via query: `fiscal_settings` existe e o `habilita_nfe`/`habilita_nfse` correspondente está true; para NF-e validar se itens do pedido têm NCM e CFOP. Toast amigável de sucesso/erro e refetch.
-  - **Baixar DANFE** (visível só se `status='autorizada'` e `caminho_danfe`): abre URL `https://api.focusnfe.com.br` ou `https://homologacao.focusnfe.com.br` + caminho, em nova aba.
-  - **Baixar XML**: idem com `caminho_xml`.
+## Mudanças técnicas
 
-## Slice 4 — Listagem `/erp/notas-fiscais`
+### 1. `src/pages/PublicForm.tsx`
+- Substituir os dois `useState` (`respondentName`, `respondentEmail`) por um único objeto `identify` com 5 campos + `documentType` ('cpf' | 'cnpj').
+- Reescrever o card de identificação com os 5 inputs.
+- **Máscara de documento**: usar `formatDocument` / `stripDocument` / `detectDocumentType` já existentes em `src/lib/documentMask.ts`. Em cada keystroke detecta CPF (≤11 dígitos) ou CNPJ (até 14) e aplica a máscara.
+- **Máscara de telefone**: criar uma função local simples `formatPhoneBR(value)` que aplica `(XX) XXXXX-XXXX` (ou `(XX) XXXX-XXXX` se 10 dígitos). Não há util genérico de telefone no projeto.
+- **Validação com Zod** (já usado em outras páginas):
+  - `nome`: `z.string().trim().min(3, "Informe seu nome completo")`
+  - `documento`: refinar para aceitar somente 11 ou 14 dígitos numéricos
+  - `empresa`: `z.string().trim().min(1, "Empresa é obrigatória")`
+  - `telefone`: refinar para 10 ou 11 dígitos numéricos
+  - `email`: `z.string().trim().email("E-mail inválido")`
+- Mensagens de erro exibidas inline abaixo de cada campo (texto pequeno, vermelho usando `text-destructive`).
+- `handleIdentify` só avança ao passo `form` se `safeParse` passar.
+- `handleSubmit` injeta o objeto `__identificacao` em `response_data` antes do insert.
+- O resumo "Respondendo como: <nome>" continua mostrando apenas o nome; o link "Editar" volta para a tela de identificação preservando os valores já preenchidos.
 
-**Novo:** `src/pages/erp/FiscalInvoices.tsx` listando `fiscal_invoices` do tenant com join (`orders(number, total, customers(name))`).
+### 2. Nenhuma alteração de banco
+- Sem migrations. `response_data` é JSONB e aceita o novo objeto livremente.
+- RLS, triggers, edge function `process-form-response` continuam funcionando — `__identificacao` fica disponível para uso futuro (ex.: pré-preencher Lead/Account com CPF/CNPJ, telefone, empresa).
 
-- Filtros topo: Período (Popover + Calendar range), Status (Select), Tipo (NF-e/NFS-e), Ambiente (Homologação/Produção).
-- Busca por número da nota ou nome do cliente (debounced).
-- Tabela: Data emissão, Tipo (Badge), Número/Série, Pedido (link `/orders` ou modal), Cliente, Valor, Status (Badge), Ambiente (Badge), Ações (Baixar DANFE, Baixar XML, Cancelar — placeholder com toast).
-- Loading e empty state amigáveis ("Nenhuma nota fiscal emitida ainda").
+### 3. Sem alteração em outras telas
+- `FormResponses.tsx` segue listando nome/e-mail nativos.
+- O builder de formulários (`FormEditor`) não muda — esses 5 campos são da etapa de identificação, separada das perguntas configuráveis.
 
-**Edita:**
-- `src/App.tsx`: rota `/erp/notas-fiscais` (lazy, dentro de `ProtectedRoute`).
-- `src/components/AppSidebar.tsx`: item "Notas Fiscais" no grupo ERP, ícone `FileText`, módulo `produtos`.
+## Fora do escopo
 
-## Detalhes técnicos
-
-- Reuso: `useAuth`, RPC `get_user_tenant_id`, `formatDocument`/`stripDocument`, `useAddressCep`, `useToast`, react-query `useQuery`/`useMutation`, padrões shadcn (`Card`, `Tabs`, `Select`, `Switch`, `Dialog`, `Alert`, `Badge`, `Table`, `Popover`, `Calendar`).
-- Validação client-side com mensagens em português; nenhuma alteração em RLS, Edge Functions, Storage policies ou tabelas.
-- Tipos: como `fiscal_settings`/`fiscal_invoices` foram regenerados em `supabase/types.ts`, usar tipagem direta; se algum campo não estiver tipado, fazer cast pontual `as any` no insert/update.
-- Identidade visual AXIS preservada (cores, espaçamentos, tipografia das páginas existentes).
-
-## Entrega esperada
-1. Lista de arquivos criados/modificados.
-2. Confirmação: item Fiscal aparece em /settings, aba Dados Fiscais aparece no form de produtos, botões de NF aparecem em /orders, listagem /erp/notas-fiscais acessível.
-3. Sem erros de TypeScript/ESLint.
+- Validação avançada de CPF/CNPJ (dígitos verificadores). Hoje só validamos contagem de dígitos. Posso adicionar a validação completa se solicitado.
+- Mapeamento automático de CPF/CNPJ/empresa/telefone para entidades CRM (Lead/Account/Contact). A edge function `process-form-response` já cria Lead a partir das perguntas configuradas; um aprimoramento posterior pode usar `__identificacao` como fallback.

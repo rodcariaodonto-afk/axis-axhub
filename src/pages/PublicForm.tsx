@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
+import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -14,14 +15,57 @@ import { toast } from "@/hooks/use-toast";
 import { CheckCircle, ArrowRight, ArrowLeft, Pencil } from "lucide-react";
 import axisLogo from "@/assets/axis-logo.png";
 import type { FormQuestion } from "@/components/forms/formSeedData";
+import { formatDocument, stripDocument, detectDocumentType } from "@/lib/documentMask";
 
 type Step = "identify" | "form" | "success";
+
+type IdentifyState = {
+  nome: string;
+  documento: string;
+  empresa: string;
+  telefone: string;
+  email: string;
+};
+
+const EMPTY_IDENTIFY: IdentifyState = {
+  nome: "",
+  documento: "",
+  empresa: "",
+  telefone: "",
+  email: "",
+};
+
+function formatPhoneBR(value: string): string {
+  const d = (value || "").replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 2) return d.length ? `(${d}` : "";
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
+const identifySchema = z.object({
+  nome: z.string().trim().min(3, "Informe seu nome completo (mínimo 3 caracteres)").max(120),
+  documento: z
+    .string()
+    .transform((v) => v.replace(/\D/g, ""))
+    .refine((v) => v.length === 11 || v.length === 14, {
+      message: "CPF deve ter 11 dígitos ou CNPJ 14 dígitos",
+    }),
+  empresa: z.string().trim().min(1, "Empresa é obrigatória").max(120),
+  telefone: z
+    .string()
+    .transform((v) => v.replace(/\D/g, ""))
+    .refine((v) => v.length === 10 || v.length === 11, {
+      message: "Telefone deve ter DDD + número (10 ou 11 dígitos)",
+    }),
+  email: z.string().trim().email("E-mail inválido").max(255),
+});
 
 export default function PublicForm() {
   const { code } = useParams();
   const [step, setStep] = useState<Step>("identify");
-  const [respondentName, setRespondentName] = useState("");
-  const [respondentEmail, setRespondentEmail] = useState("");
+  const [identify, setIdentify] = useState<IdentifyState>(EMPTY_IDENTIFY);
+  const [identifyErrors, setIdentifyErrors] = useState<Partial<Record<keyof IdentifyState, string>>>({});
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [currentSection, setCurrentSection] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -57,19 +101,43 @@ export default function PublicForm() {
 
   const handleIdentify = (e: React.FormEvent) => {
     e.preventDefault();
+    const result = identifySchema.safeParse(identify);
+    if (!result.success) {
+      const errs: Partial<Record<keyof IdentifyState, string>> = {};
+      for (const issue of result.error.issues) {
+        const key = issue.path[0] as keyof IdentifyState;
+        if (key && !errs[key]) errs[key] = issue.message;
+      }
+      setIdentifyErrors(errs);
+      return;
+    }
+    setIdentifyErrors({});
     setStep("form");
   };
 
   const handleSubmit = async () => {
     setSubmitting(true);
     const responseId = crypto.randomUUID();
+    const cleanDoc = stripDocument(identify.documento);
+    const cleanPhone = identify.telefone.replace(/\D/g, "");
+    const enrichedAnswers = {
+      ...answers,
+      __identificacao: {
+        nome: identify.nome.trim(),
+        documento: cleanDoc,
+        documento_tipo: detectDocumentType(cleanDoc),
+        empresa: identify.empresa.trim(),
+        telefone: cleanPhone,
+        email: identify.email.trim(),
+      },
+    };
     const { error } = await supabase.from("form_responses").insert({
       id: responseId,
       form_id: form.id,
       tenant_id: form.tenant_id,
-      respondent_name: respondentName,
-      respondent_email: respondentEmail,
-      response_data: answers,
+      respondent_name: identify.nome.trim(),
+      respondent_email: identify.email.trim(),
+      response_data: enrichedAnswers,
       completed: true,
     });
     if (error) { setSubmitting(false); toast({ title: "Erro ao enviar", description: error.message, variant: "destructive" }); return; }
@@ -119,15 +187,66 @@ export default function PublicForm() {
               <p className="text-sm text-muted-foreground mt-2">Por favor, identifique-se para começar</p>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleIdentify} className="space-y-4">
+              <form onSubmit={handleIdentify} className="space-y-4" noValidate>
                 <div className="space-y-2">
                   <Label>Nome Completo *</Label>
-                  <Input value={respondentName} onChange={(e) => setRespondentName(e.target.value)} required placeholder="Seu nome completo" />
+                  <Input
+                    value={identify.nome}
+                    onChange={(e) => setIdentify((p) => ({ ...p, nome: e.target.value }))}
+                    placeholder="Seu nome completo"
+                    autoComplete="name"
+                  />
+                  {identifyErrors.nome && <p className="text-xs text-destructive">{identifyErrors.nome}</p>}
                 </div>
+
                 <div className="space-y-2">
-                  <Label>Email *</Label>
-                  <Input type="email" value={respondentEmail} onChange={(e) => setRespondentEmail(e.target.value)} required placeholder="seu@email.com" />
+                  <Label>CPF ou CNPJ *</Label>
+                  <Input
+                    value={identify.documento}
+                    onChange={(e) =>
+                      setIdentify((p) => ({ ...p, documento: formatDocument(e.target.value) }))
+                    }
+                    placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                    inputMode="numeric"
+                  />
+                  {identifyErrors.documento && <p className="text-xs text-destructive">{identifyErrors.documento}</p>}
                 </div>
+
+                <div className="space-y-2">
+                  <Label>Empresa *</Label>
+                  <Input
+                    value={identify.empresa}
+                    onChange={(e) => setIdentify((p) => ({ ...p, empresa: e.target.value }))}
+                    placeholder="Nome da empresa"
+                    autoComplete="organization"
+                  />
+                  {identifyErrors.empresa && <p className="text-xs text-destructive">{identifyErrors.empresa}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Telefone *</Label>
+                  <Input
+                    value={identify.telefone}
+                    onChange={(e) => setIdentify((p) => ({ ...p, telefone: formatPhoneBR(e.target.value) }))}
+                    placeholder="(11) 98765-4321"
+                    inputMode="tel"
+                    autoComplete="tel"
+                  />
+                  {identifyErrors.telefone && <p className="text-xs text-destructive">{identifyErrors.telefone}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>E-mail *</Label>
+                  <Input
+                    type="email"
+                    value={identify.email}
+                    onChange={(e) => setIdentify((p) => ({ ...p, email: e.target.value }))}
+                    placeholder="seu@email.com"
+                    autoComplete="email"
+                  />
+                  {identifyErrors.email && <p className="text-xs text-destructive">{identifyErrors.email}</p>}
+                </div>
+
                 <Button type="submit" className="w-full">
                   Continuar <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -140,7 +259,7 @@ export default function PublicForm() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div className="text-sm text-muted-foreground">
-                Respondendo como: <strong>{respondentName}</strong>
+                Respondendo como: <strong>{identify.nome}</strong>
                 <Button variant="link" size="sm" className="ml-1 h-auto p-0" onClick={() => setStep("identify")}>
                   <Pencil className="h-3 w-3 mr-1" />Editar
                 </Button>
