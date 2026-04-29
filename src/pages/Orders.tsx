@@ -234,6 +234,83 @@ export default function Orders() {
     fetchOrders();
   };
 
+  const emitInvoice = async (orderId: string, type: "nfe" | "nfse") => {
+    setEmittingId(orderId);
+    try {
+      // Validar fiscal_settings
+      const { data: { user: u } } = await supabase.auth.getUser();
+      if (!u) throw new Error("Não autenticado");
+      const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", u.id).single();
+      if (!profile) throw new Error("Perfil não encontrado");
+      const { data: settings } = await supabase
+        .from("fiscal_settings")
+        .select("*")
+        .eq("tenant_id", profile.tenant_id)
+        .maybeSingle();
+      if (!settings) {
+        toast({ title: "Configure os dados fiscais antes de emitir", description: "Acesse Configurações → Fiscal", variant: "destructive" });
+        return;
+      }
+      if (type === "nfe" && !settings.habilita_nfe) {
+        toast({ title: "NF-e não habilitada", description: "Habilite em Configurações → Fiscal → Dados da Empresa", variant: "destructive" });
+        return;
+      }
+      if (type === "nfse" && !settings.habilita_nfse) {
+        toast({ title: "NFS-e não habilitada", description: "Habilite em Configurações → Fiscal → Dados da Empresa", variant: "destructive" });
+        return;
+      }
+      // Para NF-e, validar NCM/CFOP nos itens
+      if (type === "nfe") {
+        const { data: orderItems } = await supabase
+          .from("order_items")
+          .select("product_id, products(ncm, cfop, name)")
+          .eq("order_id", orderId);
+        const missing = (orderItems || []).filter((it: any) => !it.products?.ncm || !it.products?.cfop);
+        if (missing.length > 0) {
+          toast({
+            title: "Produtos sem NCM/CFOP",
+            description: `Cadastre NCM e CFOP nos produtos antes de emitir NF-e (${missing.length} item(ns) pendente(s)).`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+      const { data, error } = await supabase.functions.invoke("process-fiscal-invoice", {
+        body: { order_id: orderId, type },
+      });
+      if (error) throw error;
+      toast({ title: "Nota enviada para processamento", description: data?.message || `Status: ${data?.status || "processando"}` });
+      fetchOrders();
+    } catch (err: any) {
+      toast({ title: "Erro ao emitir nota", description: err.message || "Falha desconhecida", variant: "destructive" });
+    } finally {
+      setEmittingId(null);
+    }
+  };
+
+  const downloadDocument = (invoice: any, kind: "danfe" | "xml") => {
+    const path = kind === "danfe" ? invoice.caminho_danfe : invoice.caminho_xml;
+    if (!path) {
+      toast({ title: "Documento ainda não disponível", variant: "destructive" });
+      return;
+    }
+    const base = invoice.focus_environment === "producao"
+      ? "https://api.focusnfe.com.br"
+      : "https://homologacao.focusnfe.com.br";
+    const url = path.startsWith("http") ? path : `${base}${path.startsWith("/") ? "" : "/"}${path}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const renderInvoiceBadge = (orderId: string) => {
+    const inv = invoiceMap[orderId];
+    if (!inv) return <Badge variant="secondary" className="text-muted-foreground">—</Badge>;
+    const status = (inv.status || "").toLowerCase();
+    if (status === "autorizada") return <Badge className="bg-green-600 hover:bg-green-700">Autorizada</Badge>;
+    if (status === "cancelada") return <Badge variant="secondary">Cancelada</Badge>;
+    if (["erro", "rejeitada"].includes(status)) return <Badge variant="destructive">Erro</Badge>;
+    return <Badge className="bg-amber-500 hover:bg-amber-600">Processando</Badge>;
+  };
+
   const filtered = orders.filter((o) => o.number.toLowerCase().includes(search.toLowerCase()) || (o.customers?.name || "").toLowerCase().includes(search.toLowerCase()));
 
   return (
