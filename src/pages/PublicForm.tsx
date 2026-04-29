@@ -187,15 +187,66 @@ export default function PublicForm() {
               <p className="text-sm text-muted-foreground mt-2">Por favor, identifique-se para começar</p>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleIdentify} className="space-y-4">
+              <form onSubmit={handleIdentify} className="space-y-4" noValidate>
                 <div className="space-y-2">
                   <Label>Nome Completo *</Label>
-                  <Input value={respondentName} onChange={(e) => setRespondentName(e.target.value)} required placeholder="Seu nome completo" />
+                  <Input
+                    value={identify.nome}
+                    onChange={(e) => setIdentify((p) => ({ ...p, nome: e.target.value }))}
+                    placeholder="Seu nome completo"
+                    autoComplete="name"
+                  />
+                  {identifyErrors.nome && <p className="text-xs text-destructive">{identifyErrors.nome}</p>}
                 </div>
+
                 <div className="space-y-2">
-                  <Label>Email *</Label>
-                  <Input type="email" value={respondentEmail} onChange={(e) => setRespondentEmail(e.target.value)} required placeholder="seu@email.com" />
+                  <Label>CPF ou CNPJ *</Label>
+                  <Input
+                    value={identify.documento}
+                    onChange={(e) =>
+                      setIdentify((p) => ({ ...p, documento: formatDocument(e.target.value) }))
+                    }
+                    placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                    inputMode="numeric"
+                  />
+                  {identifyErrors.documento && <p className="text-xs text-destructive">{identifyErrors.documento}</p>}
                 </div>
+
+                <div className="space-y-2">
+                  <Label>Empresa *</Label>
+                  <Input
+                    value={identify.empresa}
+                    onChange={(e) => setIdentify((p) => ({ ...p, empresa: e.target.value }))}
+                    placeholder="Nome da empresa"
+                    autoComplete="organization"
+                  />
+                  {identifyErrors.empresa && <p className="text-xs text-destructive">{identifyErrors.empresa}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Telefone *</Label>
+                  <Input
+                    value={identify.telefone}
+                    onChange={(e) => setIdentify((p) => ({ ...p, telefone: formatPhoneBR(e.target.value) }))}
+                    placeholder="(11) 98765-4321"
+                    inputMode="tel"
+                    autoComplete="tel"
+                  />
+                  {identifyErrors.telefone && <p className="text-xs text-destructive">{identifyErrors.telefone}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>E-mail *</Label>
+                  <Input
+                    type="email"
+                    value={identify.email}
+                    onChange={(e) => setIdentify((p) => ({ ...p, email: e.target.value }))}
+                    placeholder="seu@email.com"
+                    autoComplete="email"
+                  />
+                  {identifyErrors.email && <p className="text-xs text-destructive">{identifyErrors.email}</p>}
+                </div>
+
                 <Button type="submit" className="w-full">
                   Continuar <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
