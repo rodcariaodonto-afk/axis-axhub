@@ -10,11 +10,11 @@ import WhatsAppFAB from "@/components/landing/WhatsAppFAB";
 
 export default function LandingPage() {
   useEffect(() => {
-    document.title = "AXIS — CRM de Governança Comercial com IA";
+    document.title = "AXIS — CRM + ERP + Governança com IA para PMEs";
     const meta = document.querySelector('meta[name="description"]');
     if (meta) meta.setAttribute(
       "content",
-      "Centralize clientes, pipeline, WhatsApp, automações, dashboards e governança comercial com o AXIS, o CRM criado para empresas que precisam vender com processo, controlo e previsibilidade."
+      "O AXIS é a plataforma integrada de CRM, ERP, atendimento, automações, dashboards e governança com IA nativa para PMEs que querem vender, operar e decidir com mais controlo."
     );
   }, []);
 
