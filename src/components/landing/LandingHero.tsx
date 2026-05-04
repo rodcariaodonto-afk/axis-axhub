@@ -1,10 +1,11 @@
 import { Check } from "lucide-react";
 import DashboardMockup from "./DashboardMockup";
+import { SUPPORT_WHATSAPP_DEFAULT } from "./supportLink";
 
 const PROVAS = [
-  { titulo: "Implementação", desc: "Setup orientado" },
-  { titulo: "Flexibilidade", desc: "Sem fricção operacional" },
-  { titulo: "Conversão", desc: "Atendimento consultivo" },
+  { titulo: "Operação integrada", desc: "CRM, ERP e atendimento em uma plataforma" },
+  { titulo: "Governança e rastreabilidade", desc: "Processos padronizados e auditáveis" },
+  { titulo: "IA nativa", desc: "Insights e produtividade no dia a dia" },
 ];
 
 export default function LandingHero() {
@@ -17,25 +18,28 @@ export default function LandingHero() {
             style={{ fontFamily: "Plus Jakarta Sans" }}
           >
             <span className="h-1.5 w-1.5 rounded-full bg-[#3B82F6]" />
-            CRM com Governança e IA
+            Plataforma CRM + ERP + Governança com IA
           </span>
 
           <h1
             className="mt-5 text-[40px] sm:text-[48px] lg:text-[54px] leading-[1.05] tracking-tight font-extrabold text-[#0F172A]"
             style={{ fontFamily: "Plus Jakarta Sans, sans-serif" }}
           >
-            O CRM de Governança para empresas que vendem com processo, controlo e{" "}
+            O Sistema Operacional das PMEs com CRM, ERP, Governança e{" "}
             <span className="text-[#3B82F6]">Inteligência Artificial</span>
           </h1>
 
           <p className="mt-5 text-base sm:text-lg text-[#4B5563] max-w-xl" style={{ fontFamily: "Inter, sans-serif" }}>
-            Pare de perder oportunidades em ferramentas fragmentadas. Centralize CRM, pipeline, atendimento, WhatsApp,
-            automações, dashboards e governança comercial em uma única plataforma com IA nativa.
+            Centralize CRM, ERP, pipeline, atendimento, WhatsApp, propostas, financeiro, automações, dashboards e
+            governança em uma única plataforma com IA nativa. O AXIS elimina ferramentas fragmentadas e dá visão
+            integrada da operação.
           </p>
 
           <div className="mt-7 flex flex-col sm:flex-row gap-3">
             <a
-              href="#contato"
+              href={SUPPORT_WHATSAPP_DEFAULT}
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex h-12 items-center justify-center px-6 rounded-lg bg-[#25D366] text-white font-semibold hover:bg-[#1fbb59] shadow-sm transition-colors"
               style={{ fontFamily: "Plus Jakarta Sans" }}
             >
