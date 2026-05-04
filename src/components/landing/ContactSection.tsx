@@ -11,12 +11,13 @@ const TAMANHOS = [
 ];
 
 const OBJETIVOS = [
-  { v: "organizar-pipeline", l: "Organizar pipeline" },
-  { v: "melhorar-followup", l: "Melhorar follow-up" },
-  { v: "automatizar-processos", l: "Automatizar processos" },
-  { v: "criar-governanca", l: "Criar governança comercial" },
-  { v: "integrar-canais", l: "Integrar canais" },
-  { v: "acompanhar-indicadores", l: "Acompanhar indicadores" },
+  { v: "organizar-crm-pipeline", l: "Organizar CRM e pipeline" },
+  { v: "integrar-crm-erp", l: "Integrar CRM e ERP" },
+  { v: "controlar-propostas-pedidos-financeiro", l: "Controlar propostas, pedidos e financeiro" },
+  { v: "melhorar-atendimento-whatsapp", l: "Melhorar atendimento via WhatsApp" },
+  { v: "automatizar-processos", l: "Automatizar processos com N8N/Zapier/Make" },
+  { v: "criar-governanca", l: "Criar governança comercial e operacional" },
+  { v: "dashboards-executivos", l: "Ter dashboards executivos e visão 360°" },
   { v: "falar-com-suporte", l: "Falar com suporte" },
 ];
 

@@ -1,23 +1,23 @@
-import { Layers, Rocket, BarChart3 } from "lucide-react";
+import { Layers, ShieldCheck, BarChart3 } from "lucide-react";
 
 const BENEFICIOS = [
   {
     icon: Layers,
     color: "bg-[#3B82F6]/10 text-[#3B82F6]",
-    title: "Reduza ferramentas fragmentadas",
-    desc: "Centralize processos comerciais, relacionamento, automações e indicadores em uma plataforma única.",
+    title: "Vendas e operação conectadas",
+    desc: "Integre CRM e ERP para acompanhar oportunidades, propostas, pedidos, contratos e financeiro sem duplicidade de dados.",
   },
   {
-    icon: Rocket,
+    icon: ShieldCheck,
     color: "bg-[#F97316]/10 text-[#F97316]",
-    title: "Setup orientado e rápido",
-    desc: "Estruture sua operação com processos claros, sem depender de implementações longas e complexas.",
+    title: "Governança com rastreabilidade",
+    desc: "Padronize processos, controle permissões, acompanhe responsabilidades e mantenha histórico confiável para decisões executivas.",
   },
   {
     icon: BarChart3,
     color: "bg-[#25D366]/10 text-[#25D366]",
-    title: "Visão 360° da operação",
-    desc: "Acompanhe pipeline, clientes, atendimento, produtividade, conversão e gargalos em tempo real.",
+    title: "Visão 360° da empresa",
+    desc: "Tenha dashboards com pipeline, atendimento, faturamento/faturação, contas, produtividade, conversão e gargalos operacionais.",
   },
 ];
 

@@ -1,89 +1,94 @@
+## Respostas e Plano de Ajustes na Landing Page AXIS
 
-# Landing Page AXIS — CRM de Governança Comercial
+### 1. Onde os dados do formulário são gravados
 
-Criar uma landing page pública profissional para o AXIS, inspirada visualmente no AXIS PRO, com captura segura de leads.
+Os leads do formulário "Agende sua demonstração" são salvos na tabela do backend `axis_landing_leads` (Lovable Cloud), via Edge Function `submit-axis-lead`.
 
-## Mudanças de roteamento
+Cada envio grava: nome, email, whatsapp, empresa, cargo, tamanho da operação, objetivo principal, mensagem, consentimento LGPD, origem (`landing-axis`), user-agent, status (`novo`) e data.
 
-- `src/App.tsx`: 
-  - Rota `/` passa a renderizar a nova `LandingPage` pública (sem `ProtectedRoute`)
-  - Dashboard movido para `/dashboard` (protegido)
-  - Após login no `Auth.tsx`, redirecionar para `/dashboard` em vez de `/`
-  - Atualizar redirects internos que apontam para `/` (ex.: sidebar "Dashboard") para `/dashboard`
+**Como acessar:** abrir o Backend (Lovable Cloud) → Tabela `axis_landing_leads`. Posso, opcionalmente, criar uma página interna `/admin/leads-landing` (protegida por permissão) para visualizar/exportar esses leads dentro do AXIS — me confirme se quer essa tela.
 
-## Novos arquivos
+### 2. Botões "Falar com Suporte" → WhatsApp (11) 93917-1383
 
-- `src/pages/LandingPage.tsx` — página única com âncoras `#solucoes`, `#beneficios`, `#planos`, `#contato`
-- `src/components/landing/LandingHeader.tsx` — header branco fixo, logo AXIS, nav, botões Login + Falar com Suporte
-- `src/components/landing/LandingHero.tsx` — hero 2 colunas, fundo `#EFF6FF`, headline com destaque azul em "Inteligência Artificial", CTAs, 3 provas com check verde
-- `src/components/landing/DashboardMockup.tsx` — mockup dark com janela (3 bolinhas, URL `app.axis.com.br`), cards de métricas (Receita R$ 284k, Leads 1.248, Conversão 34%), gráfico de barras SVG, badges (WhatsApp / CRM / Governança ativos), card flutuante "Copiloto IA — 3 insights gerados"
-- `src/components/landing/ModulesSection.tsx` — "6 módulos. 1 plataforma." (CRM Nativo, Pipeline, Governança, WhatsApp IA, Automações, Copiloto IA) com ícones lucide
-- `src/components/landing/BenefitsSection.tsx` — 3 colunas, marcador laranja, sem promessa monetária
-- `src/components/landing/PlansSection.tsx` — 4 planos sem preços (Start, Growth, Business destacado azul-marinho com selo laranja, Enterprise), todos com botão "Falar com Suporte"
-- `src/components/landing/ContactSection.tsx` — formulário com validação Zod, honeypot invisível, consentimento LGPD obrigatório, mensagem de sucesso
-- `src/components/landing/WhatsAppFAB.tsx` — botão flutuante verde `#25D366` canto inferior direito
-- `src/components/landing/LandingFooter.tsx` — footer escuro com links, sem RH
+Hoje só o FAB flutuante leva ao WhatsApp. Vou padronizar **todos** os CTAs "Falar com Suporte" (header, hero, planos e FAB) para abrir o WhatsApp `+55 11 93917-1383` em nova aba, com mensagem pré-programada contextual:
 
-## Backend / Supabase
+- Header/Hero: `Olá! Vim pela landing do AXIS e gostaria de falar com o suporte.`
+- Planos: `Olá! Tenho interesse no plano AXIS {Start|Growth|Business|Enterprise} e gostaria de falar com o suporte.`
+- FAB: `Olá! Gostaria de falar com o suporte AXIS.`
 
-Migration:
-```sql
-create table public.axis_landing_leads (
-  id uuid primary key default gen_random_uuid(),
-  nome text not null,
-  email text not null,
-  whatsapp text not null,
-  empresa text not null,
-  cargo text,
-  tamanho_operacao text not null,
-  objetivo_principal text not null,
-  mensagem text,
-  consentimento_lgpd boolean not null default false,
-  origem text default 'landing-axis',
-  user_agent text,
-  status text default 'novo',
-  created_at timestamptz default now()
-);
-alter table public.axis_landing_leads enable row level security;
--- Sem policies de SELECT públicas. Insert apenas via edge function (service role).
-```
+URL final: `https://wa.me/5511939171383?text=...` (mensagem `encodeURIComponent`).
 
-Edge function `submit-axis-lead` (`verify_jwt = false`, com Zod):
-- Valida nome (3-120), email, whatsapp (10-15 dígitos), empresa, tamanho_operacao (whitelist), objetivo_principal (whitelist), consentimento_lgpd === true
-- Honeypot: se campo `website` vier preenchido, retorna 200 silencioso (não grava)
-- Sanitiza/trima strings, limita comprimentos
-- Captura `user_agent` do header
-- Insere via service role
-- Retorna apenas `{ ok: true }` ou erro genérico
+Constante única `SUPPORT_WHATSAPP_URL` em `src/components/landing/supportLink.ts` para reuso.
 
-Frontend chama via `supabase.functions.invoke('submit-axis-lead')`.
+### 3. Reposicionamento: AXIS = CRM + ERP + Governança + IA (remover RH, manter ERP)
 
-## Conteúdo (todas as restrições aplicadas)
+Ajustes de **conteúdo** preservando UX/UI, fontes, cores, espaçamentos e estrutura visual atuais.
 
-- Sem RH, colaboradores, folha, PDI, ponto, recrutamento
-- Sem preços, mensalidades, descontos, "30 dias grátis", checkout
-- Linguagem em português; "usuários" em vez de "funcionários"
-- Headline: "O CRM de Governança para empresas que vendem com processo, controlo e **Inteligência Artificial**"
-- Subtítulo, módulos, benefícios, planos, formulário e mensagens de sucesso conforme especificado no briefing
+#### 3.1 Hero (`LandingHero.tsx`)
+- Badge: `Plataforma CRM + ERP + Governança com IA`
+- Headline: `O Sistema Operacional das PMEs com CRM, ERP, Governança e` **`Inteligência Artificial`** (azul)
+- Subtítulo: texto novo conforme briefing (centraliza CRM, ERP, pipeline, atendimento, WhatsApp, propostas, financeiro, automações, dashboards, governança).
+- CTAs: `Falar com Suporte` (WhatsApp) e `Conhecer Soluções` (âncora `#solucoes`).
+- Provas: `Operação integrada`, `Governança e rastreabilidade`, `IA nativa`.
 
-## Design tokens locais (escopo na landing)
+#### 3.2 Mockup (`DashboardMockup.tsx`)
+4 métricas (em vez de 3):
+- Receita prevista: R$ 284k
+- Contas a receber: R$ 96k
+- Pedidos em aberto: 42
+- Leads ativos: 1.248
 
-A landing usa paleta clara, mas o resto do app continua com tema dark. Para evitar conflito com `index.css` (que define `--background` dark), os componentes da landing usarão classes Tailwind explícitas com cores hex/arbitrary values (`bg-[#EFF6FF]`, `text-[#0F172A]`, `bg-[#3B82F6]`, `bg-[#25D366]`, `text-[#4B5563]`, accent `#F97316`) e fontes Plus Jakarta Sans (headings) + Inter (body) carregadas via `<link>` no `index.html`.
+Status: `CRM ativo`, `ERP ativo`, `WhatsApp ativo`, `Governança ativa`.
+Gráfico: rótulo "Pipeline e fluxo financeiro — últimos 30 dias".
+Card flutuante IA: `Copiloto IA — 3 insights operacionais gerados`.
 
-## SEO
+#### 3.3 Módulos (`ModulesSection.tsx`)
+Título: `6 módulos. 1 plataforma.`
+Subtítulo: `Uma plataforma única para conectar vendas, operação, financeiro, atendimento, automações e decisões executivas.`
+Cards: **CRM Nativo**, **ERP Integrado**, **Governança Comercial e Operacional**, **WhatsApp IA**, **Automações**, **Copiloto IA** — descrições exatas do briefing.
 
-- `index.html`: title `AXIS — CRM de Governança Comercial com IA`, meta description, OG tags atualizadas, fontes Google
-- Estrutura semântica: `<header>`, `<main>`, `<section>` com `aria-labelledby`, headings em ordem, labels em todos os inputs, foco visível
+#### 3.4 Benefícios (`BenefitsSection.tsx`)
+Três blocos: `Vendas e operação conectadas`, `Governança com rastreabilidade`, `Visão 360° da empresa`. Sem menção a RH, sem cifras.
 
-## Acessibilidade & responsividade
+#### 3.5 Planos (`PlansSection.tsx`)
+Mantém 4 cards, sem preços. Recursos atualizados:
+- **Start**: CRM básico, pipeline, clientes, produtos/serviços, propostas simples, tarefas, relatórios essenciais.
+- **Growth**: CRM completo, ERP essencial, WhatsApp, múltiplos funis, propostas, pedidos, contas a receber, automações, dashboards.
+- **Business** (destacado, navy + selo laranja "Mais indicado"): CRM avançado, ERP completo, governança, IA Premium, automações ilimitadas, dashboards executivos, permissões, integrações, auditoria.
+- **Enterprise**: API, integrações avançadas, workflows customizados, SLA consultivo, gerente de conta, auditoria, relatórios executivos, onboarding dedicado.
 
-- Grid 2 col desktop / 1 col mobile no hero, módulos (3x2), planos (4 col / 2 col / 1 col), formulário (2 col / 1 col)
-- Contraste AA, navegação por teclado, `aria-label` no FAB do WhatsApp
-- Animações discretas com Tailwind transitions
+Todos os botões → WhatsApp suporte (mensagem por plano).
 
-## Critérios de aceite
+#### 3.6 Formulário (`ContactSection.tsx` + `submit-axis-lead`)
+Atualizar opções de "Principal objetivo":
+1. Organizar CRM e pipeline
+2. Integrar CRM e ERP
+3. Controlar propostas, pedidos e financeiro
+4. Melhorar atendimento via WhatsApp
+5. Automatizar processos com N8N/Zapier/Make
+6. Criar governança comercial e operacional
+7. Ter dashboards executivos e visão 360°
+8. Falar com suporte
 
-- `/` carrega landing pública sem auth; `/dashboard` exige login
-- Formulário grava em `axis_landing_leads` apenas via edge function; RLS bloqueia leitura pública
-- Nenhuma menção a RH ou preços
-- Layout responsivo testado em mobile/tablet/desktop
+Atualizar o `enum` de `OBJETIVOS` no front e na Edge Function (mesmos slugs em ambos).
+
+#### 3.7 Header/Footer/SEO
+- Nav: Soluções, Módulos, Benefícios, Planos, Contato.
+- `<title>`: `AXIS — CRM + ERP + Governança com IA para PMEs`.
+- Meta description alinhada ao novo posicionamento.
+
+### Restrições respeitadas
+Sem RH, sem preços/mensalidades, sem checkout, sem botões "Comprar/Assinar". ERP, financeiro, propostas, pedidos, contratos preservados em todas as seções.
+
+### Arquivos a editar
+- `src/components/landing/LandingHero.tsx`
+- `src/components/landing/DashboardMockup.tsx`
+- `src/components/landing/ModulesSection.tsx`
+- `src/components/landing/BenefitsSection.tsx`
+- `src/components/landing/PlansSection.tsx`
+- `src/components/landing/ContactSection.tsx`
+- `src/components/landing/LandingHeader.tsx`
+- `src/components/landing/WhatsAppFAB.tsx`
+- `src/pages/LandingPage.tsx` (title/description)
+- `supabase/functions/submit-axis-lead/index.ts` (novos slugs)
+- **Novo:** `src/components/landing/supportLink.ts` (URL do WhatsApp + helper de mensagem)

@@ -9,12 +9,13 @@ const corsHeaders = {
 
 const TAMANHOS = ["1-10 usuarios", "11-50 usuarios", "51-200 usuarios", "200+ usuarios"];
 const OBJETIVOS = [
-  "organizar-pipeline",
-  "melhorar-followup",
+  "organizar-crm-pipeline",
+  "integrar-crm-erp",
+  "controlar-propostas-pedidos-financeiro",
+  "melhorar-atendimento-whatsapp",
   "automatizar-processos",
   "criar-governanca",
-  "integrar-canais",
-  "acompanhar-indicadores",
+  "dashboards-executivos",
   "falar-com-suporte",
 ];
 
