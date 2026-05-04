@@ -1,40 +1,57 @@
 import { Check } from "lucide-react";
+import { buildSupportWhatsAppUrl } from "./supportLink";
 
 const PLANOS = [
   {
     nome: "AXIS Start",
-    perfil: "Para empresas que querem organizar leads e pipeline.",
-    recursos: ["CRM básico", "1 funil comercial", "Gestão de leads", "Tarefas e histórico", "Relatórios essenciais"],
+    perfil: "Para empresas que querem organizar clientes, vendas e operação básica.",
+    recursos: [
+      "CRM básico",
+      "Pipeline comercial",
+      "Cadastro de clientes",
+      "Produtos e serviços",
+      "Propostas simples",
+      "Tarefas e relatórios essenciais",
+    ],
     destaque: false,
   },
   {
     nome: "AXIS Growth",
-    perfil: "Para equipas que precisam de automação e previsibilidade.",
-    recursos: ["CRM completo", "WhatsApp", "Automações", "Múltiplos funis", "Dashboards", "Suporte prioritário"],
+    perfil: "Para equipas que precisam conectar CRM, ERP e atendimento.",
+    recursos: [
+      "CRM completo",
+      "ERP essencial",
+      "WhatsApp",
+      "Múltiplos funis",
+      "Propostas e pedidos",
+      "Contas a receber",
+      "Automações e dashboards",
+    ],
     destaque: false,
   },
   {
     nome: "AXIS Business",
-    perfil: "Para operações que exigem governança e IA avançada.",
+    perfil: "Plano mais indicado para operação integrada.",
     recursos: [
       "CRM avançado",
-      "Governança comercial",
+      "ERP completo",
+      "Governança",
       "IA Premium",
       "Automações ilimitadas",
       "Dashboards executivos",
-      "Permissões e integrações",
+      "Permissões, integrações e auditoria",
     ],
     destaque: true,
   },
   {
     nome: "AXIS Enterprise",
-    perfil: "Para empresas com múltiplas unidades e operação complexa.",
+    perfil: "Para empresas com múltiplas unidades, operação complexa e necessidade de controlo.",
     recursos: [
-      "API e auditoria",
+      "API e integrações avançadas",
+      "Workflows customizados",
       "SLA consultivo",
       "Gerente de conta",
-      "Workflows customizados",
-      "Integrações avançadas",
+      "Auditoria e relatórios executivos",
       "Onboarding dedicado",
     ],
     destaque: false,
@@ -56,13 +73,16 @@ export default function PlansSection() {
           </h2>
           <p className="mt-3 text-[#4B5563]">
             Converse com o suporte para identificar a configuração mais adequada para o estágio e a complexidade da sua
-            operação comercial.
+            operação comercial e operacional.
           </p>
         </div>
 
         <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {PLANOS.map((p) => {
             const isHi = p.destaque;
+            const url = buildSupportWhatsAppUrl(
+              `Olá! Tenho interesse no plano ${p.nome} e gostaria de falar com o suporte.`
+            );
             return (
               <div
                 key={p.nome}
@@ -98,7 +118,9 @@ export default function PlansSection() {
                 </ul>
 
                 <a
-                  href="#contato"
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className={`mt-6 inline-flex h-11 items-center justify-center rounded-lg font-semibold transition-colors ${
                     isHi
                       ? "bg-white text-[#0F172A] hover:bg-slate-100"
