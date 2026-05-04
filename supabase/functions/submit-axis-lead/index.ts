@@ -68,6 +68,30 @@ Deno.serve(async (req) => {
 
     const ua = req.headers.get("user-agent")?.slice(0, 500) ?? null;
 
+    // Tenant/owner alvo: Rodrigo (axhub)
+    const TARGET_TENANT_ID = "7df9b3e1-4a54-4b72-bf42-4c2de3ef36ad";
+    const TARGET_OWNER_ID = "18f970cf-8cc3-4d84-8e27-9833dcd7de87";
+
+    const objetivoLabels: Record<string, string> = {
+      "organizar-crm-pipeline": "Organizar CRM e pipeline",
+      "integrar-crm-erp": "Integrar CRM e ERP",
+      "controlar-propostas-pedidos-financeiro": "Controlar propostas, pedidos e financeiro",
+      "melhorar-atendimento-whatsapp": "Melhorar atendimento WhatsApp",
+      "automatizar-processos": "Automatizar processos",
+      "criar-governanca": "Criar governança",
+      "dashboards-executivos": "Dashboards executivos",
+      "falar-com-suporte": "Falar com suporte",
+    };
+    const objetivoLabel = objetivoLabels[parsed.data.objetivo_principal] ?? parsed.data.objetivo_principal;
+
+    const notesText = [
+      `Empresa: ${parsed.data.empresa}`,
+      parsed.data.cargo ? `Cargo: ${parsed.data.cargo}` : null,
+      `Tamanho: ${parsed.data.tamanho_operacao}`,
+      `Objetivo: ${objetivoLabel}`,
+      parsed.data.mensagem ? `Mensagem: ${parsed.data.mensagem}` : null,
+    ].filter(Boolean).join("\n");
+
     const { error } = await supabase.from("axis_landing_leads").insert({
       nome: parsed.data.nome,
       email: parsed.data.email.toLowerCase(),
@@ -89,6 +113,40 @@ Deno.serve(async (req) => {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // 1) Cria Lead no CRM do tenant Rodrigo
+    const { data: leadRow, error: leadErr } = await supabase
+      .from("leads")
+      .insert({
+        tenant_id: TARGET_TENANT_ID,
+        owner_user_id: TARGET_OWNER_ID,
+        name: parsed.data.nome,
+        email: parsed.data.email.toLowerCase(),
+        phone: parsed.data.whatsapp,
+        source: "landing-axis",
+        channel: "site",
+        status: "new",
+        notes: notesText,
+      })
+      .select("id")
+      .single();
+
+    if (leadErr) {
+      console.error(`[${reqId}] lead_insert_error`, leadErr.message);
+    } else {
+      // 2) Cria Oportunidade vinculada
+      const { error: oppErr } = await supabase.from("opportunities").insert({
+        tenant_id: TARGET_TENANT_ID,
+        owner_id: TARGET_OWNER_ID,
+        name: `${parsed.data.empresa} — ${objetivoLabel}`,
+        description: notesText,
+        stage: "Prospecting",
+        probability: 0.1,
+        amount: 0,
+        currency: "BRL",
+      });
+      if (oppErr) console.error(`[${reqId}] opportunity_insert_error`, oppErr.message);
     }
 
     return new Response(JSON.stringify({ ok: true }), {
