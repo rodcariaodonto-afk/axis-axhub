@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import axisLogo from "@/assets/axis-logo.png";
+import { SUPPORT_WHATSAPP_DEFAULT } from "./supportLink";
 
 const NAV = [
   { href: "#solucoes", label: "Soluções" },
@@ -8,7 +9,7 @@ const NAV = [
   { href: "#contato", label: "Contato" },
 ];
 
-const WHATSAPP_URL = "https://wa.me/5500000000000?text=Olá%2C%20gostaria%20de%20falar%20com%20o%20suporte%20AXIS";
+const WHATSAPP_URL = SUPPORT_WHATSAPP_DEFAULT;
 
 export default function LandingHeader() {
   return (
