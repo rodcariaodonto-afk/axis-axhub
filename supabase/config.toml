@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.verify-and-sign]
 verify_jwt = false
+
+[functions.submit-axis-lead]
+verify_jwt = false
