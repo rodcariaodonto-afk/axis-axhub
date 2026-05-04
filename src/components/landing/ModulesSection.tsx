@@ -1,12 +1,36 @@
-import { Users, Filter, ShieldCheck, MessageCircle, Zap, Sparkles } from "lucide-react";
+import { Users, Package, ShieldCheck, MessageCircle, Zap, Sparkles } from "lucide-react";
 
 const MODULOS = [
-  { icon: Users, title: "CRM Nativo", desc: "Gestão de clientes, leads, histórico, pipeline e follow-up automatizado." },
-  { icon: Filter, title: "Pipeline Comercial", desc: "Funis personalizáveis, etapas, previsão de fechamento e motivos de perda." },
-  { icon: ShieldCheck, title: "Governança Comercial", desc: "Regras, permissões, responsabilidades, rastreabilidade e padronização do processo." },
-  { icon: MessageCircle, title: "WhatsApp IA", desc: "Atendimento automatizado, central de conversas e registro do relacionamento." },
-  { icon: Zap, title: "Automações", desc: "Fluxos de trabalho sem código com integrações, N8N, Zapier, Make e webhooks." },
-  { icon: Sparkles, title: "Copiloto IA", desc: "Inteligência artificial para priorizar oportunidades, resumir históricos e sugerir próximos passos." },
+  {
+    icon: Users,
+    title: "CRM Nativo",
+    desc: "Gestão de clientes, leads, oportunidades, pipeline, tarefas, histórico de relacionamento e follow-up.",
+  },
+  {
+    icon: Package,
+    title: "ERP Integrado",
+    desc: "Gestão de produtos/serviços, propostas, pedidos, contratos, contas a receber, contas a pagar, faturamento/faturação e visão operacional.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Governança Comercial e Operacional",
+    desc: "Regras, permissões, responsabilidades, rastreabilidade, auditoria, padronização de processos e controlo da operação.",
+  },
+  {
+    icon: MessageCircle,
+    title: "WhatsApp IA",
+    desc: "Atendimento automatizado, central de conversas, registro de interações, qualificação de leads e continuidade do relacionamento.",
+  },
+  {
+    icon: Zap,
+    title: "Automações",
+    desc: "Fluxos de trabalho sem código com N8N, Zapier, Make, webhooks, alertas, tarefas automáticas e integrações entre áreas.",
+  },
+  {
+    icon: Sparkles,
+    title: "Copiloto IA",
+    desc: "Inteligência artificial para resumir históricos, sugerir próximos passos, priorizar oportunidades, detectar gargalos e gerar insights executivos.",
+  },
 ];
 
 export default function ModulesSection() {
@@ -23,7 +47,8 @@ export default function ModulesSection() {
             6 módulos. 1 plataforma.
           </h2>
           <p className="mt-3 text-[#4B5563]" style={{ fontFamily: "Inter" }}>
-            Elimine ferramentas fragmentadas e tenha visão 360° da sua operação comercial.
+            Uma plataforma única para conectar vendas, operação, financeiro, atendimento, automações e decisões
+            executivas.
           </p>
         </div>
 
