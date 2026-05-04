@@ -256,6 +256,57 @@ export type Database = {
           },
         ]
       }
+      axis_landing_leads: {
+        Row: {
+          cargo: string | null
+          consentimento_lgpd: boolean
+          created_at: string
+          email: string
+          empresa: string
+          id: string
+          mensagem: string | null
+          nome: string
+          objetivo_principal: string
+          origem: string | null
+          status: string | null
+          tamanho_operacao: string
+          user_agent: string | null
+          whatsapp: string
+        }
+        Insert: {
+          cargo?: string | null
+          consentimento_lgpd?: boolean
+          created_at?: string
+          email: string
+          empresa: string
+          id?: string
+          mensagem?: string | null
+          nome: string
+          objetivo_principal: string
+          origem?: string | null
+          status?: string | null
+          tamanho_operacao: string
+          user_agent?: string | null
+          whatsapp: string
+        }
+        Update: {
+          cargo?: string | null
+          consentimento_lgpd?: boolean
+          created_at?: string
+          email?: string
+          empresa?: string
+          id?: string
+          mensagem?: string | null
+          nome?: string
+          objetivo_principal?: string
+          origem?: string | null
+          status?: string | null
+          tamanho_operacao?: string
+          user_agent?: string | null
+          whatsapp?: string
+        }
+        Relationships: []
+      }
       balance_sheet_entries: {
         Row: {
           account_code: string | null
