@@ -172,6 +172,45 @@ async function executeNodes(
         return { execution_id: executionId, status: "waiting", waiting_for: phone, duration_ms: Date.now() - startTime };
       }
 
+      // ── Special async condition: whatsapp_first_message_in_window ──
+      // Verifica se é a primeira mensagem inbound do contato dentro de window_days
+      // Async porque precisa fazer query no banco — diferente das conditions sincronas em evaluateCondition
+      if (node.type === "condition" && node.catalogId === "whatsapp_first_message_in_window") {
+        const phone = String(triggerData.phone || "");
+        const windowDays = Number(node.config.window_days) || 30;
+
+        let passed = false;
+        if (phone) {
+          const cutoff = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+          const { count, error: cntErr } = await supabase
+            .from("whatsapp_meta_messages")
+            .select("id", { count: "exact", head: true })
+            .eq("tenant_id", tenantId)
+            .eq("phone_number", phone)
+            .eq("direction", "inbound")
+            .gte("created_at", cutoff);
+
+          if (cntErr) {
+            throw new Error("first_message condition error: " + cntErr.message);
+          }
+          // count <= 1 = primeira mensagem na janela (a propria mensagem do trigger ja conta)
+          passed = (count ?? 0) <= 1;
+        }
+
+        if (!passed) {
+          await supabase.from("workflow_execution_steps").update({
+            status: "skipped", output_data: { result: "condition_not_met", phone, window_days: windowDays },
+            completed_at: new Date().toISOString(), duration_ms: Date.now() - stepStart,
+          }).eq("execution_id", executionId).eq("node_id", node.id);
+          break;
+        }
+        await supabase.from("workflow_execution_steps").update({
+          status: "completed", output_data: { result: "condition_met", phone, window_days: windowDays },
+          completed_at: new Date().toISOString(), duration_ms: Date.now() - stepStart,
+        }).eq("execution_id", executionId).eq("node_id", node.id);
+        continue;
+      }
+
       if (node.type === "condition") {
         const passed = evaluateCondition(node, triggerData);
         if (!passed) {
