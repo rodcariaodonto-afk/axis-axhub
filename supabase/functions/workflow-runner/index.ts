@@ -160,6 +160,7 @@ async function executeNodes(
           phone,
           remaining_nodes: remainingNodes,
           expires_at: timeoutMin > 0 ? new Date(Date.now() + timeoutMin * 60000).toISOString() : null,
+          provider: String((node.config as Record<string, unknown>).provider || "evolution"),
         });
 
         await supabase.from("workflow_execution_steps").update({
@@ -305,10 +306,52 @@ async function executeAction(
 
     case "send_whatsapp_message":
     case "send_whatsapp_text": {
-      const sessionId = r(config.session_id);
+      const provider = String(r(config.provider) || "evolution");
       const phone = r(config.phone);
       const message = r(config.message);
-      if (!sessionId || !phone || !message) return { action: "skipped", reason: "missing_fields" };
+      if (!phone || !message) return { action: "skipped", reason: "missing_fields" };
+
+      // ── Meta Cloud API: chamada direta (auth da Edge Function send-whatsapp-meta-message exige JWT de user) ──
+      if (provider === "meta") {
+        const connectionId = r(config.connection_id);
+        if (!connectionId) return { action: "skipped", reason: "missing_connection_id" };
+
+        // Buscar credenciais da conexao Meta
+        const { data: conn, error: connErr } = await supabase
+          .from("whatsapp_meta_connections")
+          .select("phone_number_id, access_token")
+          .eq("id", connectionId)
+          .eq("tenant_id", tenantId)
+          .eq("is_active", true)
+          .single();
+        if (connErr || !conn) throw new Error("Meta connection not found or inactive: " + (connErr?.message || connectionId));
+
+        // Normalizar telefone para E.164
+        const digits = phone.replace(/\D/g, "");
+        const to = digits.startsWith("55") && digits.length >= 12 ? `+${digits}`
+                 : (digits.length === 11 || digits.length === 10) ? `+55${digits}`
+                 : `+${digits}`;
+
+        // Chamar Meta Cloud API direto
+        const metaRes = await fetch(`https://graph.facebook.com/v18.0/${conn.phone_number_id}/messages`, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${conn.access_token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messaging_product: "whatsapp",
+            recipient_type: "individual",
+            to,
+            type: "text",
+            text: { body: message },
+          }),
+        });
+        const metaBody = await metaRes.json().catch(() => ({}));
+        if (!metaRes.ok) throw new Error("Meta send error: " + JSON.stringify(metaBody));
+        return { action: "whatsapp_text_sent", provider: "meta", phone: to, message_id: metaBody?.messages?.[0]?.id };
+      }
+
+      // ── Evolution API: comportamento existente (regressao zero) ──
+      const sessionId = r(config.session_id);
+      if (!sessionId) return { action: "skipped", reason: "missing_session_id" };
 
       const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-whatsapp-message`, {
         method: "POST",
@@ -317,7 +360,7 @@ async function executeAction(
       });
       const resBody = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error("WhatsApp send error: " + JSON.stringify(resBody));
-      return { action: "whatsapp_text_sent", phone, status: res.status };
+      return { action: "whatsapp_text_sent", provider: "evolution", phone, status: res.status };
     }
 
     case "send_whatsapp_image": {
@@ -503,17 +546,19 @@ async function executeAction(
     }
 
     case "create_activity": {
+      const assignedTo = r(config.assigned_to_user_id);
       const { error } = await supabase.from("activities").insert({
         tenant_id: tenantId,
         title: r(config.title) || "Tarefa do workflow",
         type: r(config.type) || "task",
         description: r(config.description) || "",
-        owner_user_id: createdBy,
+        owner_user_id: assignedTo || createdBy,
         lead_id: triggerData.lead_id as string || null,
         deal_id: triggerData.deal_id as string || null,
+        contact_id: triggerData.contact_id as string || null,
       });
       if (error) throw new Error("Create activity error: " + error.message);
-      return { action: "activity_created" };
+      return { action: "activity_created", assigned_to: assignedTo || createdBy };
     }
 
     case "add_tag": {
