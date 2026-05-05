@@ -134,6 +134,20 @@ async function processMessage(msg: any, connection: any, serviceClient: any) {
 
   // Integração CRM — buscar contato pelo número
   await integrateCRM(from, content, connection, serviceClient, timestamp);
+
+  // Disparar workflows (ou resume) — try/catch isolado: erro aqui não afeta save da mensagem
+  try {
+    await dispatchWorkflowsOrResume({
+      tenantId: connection.tenant_id,
+      connectionId: connection.id,
+      phone: from,
+      messageText: content,
+      messageId: msg.id,
+      serviceClient,
+    });
+  } catch (e) {
+    console.error("[workflow-dispatch] failed, continuing:", e);
+  }
 }
 
 async function integrateCRM(
@@ -144,42 +158,20 @@ async function integrateCRM(
   timestamp: string
 ) {
   try {
-    // Normalizar número para busca (com e sem +55)
-    const digits = phone.replace(/\D/g, "");
-    const phoneVariants = [phone, digits, `+${digits}`];
+    // Resolver contato/lead via helper (compartilhado com dispatchWorkflowsOrResume)
+    const { contactId, contactName: resolvedName } = await resolveContactByPhone(
+      phone,
+      connection.tenant_id,
+      serviceClient
+    );
+    const contactName = resolvedName || phone;
 
-    // Buscar contato pelo número
-    let contactId: string | null = null;
-    let contactName = phone;
-
-    const { data: contacts } = await serviceClient
-      .from("contacts")
-      .select("id, first_name, last_name, phone")
-      .eq("tenant_id", connection.tenant_id)
-      .or(phoneVariants.map((p) => `phone.eq.${p}`).join(","))
-      .limit(1);
-
-    if (contacts && contacts.length > 0) {
-      contactId = contacts[0].id;
-      contactName = `${contacts[0].first_name} ${contacts[0].last_name || ""}`.trim();
-
-      // Atualizar last_contacted_at se a coluna existir
+    // Atualizar updated_at do contato se encontrado
+    if (contactId) {
       await serviceClient
         .from("contacts")
         .update({ updated_at: new Date().toISOString() })
         .eq("id", contactId);
-    } else {
-      // Buscar em leads
-      const { data: leads } = await serviceClient
-        .from("leads")
-        .select("id, name, phone")
-        .eq("tenant_id", connection.tenant_id)
-        .or(phoneVariants.map((p) => `phone.eq.${p}`).join(","))
-        .limit(1);
-
-      if (leads && leads.length > 0) {
-        contactName = leads[0].name || phone;
-      }
     }
 
     // Buscar tipo de atividade WhatsApp ou usar padrão
@@ -212,4 +204,139 @@ async function integrateCRM(
   } catch (err) {
     console.error("integrateCRM error:", err);
   }
+}
+
+// ── Helper: resolve contato/lead por phone (compartilhado entre integrateCRM e dispatch) ──
+async function resolveContactByPhone(
+  phone: string,
+  tenantId: string,
+  serviceClient: any
+): Promise<{ contactId: string | null; leadId: string | null; contactName: string | null }> {
+  const digits = phone.replace(/\D/g, "");
+  const phoneVariants = [phone, digits, `+${digits}`];
+
+  // Tentar contacts primeiro
+  const { data: contacts } = await serviceClient
+    .from("contacts")
+    .select("id, first_name, last_name")
+    .eq("tenant_id", tenantId)
+    .or(phoneVariants.map((p) => `phone.eq.${p}`).join(","))
+    .limit(1);
+
+  if (contacts && contacts.length > 0) {
+    const c = contacts[0];
+    return {
+      contactId: c.id,
+      leadId: null,
+      contactName: `${c.first_name} ${c.last_name || ""}`.trim() || null,
+    };
+  }
+
+  // Fallback: leads
+  const { data: leads } = await serviceClient
+    .from("leads")
+    .select("id, name")
+    .eq("tenant_id", tenantId)
+    .or(phoneVariants.map((p) => `phone.eq.${p}`).join(","))
+    .limit(1);
+
+  if (leads && leads.length > 0) {
+    return {
+      contactId: null,
+      leadId: leads[0].id,
+      contactName: leads[0].name || null,
+    };
+  }
+
+  return { contactId: null, leadId: null, contactName: null };
+}
+
+// ── Disparar workflows ou retomar execução pausada ──
+async function dispatchWorkflowsOrResume(params: {
+  tenantId: string;
+  connectionId: string;
+  phone: string;
+  messageText: string;
+  messageId: string;
+  serviceClient: any;
+}) {
+  const { tenantId, connectionId, phone, messageText, messageId, serviceClient } = params;
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  // ── 1. Verificar workflow_waiting_states ativo (resume) ──
+  const { data: waiting } = await serviceClient
+    .from("workflow_waiting_states")
+    .select("execution_id")
+    .eq("tenant_id", tenantId)
+    .eq("phone", phone)
+    .eq("provider", "meta")
+    .eq("status", "waiting")
+    .or("expires_at.is.null,expires_at.gt." + new Date().toISOString())
+    .limit(1);
+
+  if (waiting && waiting.length > 0) {
+    const executionId = waiting[0].execution_id;
+    console.log("[workflow-dispatch] resume execution:", executionId);
+
+    const res = await fetch(`${supabaseUrl}/functions/v1/workflow-runner`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceRoleKey}` },
+      body: JSON.stringify({ resume_execution_id: executionId, whatsapp_reply: messageText }),
+    });
+    if (!res.ok) console.error("[workflow-dispatch] resume failed:", await res.text());
+    return;
+  }
+
+  // ── 2. Resolver contact/lead para enriquecer triggerData ──
+  const { contactId, leadId } = await resolveContactByPhone(phone, tenantId, serviceClient);
+
+  // ── 3. Buscar workflows publicados com trigger compativel ──
+  const { data: workflows } = await serviceClient
+    .from("workflows")
+    .select("id, name")
+    .eq("tenant_id", tenantId)
+    .eq("is_published", true)
+    .eq("is_active", true)
+    .contains("trigger_types", ["whatsapp.message_received"]);
+
+  if (!workflows || workflows.length === 0) {
+    console.log("[workflow-dispatch] no workflows for tenant:", tenantId);
+    return;
+  }
+
+  console.log("[workflow-dispatch] dispatching", workflows.length, "workflows for", phone);
+
+  // ── 4. Disparar cada workflow (em paralelo, sem aguardar) ──
+  const triggerData = {
+    phone,
+    message_text: messageText,
+    provider: "meta",
+    connection_id: connectionId,
+    contact_id: contactId,
+    lead_id: leadId,
+    message_id: messageId,
+    tenant_id: tenantId,
+  };
+
+  await Promise.all(
+    workflows.map(async (wf: any) => {
+      try {
+        const res = await fetch(`${supabaseUrl}/functions/v1/workflow-runner`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceRoleKey}` },
+          body: JSON.stringify({
+            workflow_id: wf.id,
+            trigger_type: "whatsapp.message_received",
+            trigger_data: triggerData,
+          }),
+        });
+        if (!res.ok) {
+          console.error(`[workflow-dispatch] workflow ${wf.id} (${wf.name}) failed:`, await res.text());
+        }
+      } catch (e) {
+        console.error(`[workflow-dispatch] workflow ${wf.id} fetch error:`, e);
+      }
+    })
+  );
 }
