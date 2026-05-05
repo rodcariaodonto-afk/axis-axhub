@@ -2,7 +2,7 @@ import {
   Zap, UserPlus, RefreshCw, Trophy, XCircle, GitBranch, ShoppingCart, CreditCard, Users,
   Bell, Edit, ArrowRight, CalendarPlus, Tag, Webhook, Clock, ClipboardList,
   Equal, Search, TrendingUp, HelpCircle, Play, MessageSquare, Send,
-  Image, FileText, Mic, Smartphone, MessageCircle, Timer,
+  Image, FileText, Mic, Smartphone, MessageCircle, Timer, Calendar,
 } from "lucide-react";
 
 export interface CatalogItem {
@@ -36,9 +36,11 @@ export const triggersCatalog: CatalogItem[] = [
   { id: "manual", label: "Execução manual", description: "Executado manualmente pelo usuário", icon: Play, category: "trigger" },
   { id: "form.submitted", label: "Formulário respondido", description: "Quando uma resposta de formulário é enviada", icon: ClipboardList, category: "trigger" },
   {
-    id: "whatsapp.message_received", label: "Mensagem recebida no WhatsApp", description: "Quando uma mensagem é recebida via WhatsApp", icon: MessageSquare, category: "trigger",
+    id: "whatsapp.message_received", label: "Mensagem recebida no WhatsApp", description: "Quando uma mensagem é recebida via WhatsApp (Evolution ou Meta Cloud API)", icon: MessageSquare, category: "trigger",
     configFields: [
-      { key: "session_id", label: "Sessão WhatsApp", type: "text", required: true, placeholder: "ID da sessão" },
+      { key: "provider", label: "Provedor", type: "select", options: [{ value: "evolution", label: "Evolution API" }, { value: "meta", label: "Meta Cloud API" }], placeholder: "Selecione o provedor" },
+      { key: "session_id", label: "Sessão WhatsApp (Evolution)", type: "text", placeholder: "ID da sessão — apenas Evolution" },
+      { key: "connection_id", label: "Conexão WhatsApp (Meta)", type: "text", placeholder: "ID da conexão Meta — apenas Meta" },
       { key: "keyword", label: "Palavra-chave (opcional)", type: "text", placeholder: "Ex: oi, ajuda, preço" },
     ],
   },
@@ -73,6 +75,7 @@ export const actionsCatalog: CatalogItem[] = [
       { key: "title", label: "Título", type: "text", required: true, placeholder: "Título da atividade" },
       { key: "type", label: "Tipo", type: "select", options: [{ value: "task", label: "Tarefa" }, { value: "call", label: "Ligação" }, { value: "meeting", label: "Reunião" }, { value: "email", label: "E-mail" }] },
       { key: "description", label: "Descrição", type: "textarea", placeholder: "Descrição" },
+      { key: "assigned_to_user_id", label: "Atribuir para usuário (opcional)", type: "text", placeholder: "UUID do profile — vazio usa o criador do workflow" },
     ],
   },
   {
@@ -152,10 +155,12 @@ export const actionsCatalog: CatalogItem[] = [
     ],
   },
   {
-    id: "send_whatsapp_text", label: "Enviar texto WhatsApp", description: "Envia uma mensagem de texto via WhatsApp", icon: MessageSquare, category: "action",
+    id: "send_whatsapp_text", label: "Enviar texto WhatsApp", description: "Envia uma mensagem de texto via WhatsApp (Evolution ou Meta Cloud API)", icon: MessageSquare, category: "action",
     configFields: [
-      { key: "session_id", label: "Sessão WhatsApp", type: "text", required: true, placeholder: "ID da sessão" },
-      { key: "phone", label: "Telefone", type: "text", required: true, placeholder: "5511999999999" },
+      { key: "provider", label: "Provedor", type: "select", options: [{ value: "evolution", label: "Evolution API" }, { value: "meta", label: "Meta Cloud API" }], placeholder: "Selecione o provedor" },
+      { key: "session_id", label: "Sessão WhatsApp (Evolution)", type: "text", placeholder: "ID da sessão — apenas Evolution" },
+      { key: "connection_id", label: "Conexão WhatsApp (Meta)", type: "text", placeholder: "ID da conexão Meta — apenas Meta" },
+      { key: "phone", label: "Telefone", type: "text", required: true, placeholder: "5511999999999 ou {{phone}}" },
       { key: "message", label: "Mensagem", type: "textarea", required: true, placeholder: "Texto da mensagem" },
     ],
   },
@@ -193,9 +198,11 @@ export const actionsCatalog: CatalogItem[] = [
     ],
   },
   {
-    id: "wait_for_whatsapp_reply", label: "Aguardar resposta WhatsApp", description: "Pausa o workflow até receber uma resposta via WhatsApp", icon: Timer, category: "action",
+    id: "wait_for_whatsapp_reply", label: "Aguardar resposta WhatsApp", description: "Pausa o workflow até receber uma resposta via WhatsApp (Evolution ou Meta Cloud API)", icon: Timer, category: "action",
     configFields: [
-      { key: "session_id", label: "Sessão WhatsApp", type: "text", required: true, placeholder: "ID da sessão" },
+      { key: "provider", label: "Provedor", type: "select", options: [{ value: "evolution", label: "Evolution API" }, { value: "meta", label: "Meta Cloud API" }], placeholder: "Selecione o provedor" },
+      { key: "session_id", label: "Sessão WhatsApp (Evolution)", type: "text", placeholder: "ID da sessão — apenas Evolution" },
+      { key: "connection_id", label: "Conexão WhatsApp (Meta)", type: "text", placeholder: "ID da conexão Meta — apenas Meta" },
       { key: "phone", label: "Telefone", type: "text", required: true, placeholder: "5511999999999 ou {{phone}}" },
       { key: "timeout_minutes", label: "Timeout (minutos, opcional)", type: "number", placeholder: "60" },
     ],
@@ -237,6 +244,12 @@ export const conditionsCatalog: CatalogItem[] = [
     configFields: [
       { key: "value", label: "Texto a verificar", type: "text", required: true, placeholder: "Ex: sim, não, preço" },
       { key: "case_sensitive", label: "Sensível a maiúsculas", type: "select", options: [{ value: "false", label: "Não" }, { value: "true", label: "Sim" }] },
+    ],
+  },
+  {
+    id: "whatsapp_first_message_in_window", label: "Primeira mensagem em janela", description: "Verifica se é a primeira mensagem inbound do contato em N dias (apenas WhatsApp Meta)", icon: Calendar, category: "condition",
+    configFields: [
+      { key: "window_days", label: "Janela em dias", type: "number", required: true, placeholder: "30" },
     ],
   },
 ];
