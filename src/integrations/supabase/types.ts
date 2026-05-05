@@ -7085,6 +7085,7 @@ export type Database = {
           id: string
           node_id: string
           phone: string
+          provider: string
           remaining_nodes: Json
           session_id: string | null
           status: string
@@ -7098,6 +7099,7 @@ export type Database = {
           id?: string
           node_id: string
           phone: string
+          provider?: string
           remaining_nodes?: Json
           session_id?: string | null
           status?: string
@@ -7111,6 +7113,7 @@ export type Database = {
           id?: string
           node_id?: string
           phone?: string
+          provider?: string
           remaining_nodes?: Json
           session_id?: string | null
           status?: string
