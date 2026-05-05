@@ -278,7 +278,9 @@ async function dispatchWorkflowsOrResume(
     .select("id, execution_id, workflow_id, node_id")
     .eq("tenant_id", tenantId)
     .eq("status", "waiting")
-    .eq("wait_phone", phone)
+    .eq("phone", phone)
+    .eq("provider", "meta")
+    .or("expires_at.is.null,expires_at.gt." + new Date().toISOString())
     .limit(5);
 
   const runnerUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/workflow-runner`;
@@ -286,7 +288,7 @@ async function dispatchWorkflowsOrResume(
 
   if (waiting && waiting.length > 0) {
     for (const w of waiting) {
-      console.log("Resuming workflow execution:", w.execution_id);
+      console.log("[workflow-dispatch] resume execution:", w.execution_id, "node:", w.node_id);
       fetch(runnerUrl, {
         method: "POST",
         headers: {
@@ -298,7 +300,7 @@ async function dispatchWorkflowsOrResume(
           resume_node_id: w.node_id,
           trigger_data: triggerData,
         }),
-      }).catch((e) => console.error("resume invoke error:", e));
+      }).catch((e) => console.error("[workflow-dispatch] resume invoke error:", e));
     }
     return; // Se houve resume, não dispara novos
   }
@@ -306,15 +308,20 @@ async function dispatchWorkflowsOrResume(
   // 2. Não há resume: buscar workflows publicados com trigger 'whatsapp.message_received'
   const { data: workflows } = await serviceClient
     .from("workflows")
-    .select("id, trigger_type, trigger_config")
+    .select("id, name, trigger_types")
     .eq("tenant_id", tenantId)
-    .eq("status", "published")
-    .eq("trigger_type", "whatsapp.message_received");
+    .eq("is_published", true)
+    .eq("is_active", true)
+    .contains("trigger_types", ["whatsapp.message_received"]);
 
-  if (!workflows || workflows.length === 0) return;
+  if (!workflows || workflows.length === 0) {
+    console.log("[workflow-dispatch] no workflows for tenant:", tenantId);
+    return;
+  }
+  console.log("[workflow-dispatch] dispatching", workflows.length, "workflow(s) for", phone);
 
   for (const wf of workflows) {
-    console.log("Dispatching workflow:", wf.id, "for phone:", phone);
+    console.log("[workflow-dispatch] dispatching workflow:", wf.id, wf.name, "for phone:", phone);
     fetch(runnerUrl, {
       method: "POST",
       headers: {
@@ -325,6 +332,6 @@ async function dispatchWorkflowsOrResume(
         workflow_id: wf.id,
         trigger_data: triggerData,
       }),
-    }).catch((e) => console.error("dispatch invoke error:", e));
+    }).catch((e) => console.error("[workflow-dispatch] invoke error:", e));
   }
 }
