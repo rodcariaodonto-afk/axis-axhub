@@ -272,10 +272,12 @@ async function dispatchWorkflowsOrResume(
   serviceClient: any,
   triggerData: any
 ) {
+  console.log("[workflow-dispatch] ENTRY", { phone, tenant: connection.tenant_id });
   const tenantId = connection.tenant_id;
 
   // 1. Procurar workflow_waiting_states pendentes para esse telefone
-  const { data: waiting } = await serviceClient
+  console.log("[workflow-dispatch] querying waiting_states");
+  const { data: waiting, error: waitingErr } = await serviceClient
     .from("workflow_waiting_states")
     .select("id, execution_id, workflow_id, node_id")
     .eq("tenant_id", tenantId)
@@ -284,6 +286,8 @@ async function dispatchWorkflowsOrResume(
     .eq("provider", "meta")
     .or("expires_at.is.null,expires_at.gt." + new Date().toISOString())
     .limit(5);
+  if (waitingErr) console.error("[workflow-dispatch] waiting_states query error:", waitingErr);
+  console.log("[workflow-dispatch] waiting_states result:", waiting?.length || 0, "rows");
 
   const runnerUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/workflow-runner`;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -308,13 +312,16 @@ async function dispatchWorkflowsOrResume(
   }
 
   // 2. Não há resume: buscar workflows publicados com trigger 'whatsapp.message_received'
-  const { data: workflows } = await serviceClient
+  console.log("[workflow-dispatch] querying workflows for tenant:", tenantId);
+  const { data: workflows, error: workflowsErr } = await serviceClient
     .from("workflows")
     .select("id, name, trigger_types")
     .eq("tenant_id", tenantId)
     .eq("is_published", true)
     .eq("is_active", true)
     .contains("trigger_types", ["whatsapp.message_received"]);
+  if (workflowsErr) console.error("[workflow-dispatch] workflows query error:", workflowsErr);
+  console.log("[workflow-dispatch] workflows result:", workflows?.length || 0, "rows");
 
   if (!workflows || workflows.length === 0) {
     console.log("[workflow-dispatch] no workflows for tenant:", tenantId);
