@@ -197,9 +197,11 @@ async function processMessage(msg: any, connection: any, serviceClient: any) {
 
   // Integração CRM
   await integrateCRM(from, content, connection, serviceClient, timestamp, resolved);
+  console.log("[processMessage] after integrateCRM, before dispatch");
 
   // Dispatch de workflows / resume — isolado, não afeta save
   try {
+    console.log("[processMessage] entering dispatch try block");
     await dispatchWorkflowsOrResume(from, connection, serviceClient, {
       message_id: msg.id,
       content,
