@@ -348,7 +348,22 @@ async function executeAction(
         });
         const metaBody = await metaRes.json().catch(() => ({}));
         if (!metaRes.ok) throw new Error("Meta send error: " + JSON.stringify(metaBody));
-        return { action: "whatsapp_text_sent", provider: "meta", phone: to, message_id: metaBody?.messages?.[0]?.id };
+        const messageId = metaBody?.messages?.[0]?.id || null;
+
+        const { error: saveErr } = await supabase.from("whatsapp_meta_messages").insert({
+          connection_id: connectionId,
+          tenant_id: tenantId,
+          message_id: messageId,
+          phone_number: to,
+          message_type: "text",
+          message_content: message,
+          direction: "outbound",
+          status: "sent",
+          meta_timestamp: new Date().toISOString(),
+        });
+        if (saveErr) console.error("[send_whatsapp_text] failed to persist Meta outbound:", saveErr.message);
+
+        return { action: "whatsapp_text_sent", provider: "meta", phone: to, message_id: messageId, persisted: !saveErr };
       }
 
       // ── Evolution API: comportamento existente (regressao zero) ──
