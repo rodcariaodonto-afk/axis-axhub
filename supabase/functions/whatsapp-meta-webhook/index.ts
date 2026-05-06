@@ -55,11 +55,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    EdgeRuntime.waitUntil(
-      processPayload(payload, serviceClient).catch((err) => {
-        console.error("processPayload error:", err);
-      })
-    );
+    try {
+      await processPayload(payload, serviceClient);
+    } catch (err) {
+      console.error("processPayload error:", err);
+    }
 
     return new Response(JSON.stringify({ received: true }), {
       status: 200,
