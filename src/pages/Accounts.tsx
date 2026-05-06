@@ -441,6 +441,15 @@ export default function Accounts() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <PasswordConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}
+        title="Excluir Conta"
+        description={`Tem certeza que deseja excluir a conta "${deleteTarget?.name}"? Esta ação não pode ser desfeita.`}
+        onConfirm={handleDelete}
+        variant="destructive"
+      />
     </div>
   );
 }
