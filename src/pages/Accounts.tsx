@@ -52,6 +52,7 @@ export default function Accounts() {
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
   const [convertingAccount, setConvertingAccount] = useState<any>(null);
   const [convertForm, setConvertForm] = useState({ name: "", document: "", email: "", phone: "" });
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
