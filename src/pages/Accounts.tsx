@@ -384,6 +384,9 @@ export default function Accounts() {
                       <Button variant="ghost" size="icon" className="h-8 w-8" title="Converter em Cliente" onClick={() => handleConvertOpen(a)}>
                         <UserCheck className="h-4 w-4 text-primary" />
                       </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" title="Excluir" onClick={() => setDeleteTarget(a)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
