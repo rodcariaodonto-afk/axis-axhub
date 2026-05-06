@@ -10,8 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Pencil, Building2, ChevronLeft, ChevronRight, UserCheck } from "lucide-react";
+import { Plus, Search, Pencil, Building2, ChevronLeft, ChevronRight, UserCheck, Trash2 } from "lucide-react";
 import AddressFields from "@/components/address/AddressFields";
+import PasswordConfirmDialog from "@/components/finance/PasswordConfirmDialog";
 
 const SEGMENTS = ["Tecnologia", "Varejo", "Serviços", "Indústria", "Saúde", "Educação", "Financeiro", "Outro"];
 const PAGE_SIZE = 10;
@@ -51,6 +52,7 @@ export default function Accounts() {
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
   const [convertingAccount, setConvertingAccount] = useState<any>(null);
   const [convertForm, setConvertForm] = useState({ name: "", document: "", email: "", phone: "" });
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
@@ -188,6 +190,15 @@ export default function Accounts() {
     toast({ title: "Conta convertida em cliente!" });
     setConvertDialogOpen(false);
     setConvertingAccount(null);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    const { error } = await supabase.from("crm_accounts").update({ is_active: false }).eq("id", deleteTarget.id);
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Conta excluída!" });
+    setDeleteTarget(null);
+    fetchData();
   };
 
   const filtered = accounts.filter((a) => {
@@ -373,6 +384,9 @@ export default function Accounts() {
                       <Button variant="ghost" size="icon" className="h-8 w-8" title="Converter em Cliente" onClick={() => handleConvertOpen(a)}>
                         <UserCheck className="h-4 w-4 text-primary" />
                       </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" title="Excluir" onClick={() => setDeleteTarget(a)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -427,6 +441,15 @@ export default function Accounts() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <PasswordConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}
+        title="Excluir Conta"
+        description={`Tem certeza que deseja excluir a conta "${deleteTarget?.name}"? Esta ação não pode ser desfeita.`}
+        onConfirm={handleDelete}
+        variant="destructive"
+      />
     </div>
   );
 }
