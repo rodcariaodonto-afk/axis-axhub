@@ -10,8 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Pencil, Building2, ChevronLeft, ChevronRight, UserCheck } from "lucide-react";
+import { Plus, Search, Pencil, Building2, ChevronLeft, ChevronRight, UserCheck, Trash2 } from "lucide-react";
 import AddressFields from "@/components/address/AddressFields";
+import PasswordConfirmDialog from "@/components/finance/PasswordConfirmDialog";
 
 const SEGMENTS = ["Tecnologia", "Varejo", "Serviços", "Indústria", "Saúde", "Educação", "Financeiro", "Outro"];
 const PAGE_SIZE = 10;
