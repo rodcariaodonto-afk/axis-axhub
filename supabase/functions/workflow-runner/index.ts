@@ -306,10 +306,12 @@ async function executeAction(
 
     case "send_whatsapp_message":
     case "send_whatsapp_text": {
-      const provider = String(r(config.provider) || "evolution");
-      const phone = r(config.phone);
-      const message = r(config.message);
-      if (!phone || !message) return { action: "skipped", reason: "missing_fields" };
+      const provider = String(r(config.provider) || String(triggerData.provider || "") || "evolution");
+      // Fallback: se config.phone não existe ou resolve vazio, usar triggerData.phone (caso típico do trigger whatsapp.message_received)
+      const phone = r(config.phone) || String(triggerData.phone || triggerData.from || "");
+      const message = r(config.message) || String(triggerData.message_text || triggerData.content || "");
+      console.log("[send_whatsapp_text] provider=", provider, "phoneLen=", phone.length, "msgLen=", message.length, "hasConfigPhone=", !!config.phone);
+      if (!phone || !message) return { action: "skipped", reason: "missing_fields", debug: { provider, hasPhone: !!phone, hasMessage: !!message } };
 
       // ── Meta Cloud API: chamada direta (auth da Edge Function send-whatsapp-meta-message exige JWT de user) ──
       if (provider === "meta") {
