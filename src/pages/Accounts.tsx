@@ -192,6 +192,15 @@ export default function Accounts() {
     setConvertingAccount(null);
   };
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    const { error } = await supabase.from("crm_accounts").update({ is_active: false }).eq("id", deleteTarget.id);
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Conta excluída!" });
+    setDeleteTarget(null);
+    fetchData();
+  };
+
   const filtered = accounts.filter((a) => {
     const matchSearch = a.name.toLowerCase().includes(search.toLowerCase()) || (a.cnpj || "").includes(search) || (a.email || "").toLowerCase().includes(search.toLowerCase());
     const matchSegment = filterSegment === "all" || a.segment === filterSegment;
