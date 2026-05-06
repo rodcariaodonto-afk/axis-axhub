@@ -205,7 +205,12 @@ async function processMessage(msg: any, connection: any, serviceClient: any) {
     await dispatchWorkflowsOrResume(from, connection, serviceClient, {
       message_id: msg.id,
       content,
+      message_text: content,
+      message: content,
+      text: content,
       message_type: msg.type,
+      phone: from,
+      from,
       timestamp,
       contact_id: resolved.contactId,
       lead_id: resolved.leadId,
