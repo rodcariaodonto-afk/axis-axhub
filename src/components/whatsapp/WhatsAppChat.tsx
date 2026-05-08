@@ -308,7 +308,7 @@ export function WhatsAppChat({
                   <p className="whitespace-pre-wrap break-words text-muted-foreground italic">[mídia]</p>
                 )}
                 <p className={`text-[10px] mt-1 ${isOutbound ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                  {format(new Date(msg.created_at), "HH:mm")}
+                  {new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}
                 </p>
               </div>
             </div>
