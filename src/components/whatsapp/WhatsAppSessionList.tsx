@@ -189,7 +189,7 @@ export function WhatsAppSessionList({ sessions, selectedId, onSelect, onNewSessi
 
                 {/* Botões Evolution */}
                 {!isMeta && (
-                  <div className="hidden group-hover:flex items-center gap-0.5 px-2 pb-1">
+                  <div className="flex items-center gap-0.5 px-2 pb-2">
                     {onCheckStatus && (
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -200,6 +200,32 @@ export function WhatsAppSessionList({ sessions, selectedId, onSelect, onNewSessi
                         <TooltipContent>Verificar status</TooltipContent>
                       </Tooltip>
                     )}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            toast({ title: "Reconfigurando webhook..." });
+                            try {
+                              const { data, error } = await supabase.functions.invoke("reconfigure-evolution-webhook", {
+                                body: { session_id: s.id },
+                              });
+                              if (error) throw error;
+                              console.log("[Webhook reconfig]", data);
+                              toast({ title: "✅ Webhook reconfigurado", description: "Envie uma mensagem de teste agora." });
+                            } catch (err: any) {
+                              toast({ title: "Erro ao reconfigurar webhook", description: err.message, variant: "destructive" });
+                            }
+                          }}
+                        >
+                          <QrCode className="h-3 w-3" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Reconfigurar webhook (corrige falta de mensagens)</TooltipContent>
+                    </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(s); }}>
