@@ -210,7 +210,7 @@ Deno.serve(async (req) => {
       await supabase.from("whatsapp_sessions").update(updateData).eq("id", session.id);
     }
     // Handle message events
-    else if (event === "messages.upsert" || event === "MESSAGES_UPSERT") {
+    else if (event === "messages.upsert" || event === "MESSAGES_UPSERT" || event === "send.message" || event === "SEND_MESSAGE") {
       const messages = Array.isArray(data) ? data : data?.messages ? data.messages : [data];
       console.log("Processing", messages.length, "messages");
 
@@ -375,6 +375,21 @@ Deno.serve(async (req) => {
                 .eq("id", currentStatus.id);
               console.log("Auto-status: changed to waiting for contact:", contactId);
             }
+          }
+        }
+
+        // Avoid duplicates when Evolution also echoes messages sent by AXHUB/cellphone
+        if (key.id) {
+          const { data: existingMessage } = await supabase
+            .from("whatsapp_messages")
+            .select("id")
+            .eq("session_id", session.id)
+            .eq("whatsapp_message_id", key.id)
+            .maybeSingle();
+
+          if (existingMessage) {
+            console.log("Skipping duplicate message:", key.id);
+            continue;
           }
         }
 

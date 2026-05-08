@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
                 url: webhookUrl,
                 byEvents: false,
                 base64: true,
-                events: ["QRCODE_UPDATED", "CONNECTION_UPDATE", "MESSAGES_UPSERT"],
+                events: ["QRCODE_UPDATED", "CONNECTION_UPDATE", "MESSAGES_UPSERT", "SEND_MESSAGE"],
               },
             }),
           });
