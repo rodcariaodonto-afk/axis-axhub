@@ -355,12 +355,24 @@ export default function WhatsApp() {
   const handleDeleteSession = async (id: string) => {
     const session = sessions.find((s) => s.id === id);
     if (session?.connection_type === "meta") {
-      await supabase.functions.invoke(`whatsapp-meta-connections/${id}`, { method: "DELETE" });
+      const { error } = await supabase.functions.invoke(`whatsapp-meta-connections/${id}`, { method: "DELETE" });
+      if (error) throw error;
     } else {
-      await supabase.from("whatsapp_sessions").delete().eq("id", id);
+      // Limpar dados dependentes primeiro (sem FK cascade)
+      const { data: contacts } = await supabase.from("whatsapp_contacts").select("id").eq("session_id", id);
+      const contactIds = (contacts || []).map((c) => c.id);
+      if (contactIds.length > 0) {
+        await supabase.from("whatsapp_messages").delete().in("contact_id", contactIds);
+        await supabase.from("whatsapp_contact_tags").delete().in("contact_id", contactIds);
+        await supabase.from("whatsapp_contact_status").delete().in("contact_id", contactIds);
+      }
+      await supabase.from("whatsapp_messages").delete().eq("session_id", id);
+      await supabase.from("whatsapp_contacts").delete().eq("session_id", id);
+      const { error } = await supabase.from("whatsapp_sessions").delete().eq("id", id);
+      if (error) throw error;
     }
     if (selectedSessionId === id) { setSelectedSessionId(undefined); setSelectedContact(null); }
-    loadSessions();
+    await loadSessions();
   };
 
   const handleDeleteChat = async () => {

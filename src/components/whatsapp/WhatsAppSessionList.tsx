@@ -69,15 +69,15 @@ export function WhatsAppSessionList({ sessions, selectedId, onSelect, onNewSessi
         const { error } = await supabase.from("whatsapp_meta_connections").update({ is_active: false, status: "disconnected" }).eq("id", deleteTarget.id);
         if (error) throw error;
       } else {
-        onDelete(deleteTarget.id);
+        await onDelete(deleteTarget.id);
       }
       toast({ title: "✅ Conexão deletada!" });
+      setDeleteTarget(null);
       onRefresh();
     } catch (err: any) {
-      toast({ title: "Erro ao deletar", description: err.message, variant: "destructive" });
+      toast({ title: "Erro ao deletar", description: err.message || "Falha ao excluir sessão", variant: "destructive" });
     } finally {
       setDeleting(false);
-      setDeleteTarget(null);
     }
   };
 
