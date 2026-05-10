@@ -214,8 +214,11 @@ export default function WhatsApp() {
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "whatsapp_meta_messages" }, (payload) => {
         const newMsg = payload.new as any;
+        const builtContent = newMsg.media_url
+          ? JSON.stringify({ url: newMsg.media_url, caption: newMsg.message_content || "" })
+          : newMsg.message_content;
         if (selectedContact && newMsg.phone_number === selectedContact.phone_number && newMsg.connection_id === selectedSessionId) {
-          setMessages((prev) => [...prev, { ...newMsg, content: newMsg.message_content }]);
+          setMessages((prev) => [...prev, { ...newMsg, content: builtContent }]);
         }
         if (newMsg.connection_id === selectedSessionId) loadContacts();
       })
