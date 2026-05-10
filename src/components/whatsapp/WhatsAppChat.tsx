@@ -152,6 +152,11 @@ export function WhatsAppChat({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileAccept, setFileAccept] = useState<string>("");
   const [fileMediaType, setFileMediaType] = useState<string>("");
+  const [recording, setRecording] = useState(false);
+  const [recordSeconds, setRecordSeconds] = useState(0);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const recordTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
