@@ -1,4 +1,4 @@
-import { Send, MessageCircle, Tag, ChevronDown, Trash2, Image, FileText, Video, Mic, ArrowRightLeft, Paperclip, Camera, File, Contact } from "lucide-react";
+import { Send, MessageCircle, Tag, ChevronDown, Trash2, Image, FileText, Video, Mic, ArrowRightLeft, Paperclip, Camera, File as FileIcon, Contact, X } from "lucide-react";
 import { EmojiPicker } from "./EmojiPicker";
 import { TemplatePicker } from "./TemplatePicker";
 import { Button } from "@/components/ui/button";
@@ -152,6 +152,11 @@ export function WhatsAppChat({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileAccept, setFileAccept] = useState<string>("");
   const [fileMediaType, setFileMediaType] = useState<string>("");
+  const [recording, setRecording] = useState(false);
+  const [recordSeconds, setRecordSeconds] = useState(0);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const recordTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -179,6 +184,52 @@ export function WhatsAppChat({
     // Reset the input so the same file can be picked again
     e.target.value = "";
   };
+
+  const startRecording = async () => {
+    if (!onSendMedia || sending) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/webm")
+        ? "audio/webm"
+        : "audio/mp4";
+      const recorder = new MediaRecorder(stream, { mimeType });
+      chunksRef.current = [];
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        if (recordTimerRef.current) { window.clearInterval(recordTimerRef.current); recordTimerRef.current = null; }
+        setRecordSeconds(0);
+        setRecording(false);
+        const blob = new Blob(chunksRef.current, { type: mimeType });
+        if (blob.size > 0) {
+          const ext = mimeType.includes("mp4") ? "m4a" : "ogg";
+          const file = new File([blob], `audio_${Date.now()}.${ext}`, { type: mimeType });
+          onSendMedia(file, "audio");
+        }
+      };
+      recorderRef.current = recorder;
+      recorder.start();
+      setRecording(true);
+      setRecordSeconds(0);
+      recordTimerRef.current = window.setInterval(() => setRecordSeconds((s) => s + 1), 1000);
+    } catch (err: any) {
+      alert("Não foi possível acessar o microfone: " + (err?.message || err));
+    }
+  };
+
+  const stopRecording = (cancel = false) => {
+    const r = recorderRef.current;
+    if (!r) return;
+    if (cancel) {
+      chunksRef.current = [];
+    }
+    try { r.stop(); } catch {}
+    recorderRef.current = null;
+  };
+
+  const formatRecTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
   if (!contactPhone) {
     return (
@@ -326,51 +377,69 @@ export function WhatsAppChat({
           className="hidden"
           onChange={handleFileSelected}
         />
-        {/* Attachment dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="shrink-0 h-9 w-9" disabled={sending}>
-              <Paperclip className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" side="top" className="min-w-[180px]">
-            <DropdownMenuItem onClick={() => openFilePicker("image/*", "image")} className="gap-2">
-              <Camera className="h-4 w-4 text-blue-500" />
-              Imagem
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openFilePicker("video/*", "video")} className="gap-2">
-              <Video className="h-4 w-4 text-purple-500" />
-              Vídeo
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openFilePicker("audio/*", "audio")} className="gap-2">
-              <Mic className="h-4 w-4 text-green-500" />
-              Áudio
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => openFilePicker(".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar", "document")} className="gap-2">
-              <File className="h-4 w-4 text-orange-500" />
-              Documento
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <EmojiPicker onEmojiSelect={(emoji) => setText((prev) => prev + emoji)} />
-        <TemplatePicker onSelect={(body) => setText(body)} contactName={contactName} />
-        <Textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Digite sua mensagem..."
-          className="min-h-[40px] max-h-[120px] resize-none"
-          rows={1}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleSend();
-            }
-          }}
-        />
-        <Button onClick={handleSend} disabled={!text.trim() || sending} size="icon" className="shrink-0 self-end">
-          <Send className="h-4 w-4" />
-        </Button>
+        {recording ? (
+          <div className="flex items-center gap-2 flex-1 px-3 py-2 rounded-md bg-secondary">
+            <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+            <span className="text-sm font-mono">Gravando {formatRecTime(recordSeconds)}</span>
+            <div className="ml-auto flex gap-2">
+              <Button onClick={() => stopRecording(true)} variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                <X className="h-4 w-4" />
+              </Button>
+              <Button onClick={() => stopRecording(false)} size="icon" className="h-8 w-8">
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="shrink-0 h-9 w-9" disabled={sending}>
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" side="top" className="min-w-[180px]">
+                <DropdownMenuItem onClick={() => openFilePicker("image/*", "image")} className="gap-2">
+                  <Camera className="h-4 w-4 text-blue-500" />
+                  Imagem
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openFilePicker("video/*", "video")} className="gap-2">
+                  <Video className="h-4 w-4 text-purple-500" />
+                  Vídeo
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => openFilePicker(".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar", "document")} className="gap-2">
+                  <FileIcon className="h-4 w-4 text-orange-500" />
+                  Documento
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <EmojiPicker onEmojiSelect={(emoji) => setText((prev) => prev + emoji)} />
+            <TemplatePicker onSelect={(body) => setText(body)} contactName={contactName} />
+            <Textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Digite sua mensagem..."
+              className="min-h-[40px] max-h-[120px] resize-none"
+              rows={1}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+            />
+            {text.trim() ? (
+              <Button onClick={handleSend} disabled={sending} size="icon" className="shrink-0 self-end">
+                <Send className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button onClick={startRecording} disabled={sending || !onSendMedia} size="icon" variant="ghost" className="shrink-0 self-end" title="Gravar áudio">
+                <Mic className="h-4 w-4" />
+              </Button>
+            )}
+          </>
+        )}
       </div>
       {lightbox && (
         <MediaLightbox

@@ -308,14 +308,33 @@ export default function WhatsApp() {
     if (!selectedContact || !selectedSessionId || !tenantId) return;
     setSending(true);
     try {
-      const ext = file.name.split(".").pop() || "bin";
+      const ext = (file.name.split(".").pop() || "bin").toLowerCase();
       const filePath = `${tenantId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from("whatsapp-media").upload(filePath, file, { contentType: file.type });
+      const { error: uploadError } = await supabase.storage.from("whatsapp-media").upload(filePath, file, { contentType: file.type || "application/octet-stream" });
       if (uploadError) throw uploadError;
       const { data: publicUrlData } = supabase.storage.from("whatsapp-media").getPublicUrl(filePath);
-      const { error } = await supabase.functions.invoke("send-whatsapp-message", { body: { session_id: selectedSessionId, phone: selectedContact.phone_number, contact_id: selectedContact.id, media_url: publicUrlData.publicUrl, media_type: mediaType, file_name: file.name, caption: caption || "" } });
-      if (error) throw error;
-      await autoAssignOnSend();
+      const publicUrl = publicUrlData.publicUrl;
+
+      const selectedSession = sessions.find((s: any) => s.id === selectedSessionId);
+      if (selectedSession?.connection_type === "meta") {
+        const { error } = await supabase.functions.invoke("send-whatsapp-meta-message", {
+          body: {
+            connection_id: selectedSessionId,
+            phone_number: selectedContact.phone_number,
+            message_type: "media",
+            media_type: mediaType,
+            media_url: publicUrl,
+            message_content: caption || "",
+          },
+        });
+        if (error) throw error;
+        setMessages((prev: any) => [...prev, { id: Date.now().toString(), content: JSON.stringify({ url: publicUrl, caption: caption || "" }), message_content: caption || "", direction: "outbound", message_type: mediaType, created_at: new Date().toISOString() }]);
+        loadContacts();
+      } else {
+        const { error } = await supabase.functions.invoke("send-whatsapp-message", { body: { session_id: selectedSessionId, phone: selectedContact.phone_number, contact_id: selectedContact.id, media_url: publicUrl, media_type: mediaType, file_name: file.name, caption: caption || "" } });
+        if (error) throw error;
+        await autoAssignOnSend();
+      }
     } catch (err: any) {
       toast({ title: "Erro ao enviar mídia", description: err.message, variant: "destructive" });
     } finally { setSending(false); }
