@@ -186,7 +186,9 @@ export default function WhatsApp() {
         .then(({ data }) => {
           if (data) setMessages(data.map((m: any) => ({
             ...m,
-            content: m.message_content,
+            content: m.media_url
+              ? JSON.stringify({ url: m.media_url, caption: m.message_content || "" })
+              : m.message_content,
             direction: m.direction,
             message_type: m.message_type || "text",
           })));
