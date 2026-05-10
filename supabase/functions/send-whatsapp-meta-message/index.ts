@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     const tenantId = profile.tenant_id;
 
     const payload = await req.json();
-    const { connection_id, message_type = "text", message_content, template_name, language_code = "pt_BR", media_url, media_type, _action, recipients } = payload;
+    const { connection_id, message_type = "text", message_content, template_name, language_code = "pt_BR", media_url, media_type, file_name, _action, recipients } = payload;
 
     // Buscar conexão
     const { data: conn, error: connError } = await supabase
