@@ -324,11 +324,11 @@ export default function WhatsApp() {
             message_type: "media",
             media_type: mediaType,
             media_url: publicUrl,
+            file_name: file.name,
             message_content: caption || "",
           },
         });
         if (error) throw error;
-        setMessages((prev: any) => [...prev, { id: Date.now().toString(), content: JSON.stringify({ url: publicUrl, caption: caption || "" }), message_content: caption || "", direction: "outbound", message_type: mediaType, created_at: new Date().toISOString() }]);
         loadContacts();
       } else {
         const { error } = await supabase.functions.invoke("send-whatsapp-message", { body: { session_id: selectedSessionId, phone: selectedContact.phone_number, contact_id: selectedContact.id, media_url: publicUrl, media_type: mediaType, file_name: file.name, caption: caption || "" } });
