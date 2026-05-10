@@ -140,7 +140,16 @@ Deno.serve(async (req) => {
     } else if (message_type === "template") {
       msgBody = { type: "template", template: { name: template_name, language: { code: language_code } } };
     } else if (message_type === "media") {
-      msgBody = { type: media_type || "image", [media_type || "image"]: { link: media_url, caption: message_content || "" } };
+      const mt = media_type || "image";
+      const mediaPayload: any = { link: media_url };
+      // Meta only allows captions on image, video and document
+      if ((mt === "image" || mt === "video" || mt === "document") && message_content) {
+        mediaPayload.caption = message_content;
+      }
+      if (mt === "document") {
+        mediaPayload.filename = file_name || "document";
+      }
+      msgBody = { type: mt, [mt]: mediaPayload };
     } else {
       return new Response(JSON.stringify({ error: `message_type inválido: ${message_type}` }), { status: 400, headers: corsHeaders });
     }
