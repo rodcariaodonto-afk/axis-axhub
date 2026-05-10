@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     const tenantId = profile.tenant_id;
 
     const payload = await req.json();
-    const { connection_id, message_type = "text", message_content, template_name, language_code = "pt_BR", media_url, media_type, _action, recipients } = payload;
+    const { connection_id, message_type = "text", message_content, template_name, language_code = "pt_BR", media_url, media_type, file_name, _action, recipients } = payload;
 
     // Buscar conexão
     const { data: conn, error: connError } = await supabase
@@ -140,20 +140,34 @@ Deno.serve(async (req) => {
     } else if (message_type === "template") {
       msgBody = { type: "template", template: { name: template_name, language: { code: language_code } } };
     } else if (message_type === "media") {
-      msgBody = { type: media_type || "image", [media_type || "image"]: { link: media_url, caption: message_content || "" } };
+      const mt = media_type || "image";
+      const mediaPayload: any = { link: media_url };
+      // Meta only allows captions on image, video and document
+      if ((mt === "image" || mt === "video" || mt === "document") && message_content) {
+        mediaPayload.caption = message_content;
+      }
+      if (mt === "document") {
+        mediaPayload.filename = file_name || "document";
+      }
+      msgBody = { type: mt, [mt]: mediaPayload };
     } else {
       return new Response(JSON.stringify({ error: `message_type inválido: ${message_type}` }), { status: 400, headers: corsHeaders });
     }
 
     const result = await sendMessage(conn.phone_number_id, conn.access_token, to, msgBody);
 
+    const storedType = message_type === "media" ? (media_type || "image") : message_type;
+    const storedContent = message_type === "media"
+      ? JSON.stringify({ url: media_url, caption: message_content || "" })
+      : (message_content || template_name || "");
+
     await serviceClient.from("whatsapp_meta_messages").insert({
       connection_id,
       tenant_id: tenantId,
       message_id: result.messageId,
       phone_number: to,
-      message_type,
-      message_content: message_content || template_name,
+      message_type: storedType,
+      message_content: storedContent,
       media_url: media_url || null,
       direction: "outbound",
       status: result.success ? "sent" : "failed",

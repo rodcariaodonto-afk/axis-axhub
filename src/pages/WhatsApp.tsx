@@ -186,7 +186,9 @@ export default function WhatsApp() {
         .then(({ data }) => {
           if (data) setMessages(data.map((m: any) => ({
             ...m,
-            content: m.message_content,
+            content: m.media_url
+              ? JSON.stringify({ url: m.media_url, caption: m.message_content || "" })
+              : m.message_content,
             direction: m.direction,
             message_type: m.message_type || "text",
           })));
@@ -212,8 +214,11 @@ export default function WhatsApp() {
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "whatsapp_meta_messages" }, (payload) => {
         const newMsg = payload.new as any;
+        const builtContent = newMsg.media_url
+          ? JSON.stringify({ url: newMsg.media_url, caption: newMsg.message_content || "" })
+          : newMsg.message_content;
         if (selectedContact && newMsg.phone_number === selectedContact.phone_number && newMsg.connection_id === selectedSessionId) {
-          setMessages((prev) => [...prev, { ...newMsg, content: newMsg.message_content }]);
+          setMessages((prev) => [...prev, { ...newMsg, content: builtContent }]);
         }
         if (newMsg.connection_id === selectedSessionId) loadContacts();
       })
@@ -324,11 +329,11 @@ export default function WhatsApp() {
             message_type: "media",
             media_type: mediaType,
             media_url: publicUrl,
+            file_name: file.name,
             message_content: caption || "",
           },
         });
         if (error) throw error;
-        setMessages((prev: any) => [...prev, { id: Date.now().toString(), content: JSON.stringify({ url: publicUrl, caption: caption || "" }), message_content: caption || "", direction: "outbound", message_type: mediaType, created_at: new Date().toISOString() }]);
         loadContacts();
       } else {
         const { error } = await supabase.functions.invoke("send-whatsapp-message", { body: { session_id: selectedSessionId, phone: selectedContact.phone_number, contact_id: selectedContact.id, media_url: publicUrl, media_type: mediaType, file_name: file.name, caption: caption || "" } });
