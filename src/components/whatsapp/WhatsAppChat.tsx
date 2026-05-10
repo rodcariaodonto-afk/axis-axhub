@@ -399,7 +399,7 @@ export function WhatsAppChat({
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => openFilePicker(".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar", "document")} className="gap-2">
-              <File className="h-4 w-4 text-orange-500" />
+              <FileIcon className="h-4 w-4 text-orange-500" />
               Documento
             </DropdownMenuItem>
           </DropdownMenuContent>
