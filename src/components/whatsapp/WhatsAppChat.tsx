@@ -1,4 +1,4 @@
-import { Send, MessageCircle, Tag, ChevronDown, Trash2, Image, FileText, Video, Mic, ArrowRightLeft, Paperclip, Camera, File, Contact } from "lucide-react";
+import { Send, MessageCircle, Tag, ChevronDown, Trash2, Image, FileText, Video, Mic, ArrowRightLeft, Paperclip, Camera, File as FileIcon, Contact, X } from "lucide-react";
 import { EmojiPicker } from "./EmojiPicker";
 import { TemplatePicker } from "./TemplatePicker";
 import { Button } from "@/components/ui/button";
