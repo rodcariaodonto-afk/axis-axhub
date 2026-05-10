@@ -156,13 +156,18 @@ Deno.serve(async (req) => {
 
     const result = await sendMessage(conn.phone_number_id, conn.access_token, to, msgBody);
 
+    const storedType = message_type === "media" ? (media_type || "image") : message_type;
+    const storedContent = message_type === "media"
+      ? JSON.stringify({ url: media_url, caption: message_content || "" })
+      : (message_content || template_name || "");
+
     await serviceClient.from("whatsapp_meta_messages").insert({
       connection_id,
       tenant_id: tenantId,
       message_id: result.messageId,
       phone_number: to,
-      message_type,
-      message_content: message_content || template_name,
+      message_type: storedType,
+      message_content: storedContent,
       media_url: media_url || null,
       direction: "outbound",
       status: result.success ? "sent" : "failed",
