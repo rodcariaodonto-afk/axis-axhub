@@ -185,6 +185,52 @@ export function WhatsAppChat({
     e.target.value = "";
   };
 
+  const startRecording = async () => {
+    if (!onSendMedia || sending) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/webm")
+        ? "audio/webm"
+        : "audio/mp4";
+      const recorder = new MediaRecorder(stream, { mimeType });
+      chunksRef.current = [];
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        if (recordTimerRef.current) { window.clearInterval(recordTimerRef.current); recordTimerRef.current = null; }
+        setRecordSeconds(0);
+        setRecording(false);
+        const blob = new Blob(chunksRef.current, { type: mimeType });
+        if (blob.size > 0) {
+          const ext = mimeType.includes("mp4") ? "m4a" : "ogg";
+          const file = new File([blob], `audio_${Date.now()}.${ext}`, { type: mimeType });
+          onSendMedia(file, "audio");
+        }
+      };
+      recorderRef.current = recorder;
+      recorder.start();
+      setRecording(true);
+      setRecordSeconds(0);
+      recordTimerRef.current = window.setInterval(() => setRecordSeconds((s) => s + 1), 1000);
+    } catch (err: any) {
+      alert("Não foi possível acessar o microfone: " + (err?.message || err));
+    }
+  };
+
+  const stopRecording = (cancel = false) => {
+    const r = recorderRef.current;
+    if (!r) return;
+    if (cancel) {
+      chunksRef.current = [];
+    }
+    try { r.stop(); } catch {}
+    recorderRef.current = null;
+  };
+
+  const formatRecTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
   if (!contactPhone) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
