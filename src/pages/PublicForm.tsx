@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
@@ -69,6 +69,36 @@ export default function PublicForm() {
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [currentSection, setCurrentSection] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [restored, setRestored] = useState(false);
+
+  const storageKey = `axis-form-draft:${code}`;
+
+  // Restore draft on mount
+  useEffect(() => {
+    if (!code) return;
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        if (draft.identify) setIdentify(draft.identify);
+        if (draft.answers) setAnswers(draft.answers);
+        if (typeof draft.currentSection === "number") setCurrentSection(draft.currentSection);
+        if (draft.step === "form" || draft.step === "identify") setStep(draft.step);
+        if (draft.identify || draft.answers) setRestored(true);
+      }
+    } catch (e) {
+      console.warn("[PublicForm] failed to restore draft", e);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code]);
+
+  // Auto-save draft on every change
+  useEffect(() => {
+    if (!code || step === "success") return;
+    try {
+      localStorage.setItem(storageKey, JSON.stringify({ identify, answers, currentSection, step, savedAt: Date.now() }));
+    } catch {}
+  }, [identify, answers, currentSection, step, code, storageKey]);
 
   const { data: form, isLoading } = useQuery({
     queryKey: ["public-form", code],
@@ -152,6 +182,7 @@ export default function PublicForm() {
     }
 
     setSubmitting(false);
+    try { localStorage.removeItem(storageKey); } catch {}
     setStep("success");
   };
 
@@ -257,6 +288,11 @@ export default function PublicForm() {
 
         {step === "form" && (
           <div className="space-y-6">
+            {restored && (
+              <div className="text-xs text-primary bg-primary/10 border border-primary/30 rounded-md px-3 py-2">
+                Suas respostas anteriores foram restauradas automaticamente. Continue de onde parou.
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <div className="text-sm text-muted-foreground">
                 Respondendo como: <strong>{identify.nome}</strong>
