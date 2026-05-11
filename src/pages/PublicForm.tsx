@@ -72,33 +72,117 @@ export default function PublicForm() {
   const [restored, setRestored] = useState(false);
 
   const storageKey = `axis-form-draft:${code}`;
+  const tokenKey = `axis-form-draft-token:${code}`;
 
-  // Restore draft on mount
+  // Stable draft token (per browser, per form)
+  const [draftToken] = useState<string>(() => {
+    if (typeof window === "undefined") return crypto.randomUUID();
+    try {
+      const existing = localStorage.getItem(tokenKey);
+      if (existing) return existing;
+      const t = crypto.randomUUID();
+      localStorage.setItem(tokenKey, t);
+      return t;
+    } catch {
+      return crypto.randomUUID();
+    }
+  });
+
+  // Restore draft on mount: try server first, fallback to localStorage
   useEffect(() => {
     if (!code) return;
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (raw) {
-        const draft = JSON.parse(raw);
-        if (draft.identify) setIdentify(draft.identify);
+    let cancelled = false;
+    (async () => {
+      // Local fallback
+      let local: any = null;
+      try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) local = JSON.parse(raw);
+      } catch {}
+
+      // Server (more authoritative — survives device/cache wipe)
+      let server: any = null;
+      try {
+        const { data: f } = await supabase
+          .from("forms")
+          .select("id")
+          .eq("unique_code", code)
+          .maybeSingle();
+        if (f?.id) {
+          const { data: d } = await supabase
+            .from("form_response_drafts")
+            .select("identify, answers, current_section, step")
+            .eq("form_id", f.id)
+            .eq("draft_token", draftToken)
+            .maybeSingle();
+          if (d) server = d;
+        }
+      } catch (e) {
+        console.warn("[PublicForm] server draft fetch failed", e);
+      }
+      if (cancelled) return;
+
+      const draft = server
+        ? {
+            identify: server.identify,
+            answers: server.answers,
+            currentSection: server.current_section,
+            step: server.step,
+          }
+        : local;
+
+      if (draft) {
+        if (draft.identify && Object.keys(draft.identify).length) setIdentify({ ...EMPTY_IDENTIFY, ...draft.identify });
         if (draft.answers) setAnswers(draft.answers);
         if (typeof draft.currentSection === "number") setCurrentSection(draft.currentSection);
         if (draft.step === "form" || draft.step === "identify") setStep(draft.step);
         if (draft.identify || draft.answers) setRestored(true);
       }
-    } catch (e) {
-      console.warn("[PublicForm] failed to restore draft", e);
-    }
+    })();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
 
-  // Auto-save draft on every change
+  // Auto-save draft locally (instant) on every change
   useEffect(() => {
     if (!code || step === "success") return;
     try {
       localStorage.setItem(storageKey, JSON.stringify({ identify, answers, currentSection, step, savedAt: Date.now() }));
     } catch {}
   }, [identify, answers, currentSection, step, code, storageKey]);
+
+  // Auto-save draft to server (debounced) on every change
+  useEffect(() => {
+    if (!code || step === "success" || !form?.id) return;
+    const hasContent =
+      Object.values(identify).some((v) => v && String(v).trim().length > 0) ||
+      Object.keys(answers).length > 0;
+    if (!hasContent) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        await supabase.from("form_response_drafts").upsert(
+          {
+            form_id: form.id,
+            tenant_id: form.tenant_id,
+            draft_token: draftToken,
+            respondent_name: identify.nome?.trim() || null,
+            respondent_email: identify.email?.trim() || null,
+            respondent_phone: identify.telefone?.replace(/\D/g, "") || null,
+            identify,
+            answers,
+            current_section: currentSection,
+            step,
+          },
+          { onConflict: "form_id,draft_token" },
+        );
+      } catch (e) {
+        console.warn("[PublicForm] server draft upsert failed", e);
+      }
+    }, 1500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [identify, answers, currentSection, step, code, form?.id, draftToken]);
 
   const { data: form, isLoading } = useQuery({
     queryKey: ["public-form", code],
