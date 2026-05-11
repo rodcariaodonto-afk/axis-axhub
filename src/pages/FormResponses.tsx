@@ -8,9 +8,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
-import { ArrowLeft, Eye, Trash2, Download, Search, FileText, Calendar, CheckCircle, Clock } from "lucide-react";
+import { ArrowLeft, Eye, Trash2, Download, Search, FileText, Calendar, CheckCircle, Clock, FileEdit } from "lucide-react";
 import { jsPDF } from "jspdf";
 import type { FormQuestion } from "@/components/forms/formSeedData";
 
