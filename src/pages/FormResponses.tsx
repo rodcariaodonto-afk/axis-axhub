@@ -8,9 +8,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
-import { ArrowLeft, Eye, Trash2, Download, Search, FileText, Calendar, CheckCircle, Clock } from "lucide-react";
+import { ArrowLeft, Eye, Trash2, Download, Search, FileText, Calendar, CheckCircle, Clock, FileEdit } from "lucide-react";
 import { jsPDF } from "jspdf";
 import type { FormQuestion } from "@/components/forms/formSeedData";
 
@@ -44,6 +45,18 @@ export default function FormResponses() {
     },
   });
 
+  const { data: drafts } = useQuery({
+    queryKey: ["form-drafts", id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("form_response_drafts")
+        .select("*")
+        .eq("form_id", id!)
+        .order("updated_at", { ascending: false });
+      return (data || []) as any[];
+    },
+  });
+
   const questions: FormQuestion[] = form?.form_config || [];
 
   const handleDelete = async (rId: string) => {
@@ -51,6 +64,13 @@ export default function FormResponses() {
     await supabase.from("form_responses").delete().eq("id", rId);
     toast({ title: "Resposta excluída" });
     qc.invalidateQueries({ queryKey: ["form-responses", id] });
+  };
+
+  const handleDeleteDraft = async (dId: string) => {
+    if (!confirm("Excluir este rascunho?")) return;
+    await supabase.from("form_response_drafts").delete().eq("id", dId);
+    toast({ title: "Rascunho excluído" });
+    qc.invalidateQueries({ queryKey: ["form-drafts", id] });
   };
 
   const exportCSV = () => {
@@ -142,62 +162,122 @@ export default function FormResponses() {
         ))}
       </div>
 
-      <div className="flex gap-3 items-center">
-        <div className="relative max-w-sm flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar respondente..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
-        </div>
-        <Select value={dateFilter} onValueChange={setDateFilter}>
-          <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os períodos</SelectItem>
-            <SelectItem value="7">Últimos 7 dias</SelectItem>
-            <SelectItem value="30">Últimos 30 dias</SelectItem>
-            <SelectItem value="90">Últimos 90 dias</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <Tabs defaultValue="responses">
+        <TabsList>
+          <TabsTrigger value="responses">Respostas ({responses?.length || 0})</TabsTrigger>
+          <TabsTrigger value="drafts">
+            Em andamento{drafts?.length ? ` (${drafts.length})` : ""}
+          </TabsTrigger>
+        </TabsList>
 
-      <Card className="border-border bg-card">
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-border">
-                <TableHead>Respondente</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Data</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
-              ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nenhuma resposta encontrada</TableCell></TableRow>
-              ) : filtered.map((r: any) => (
-                <TableRow key={r.id} className="border-border">
-                  <TableCell className="font-medium">{r.respondent_name}</TableCell>
-                  <TableCell className="text-muted-foreground">{r.respondent_email}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{new Date(r.created_at).toLocaleString("pt-BR")}</TableCell>
-                  <TableCell>
-                    <Badge variant={r.completed ? "default" : "secondary"}>
-                      {r.completed ? "Completo" : "Parcial"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDetailResponse(r)} title="Ver Detalhes"><Eye className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => exportPDF(r)} title="Download PDF"><Download className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(r.id)} title="Deletar"><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+        <TabsContent value="responses" className="space-y-4">
+          <div className="flex gap-3 items-center">
+            <div className="relative max-w-sm flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Buscar respondente..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+            </div>
+            <Select value={dateFilter} onValueChange={setDateFilter}>
+              <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os períodos</SelectItem>
+                <SelectItem value="7">Últimos 7 dias</SelectItem>
+                <SelectItem value="30">Últimos 30 dias</SelectItem>
+                <SelectItem value="90">Últimos 90 dias</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Card className="border-border bg-card">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-border">
+                    <TableHead>Respondente</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                  ) : filtered.length === 0 ? (
+                    <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nenhuma resposta encontrada</TableCell></TableRow>
+                  ) : filtered.map((r: any) => (
+                    <TableRow key={r.id} className="border-border">
+                      <TableCell className="font-medium">{r.respondent_name}</TableCell>
+                      <TableCell className="text-muted-foreground">{r.respondent_email}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{new Date(r.created_at).toLocaleString("pt-BR")}</TableCell>
+                      <TableCell>
+                        <Badge variant={r.completed ? "default" : "secondary"}>
+                          {r.completed ? "Completo" : "Parcial"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDetailResponse(r)} title="Ver Detalhes"><Eye className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => exportPDF(r)} title="Download PDF"><Download className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(r.id)} title="Deletar"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="drafts" className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Quem começou a responder mas ainda não enviou. As respostas são salvas automaticamente a cada poucos segundos.
+          </p>
+          <Card className="border-border bg-card">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-border">
+                    <TableHead>Respondente</TableHead>
+                    <TableHead>Contato</TableHead>
+                    <TableHead>Última atividade</TableHead>
+                    <TableHead>Progresso</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {!drafts ? (
+                    <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                  ) : drafts.length === 0 ? (
+                    <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nenhum rascunho em andamento</TableCell></TableRow>
+                  ) : drafts.map((d: any) => {
+                    const answered = Object.keys(d.answers || {}).length;
+                    return (
+                      <TableRow key={d.id} className="border-border">
+                        <TableCell className="font-medium">{d.respondent_name || <span className="text-muted-foreground italic">Sem nome ainda</span>}</TableCell>
+                        <TableCell className="text-muted-foreground text-sm">
+                          {d.respondent_email || "—"}
+                          {d.respondent_phone ? <div className="text-xs">{d.respondent_phone}</div> : null}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{new Date(d.updated_at).toLocaleString("pt-BR")}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{answered} de {questions.length} respostas</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDetailResponse({ ...d, response_data: d.answers, created_at: d.updated_at })} title="Ver respostas parciais"><Eye className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteDraft(d.id)} title="Excluir rascunho"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Detail modal */}
       <Dialog open={!!detailResponse} onOpenChange={() => setDetailResponse(null)}>
@@ -207,9 +287,9 @@ export default function FormResponses() {
           </DialogHeader>
           {detailResponse && (
             <div className="space-y-4">
-              <div className="flex gap-4 text-sm text-muted-foreground">
-                <span><strong>Nome:</strong> {detailResponse.respondent_name}</span>
-                <span><strong>Email:</strong> {detailResponse.respondent_email}</span>
+              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                <span><strong>Nome:</strong> {detailResponse.respondent_name || "—"}</span>
+                <span><strong>Email:</strong> {detailResponse.respondent_email || "—"}</span>
                 <span><strong>Data:</strong> {new Date(detailResponse.created_at).toLocaleString("pt-BR")}</span>
               </div>
               {[...new Set(questions.map((q) => q.section))].map((section) => (
