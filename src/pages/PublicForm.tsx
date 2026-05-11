@@ -99,6 +99,8 @@ export default function PublicForm() {
       localStorage.setItem(storageKey, JSON.stringify({ identify, answers, currentSection, step, savedAt: Date.now() }));
     } catch {}
   }, [identify, answers, currentSection, step, code, storageKey]);
+
+  const { data: form, isLoading } = useQuery({
     queryKey: ["public-form", code],
     queryFn: async () => {
       const { data } = await supabase.from("forms").select("*").eq("unique_code", code!).eq("status", "published").single();
