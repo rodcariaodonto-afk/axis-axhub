@@ -266,7 +266,8 @@ export default function PublicForm() {
     }
 
     setSubmitting(false);
-    try { localStorage.removeItem(storageKey); } catch {}
+    try { localStorage.removeItem(storageKey); localStorage.removeItem(tokenKey); } catch {}
+    try { await supabase.from("form_response_drafts").delete().eq("form_id", form.id).eq("draft_token", draftToken); } catch {}
     setStep("success");
   };
 
