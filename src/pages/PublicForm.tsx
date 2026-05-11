@@ -69,8 +69,36 @@ export default function PublicForm() {
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [currentSection, setCurrentSection] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [restored, setRestored] = useState(false);
 
-  const { data: form, isLoading } = useQuery({
+  const storageKey = `axis-form-draft:${code}`;
+
+  // Restore draft on mount
+  useEffect(() => {
+    if (!code) return;
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        if (draft.identify) setIdentify(draft.identify);
+        if (draft.answers) setAnswers(draft.answers);
+        if (typeof draft.currentSection === "number") setCurrentSection(draft.currentSection);
+        if (draft.step === "form" || draft.step === "identify") setStep(draft.step);
+        if (draft.identify || draft.answers) setRestored(true);
+      }
+    } catch (e) {
+      console.warn("[PublicForm] failed to restore draft", e);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code]);
+
+  // Auto-save draft on every change
+  useEffect(() => {
+    if (!code || step === "success") return;
+    try {
+      localStorage.setItem(storageKey, JSON.stringify({ identify, answers, currentSection, step, savedAt: Date.now() }));
+    } catch {}
+  }, [identify, answers, currentSection, step, code, storageKey]);
     queryKey: ["public-form", code],
     queryFn: async () => {
       const { data } = await supabase.from("forms").select("*").eq("unique_code", code!).eq("status", "published").single();
