@@ -45,6 +45,18 @@ export default function FormResponses() {
     },
   });
 
+  const { data: drafts } = useQuery({
+    queryKey: ["form-drafts", id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("form_response_drafts")
+        .select("*")
+        .eq("form_id", id!)
+        .order("updated_at", { ascending: false });
+      return (data || []) as any[];
+    },
+  });
+
   const questions: FormQuestion[] = form?.form_config || [];
 
   const handleDelete = async (rId: string) => {
@@ -52,6 +64,13 @@ export default function FormResponses() {
     await supabase.from("form_responses").delete().eq("id", rId);
     toast({ title: "Resposta excluída" });
     qc.invalidateQueries({ queryKey: ["form-responses", id] });
+  };
+
+  const handleDeleteDraft = async (dId: string) => {
+    if (!confirm("Excluir este rascunho?")) return;
+    await supabase.from("form_response_drafts").delete().eq("id", dId);
+    toast({ title: "Rascunho excluído" });
+    qc.invalidateQueries({ queryKey: ["form-drafts", id] });
   };
 
   const exportCSV = () => {
