@@ -182,6 +182,7 @@ export default function PublicForm() {
     }
 
     setSubmitting(false);
+    try { localStorage.removeItem(storageKey); } catch {}
     setStep("success");
   };
 
