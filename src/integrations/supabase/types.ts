@@ -3104,6 +3104,62 @@ export type Database = {
           },
         ]
       }
+      form_response_drafts: {
+        Row: {
+          answers: Json
+          created_at: string
+          current_section: number
+          draft_token: string
+          form_id: string
+          id: string
+          identify: Json
+          respondent_email: string | null
+          respondent_name: string | null
+          respondent_phone: string | null
+          step: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          answers?: Json
+          created_at?: string
+          current_section?: number
+          draft_token: string
+          form_id: string
+          id?: string
+          identify?: Json
+          respondent_email?: string | null
+          respondent_name?: string | null
+          respondent_phone?: string | null
+          step?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          answers?: Json
+          created_at?: string
+          current_section?: number
+          draft_token?: string
+          form_id?: string
+          id?: string
+          identify?: Json
+          respondent_email?: string | null
+          respondent_name?: string | null
+          respondent_phone?: string | null
+          step?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "form_response_drafts_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       form_responses: {
         Row: {
           completed: boolean
