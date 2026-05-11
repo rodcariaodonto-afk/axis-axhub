@@ -288,6 +288,11 @@ export default function PublicForm() {
 
         {step === "form" && (
           <div className="space-y-6">
+            {restored && (
+              <div className="text-xs text-primary bg-primary/10 border border-primary/30 rounded-md px-3 py-2">
+                Suas respostas anteriores foram restauradas automaticamente. Continue de onde parou.
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <div className="text-sm text-muted-foreground">
                 Respondendo como: <strong>{identify.nome}</strong>
