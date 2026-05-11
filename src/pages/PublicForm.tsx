@@ -151,6 +151,14 @@ export default function PublicForm() {
     } catch {}
   }, [identify, answers, currentSection, step, code, storageKey]);
 
+  const { data: form, isLoading } = useQuery({
+    queryKey: ["public-form", code],
+    queryFn: async () => {
+      const { data } = await supabase.from("forms").select("*").eq("unique_code", code!).eq("status", "published").single();
+      return data as any;
+    },
+  });
+
   // Auto-save draft to server (debounced) on every change
   useEffect(() => {
     if (!code || step === "success" || !form?.id) return;
@@ -183,14 +191,6 @@ export default function PublicForm() {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [identify, answers, currentSection, step, code, form?.id, draftToken]);
-
-  const { data: form, isLoading } = useQuery({
-    queryKey: ["public-form", code],
-    queryFn: async () => {
-      const { data } = await supabase.from("forms").select("*").eq("unique_code", code!).eq("status", "published").single();
-      return data as any;
-    },
-  });
 
   const questions: FormQuestion[] = form?.form_config || [];
   const sections = [...new Set(questions.map((q) => q.section))];
