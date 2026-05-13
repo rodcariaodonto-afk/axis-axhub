@@ -15,6 +15,7 @@ import MessageTemplatesSettings from "./settings/MessageTemplatesSettings";
 import GenericCustomFieldsSettings from "./settings/GenericCustomFieldsSettings";
 import NotificationPreferences from "./NotificationPreferences";
 import FiscalSettings from "./settings/FiscalSettings";
+import DataGovernance from "./settings/DataGovernance";
 
 const SECTION_MAP: Record<SettingsSection, React.ComponentType> = {
   profile: ProfileSettings,
@@ -30,6 +31,7 @@ const SECTION_MAP: Record<SettingsSection, React.ComponentType> = {
   warehouses: WarehousesSettings,
   integrations: IntegrationsSettings,
   templates: MessageTemplatesSettings,
+  "data-governance": DataGovernance,
 };
 
 export default function Settings() {
