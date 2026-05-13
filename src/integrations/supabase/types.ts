@@ -215,8 +215,11 @@ export type Database = {
           created_at: string
           entity: string
           entity_id: string | null
+          event_type: string | null
           id: string
           ip_address: string | null
+          metadata: Json | null
+          severity: string | null
           tenant_id: string
           user_agent: string | null
         }
@@ -228,8 +231,11 @@ export type Database = {
           created_at?: string
           entity: string
           entity_id?: string | null
+          event_type?: string | null
           id?: string
           ip_address?: string | null
+          metadata?: Json | null
+          severity?: string | null
           tenant_id: string
           user_agent?: string | null
         }
@@ -241,8 +247,11 @@ export type Database = {
           created_at?: string
           entity?: string
           entity_id?: string | null
+          event_type?: string | null
           id?: string
           ip_address?: string | null
+          metadata?: Json | null
+          severity?: string | null
           tenant_id?: string
           user_agent?: string | null
         }
@@ -1973,6 +1982,313 @@ export type Database = {
           },
           {
             foreignKeyName: "customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      data_consents: {
+        Row: {
+          channel: string
+          communication_opt_in: boolean | null
+          consent_source: string | null
+          consent_status: string
+          created_at: string
+          created_by: string | null
+          data_origin: string | null
+          given_at: string | null
+          id: string
+          legal_basis: string | null
+          privacy_notes: string | null
+          revoked_at: string | null
+          subject_id: string | null
+          subject_label: string | null
+          subject_type: string
+          tenant_id: string
+        }
+        Insert: {
+          channel: string
+          communication_opt_in?: boolean | null
+          consent_source?: string | null
+          consent_status?: string
+          created_at?: string
+          created_by?: string | null
+          data_origin?: string | null
+          given_at?: string | null
+          id?: string
+          legal_basis?: string | null
+          privacy_notes?: string | null
+          revoked_at?: string | null
+          subject_id?: string | null
+          subject_label?: string | null
+          subject_type: string
+          tenant_id: string
+        }
+        Update: {
+          channel?: string
+          communication_opt_in?: boolean | null
+          consent_source?: string | null
+          consent_status?: string
+          created_at?: string
+          created_by?: string | null
+          data_origin?: string | null
+          given_at?: string | null
+          id?: string
+          legal_basis?: string | null
+          privacy_notes?: string | null
+          revoked_at?: string | null
+          subject_id?: string | null
+          subject_label?: string | null
+          subject_type?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_consents_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      data_deletion_requests: {
+        Row: {
+          approved_by: string | null
+          audit_snapshot: Json | null
+          confirmation_token: string | null
+          confirmed_at: string | null
+          created_at: string
+          executed_at: string | null
+          id: string
+          reason: string | null
+          requested_by: string | null
+          scheduled_for: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          approved_by?: string | null
+          audit_snapshot?: Json | null
+          confirmation_token?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          executed_at?: string | null
+          id?: string
+          reason?: string | null
+          requested_by?: string | null
+          scheduled_for?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          approved_by?: string | null
+          audit_snapshot?: Json | null
+          confirmation_token?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          executed_at?: string | null
+          id?: string
+          reason?: string | null
+          requested_by?: string | null
+          scheduled_for?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_deletion_requests_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      data_exports: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          expires_at: string | null
+          file_path: string | null
+          file_size_bytes: number | null
+          file_url: string | null
+          format: string
+          id: string
+          metadata: Json | null
+          requested_by: string | null
+          scope: Json
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          expires_at?: string | null
+          file_path?: string | null
+          file_size_bytes?: number | null
+          file_url?: string | null
+          format?: string
+          id?: string
+          metadata?: Json | null
+          requested_by?: string | null
+          scope?: Json
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          expires_at?: string | null
+          file_path?: string | null
+          file_size_bytes?: number | null
+          file_url?: string | null
+          format?: string
+          id?: string
+          metadata?: Json | null
+          requested_by?: string | null
+          scope?: Json
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_exports_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      data_governance_policies: {
+        Row: {
+          allow_deletion_roles: string[] | null
+          allow_export_roles: string[] | null
+          anonymization_policy: Json | null
+          communication_rules: Json | null
+          created_at: string
+          data_classification: Json | null
+          dsr_sla_days: number | null
+          export_expiration_hours: number
+          id: string
+          log_restricted_access: boolean | null
+          retention_days: number
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          allow_deletion_roles?: string[] | null
+          allow_export_roles?: string[] | null
+          anonymization_policy?: Json | null
+          communication_rules?: Json | null
+          created_at?: string
+          data_classification?: Json | null
+          dsr_sla_days?: number | null
+          export_expiration_hours?: number
+          id?: string
+          log_restricted_access?: boolean | null
+          retention_days?: number
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          allow_deletion_roles?: string[] | null
+          allow_export_roles?: string[] | null
+          anonymization_policy?: Json | null
+          communication_rules?: Json | null
+          created_at?: string
+          data_classification?: Json | null
+          dsr_sla_days?: number | null
+          export_expiration_hours?: number
+          id?: string
+          log_restricted_access?: boolean | null
+          retention_days?: number
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_governance_policies_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      data_subject_requests: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          due_at: string | null
+          id: string
+          priority: string
+          related_entity_id: string | null
+          related_entity_type: string | null
+          request_type: string
+          requester_email: string
+          requester_name: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_at?: string | null
+          id?: string
+          priority?: string
+          related_entity_id?: string | null
+          related_entity_type?: string | null
+          request_type: string
+          requester_email: string
+          requester_name: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_at?: string | null
+          id?: string
+          priority?: string
+          related_entity_id?: string | null
+          related_entity_type?: string | null
+          request_type?: string
+          requester_email?: string
+          requester_name?: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_subject_requests_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -6267,26 +6583,41 @@ export type Database = {
       }
       tenants: {
         Row: {
+          cancelled_at: string | null
           cnpj: string | null
           created_at: string
+          deletion_reason: string | null
+          deletion_scheduled_at: string | null
+          deletion_status: string | null
           id: string
           name: string
+          retention_until: string | null
           segment: string | null
           status: string
         }
         Insert: {
+          cancelled_at?: string | null
           cnpj?: string | null
           created_at?: string
+          deletion_reason?: string | null
+          deletion_scheduled_at?: string | null
+          deletion_status?: string | null
           id?: string
           name: string
+          retention_until?: string | null
           segment?: string | null
           status?: string
         }
         Update: {
+          cancelled_at?: string | null
           cnpj?: string | null
           created_at?: string
+          deletion_reason?: string | null
+          deletion_scheduled_at?: string | null
+          deletion_status?: string | null
           id?: string
           name?: string
+          retention_until?: string | null
           segment?: string | null
           status?: string
         }
