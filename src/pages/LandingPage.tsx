@@ -14,7 +14,7 @@ export default function LandingPage() {
     const meta = document.querySelector('meta[name="description"]');
     if (meta) meta.setAttribute(
       "content",
-      "O AXIS é a plataforma integrada de CRM, ERP, atendimento, automações, dashboards e governança com IA nativa para PMEs que querem vender, operar e decidir com mais controlo."
+      "Plataforma B2B de CRM, ERP, WhatsApp, automações e BI com governança e IA nativa para PMEs venderem e operarem com previsibilidade."
     );
   }, []);
 
