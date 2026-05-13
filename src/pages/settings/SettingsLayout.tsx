@@ -71,6 +71,10 @@ const menuGroups: MenuGroup[] = [
     title: "INTEGRAÇÕES",
     items: [{ id: "integrations", label: "Integrações", icon: Plug }],
   },
+  {
+    title: "GOVERNANÇA",
+    items: [{ id: "data-governance", label: "Governança de Dados", icon: Shield }],
+  },
 ];
 
 interface SettingsLayoutProps {
