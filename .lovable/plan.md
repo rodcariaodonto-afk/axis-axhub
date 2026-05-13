@@ -1,73 +1,86 @@
-# Governança de Dados — AXIS
+# Auditoria — Governança de Dados (AXHUB)
 
-Implementação de uma camada completa de **Governança de Dados** dentro de Configurações da Conta, multi-tenant, auditável e pronta para venda B2B. Reutiliza `tenants` (= account), `audit_logs`, `get_user_tenant_id()`, `has_role()` e o sistema de permissões já existente.
+## ✅ O que está correto
 
-## Escopo da nova área
+| Item | Status |
+|---|---|
+| Página `/settings/governance` com 8 abas | ✅ Visão geral, Exportações, Auditoria, Retenção & Exclusão, Conformidade, Pedidos dos titulares, Consentimentos, Políticas |
+| RLS ativa em todas as 5 novas tabelas | ✅ `data_exports`, `data_deletion_requests`, `data_subject_requests`, `data_governance_policies`, `data_consents` |
+| Isolamento por `tenant_id = get_user_tenant_id()` | ✅ Em todas as policies |
+| Restrição de gravação a `admin` via `has_role(auth.uid(),'admin')` | ✅ Em todas as policies sensíveis |
+| Bucket privado `data-exports` com isolamento por path `{tenant_id}/...` | ✅ |
+| Edge Functions `governance-export` e `governance-cancel-account` validam JWT, tenant e role admin | ✅ Usam `getClaims` + checagem em `user_roles` |
+| Exportação JSON exclui anexos/mídias, mantém metadados/URLs | ✅ Comentado no `_meta.note` e tabelas de mídia binária ficam fora do scope |
+| Cancelamento define `cancelled_at`, `retention_until = +30 dias`, `deletion_status='pending_retention'` e gera audit `severity=critical` | ✅ |
+| Cards/Overview consomem dados reais (sem dados fictícios) | ✅ Todas as queries vão ao banco |
+| Compliance report calculado em runtime sobre tabelas reais | ✅ |
+| pg_cron diário 03:00 UTC para `governance-execute-deletion` | ✅ Agendado |
 
-Nova rota `/settings` → seção **Governança de Dados** (acesso: Admin do tenant + permissão nova `governanca`). Página com 8 abas seguindo o padrão visual do AXIS (cards de status, indicadores, tabelas, dialogs):
+## 🔴 Falhas críticas encontradas
 
-1. **Visão Geral** — KPIs: última exportação, pedidos de titulares abertos, exclusões pendentes, eventos críticos 30d, retenção configurada, status da conta, integrações ativas, usuários com permissões elevadas, riscos detectados. Estado vazio real quando não há dados.
-2. **Exportações** — listar exportações, botão "Nova exportação" (escolhe escopo de módulos), download seguro com link expirável.
-3. **Auditoria** — substitui/expande `AuditLogsView`. Filtros por entidade, severidade, usuário, período, IP. Export CSV/JSON.
-4. **Retenção & Exclusão** — política de 30 dias pós-cancelamento. Mostra `cancelled_at`, `retention_until`, `deletion_scheduled_at`. Botão "Cancelar conta" e "Solicitar exclusão definitiva" com dupla confirmação.
-5. **Conformidade** — relatório automático (RLS ativa, retenção configurada, pedidos vencidos, usuários inativos, permissões elevadas, integrações sensíveis, webhooks sem revisão). Export JSON.
-6. **Pedidos dos Titulares** — CRUD de `data_subject_requests` (acesso, correção, portabilidade, anonimização, exclusão, oposição, revogação). SLA, atribuição, resolução.
-7. **Consentimentos** — visão consolidada de consentimentos por contato/lead/cliente. Filtros por canal, base legal, opt-in/opt-out.
-8. **Políticas** — formulário de configuração das políticas da conta (retenção, expiração de exportações, classificação, regras de comunicação, SLA).
+### 1. `governance-deletion-request` quebra ao gravar auditoria
+Usa colunas que **não existem** em `audit_logs`:
+- envia `user_id` → correto é `actor_user_id`
+- envia `entity_type` → correto é `entity`
 
-## Banco de dados (migration única)
+Resultado: a inserção falha e o request é retornado mesmo sem trilha auditável.
 
-**Novas tabelas** (todas com `tenant_id`, RLS ativa, somente Admin do tenant lê/escreve via `has_role(auth.uid(),'admin') AND tenant_id = get_user_tenant_id()`):
+### 2. `governance-execute-deletion` quebra em 2 pontos
+- Mesmos campos errados em `audit_logs` (`entity_type` em vez de `entity`).
+- Atualiza `data_deletion_requests` com `completed_at` e `error_message` — **essas colunas não existem na tabela**. As corretas são `executed_at` e `audit_snapshot.error`.
 
-- `data_exports` — `id, tenant_id, requested_by, status (pending|processing|completed|failed|expired), format, scope jsonb, file_url, file_size_bytes, expires_at, created_at, completed_at, error_message, metadata jsonb`.
-- `data_deletion_requests` — `id, tenant_id, requested_by, approved_by, status (pending|approved|confirmed|executing|completed|cancelled), reason, scheduled_for, confirmation_token, confirmed_at, executed_at, audit_snapshot jsonb`.
-- `data_subject_requests` — campos exatamente como no enunciado.
-- `data_governance_policies` — `tenant_id (unique), retention_days (default 30), export_expiration_hours (default 72), allow_export_roles text[], allow_deletion_roles text[], data_classification jsonb, communication_rules jsonb, dsr_sla_days, anonymization_policy jsonb, updated_by, updated_at`.
-- `data_consents` — `id, tenant_id, subject_type (contact|lead|customer|form_response), subject_id, channel (email|whatsapp|sms|phone), consent_status (granted|revoked|pending), consent_source, legal_basis, data_origin, given_at, revoked_at, privacy_notes, communication_opt_in, created_at`.
+Resultado: o cron diário falhará silenciosamente em todas as execuções.
 
-**Alterações em tabelas existentes:**
-- `tenants` → adicionar `cancelled_at`, `retention_until`, `deletion_scheduled_at`, `deletion_status`, `deletion_reason`.
-- `audit_logs` → adicionar colunas opcionais `event_type`, `severity (info|warning|critical)`, `metadata jsonb`. Manter compatibilidade com `entity/action/before_json/after_json` já existentes.
+### 3. `governance-execute-deletion` é publicamente invocável
+Não valida JWT nem segredo compartilhado do cron. Qualquer pessoa com a URL pode disparar processamento de exclusões.
 
-**Índices** em `(tenant_id, created_at desc)`, `(tenant_id, status)` para listagens.
+Correção: exigir header `x-cron-secret` comparado com secret `GOVERNANCE_CRON_SECRET` (a ser adicionado) e atualizar o pg_cron para enviar esse header.
 
-**Permissão nova:** módulo `governanca` em `user_permissions` (view/manage). Apenas Admin do tenant por padrão.
+### 4. Coluna ausente para rastrear erro de exclusão
+`data_deletion_requests` precisa de `executed_at` (já existe) e um campo de erro. Adicionar `error_message text` para rastreabilidade.
 
-## Edge Functions (verify_jwt validado em código + Zod)
+## 🟡 Riscos remanescentes (documentar, não bloqueante)
 
-- `governance-export` — POST `{ scope: string[] }`. Valida sessão, role admin, permissão `governanca.manage`, limite de 1 export ativo por hora. Cria registro `data_exports (status=processing)`, coleta dados de TODAS as tabelas do tenant em JSON (clientes, fornecedores, produtos, pedidos, estoque, financeiro, leads, contatos, oportunidades, deals, atividades, contratos, propostas, BI, campanhas, mensagens WhatsApp, cadências, workflows, execuções, formulários, respostas, chat interno, integrações, webhooks, logs, configurações). Anexos/binários: somente metadados + URL referenciada. Faz upload em bucket privado `data-exports/{tenant_id}/{export_id}.json`, gera signed URL com `expires_at`, marca `completed`. Loga em `audit_logs (severity=critical)`.
-- `governance-deletion-request` — solicita exclusão; gera token; envia confirmação por e-mail (Resend); ao confirmar agenda execução para `now() + retention_days`.
-- `governance-execute-deletion` — invocada manualmente ou por cron (pg_cron diário) quando `scheduled_for <= now()`. Anonimiza/exclui dados do tenant em ordem segura; loga snapshot.
-- `governance-compliance-report` — calcula on-demand o relatório de conformidade da conta e retorna JSON.
-- `governance-cancel-account` — Owner cancela conta → seta `cancelled_at`, `retention_until = now()+30d`. Durante janela, exportações continuam disponíveis.
+- **Super-admin AXHolding ainda não está separado do admin do cliente.** Hoje qualquer `role='admin'` da própria conta tem acesso a Governança. Não existe role `super_admin` global. Recomendação para próxima iteração: criar role `super_admin` em `user_roles` (sem `tenant_id` exigido) e gating extra para ações cross-tenant. **Esta auditoria não cobre essa entrega — apenas confirma que admin de tenant A nunca vê dados do tenant B (RLS garante isolamento).**
+- **Policies de `data_consents` permitem SELECT a qualquer usuário autenticado do tenant** (não só admin). Intencional para que vendedores vejam opt-ins, mas vale registrar.
+- **42 warnings pré-existentes do linter Supabase** (search_path mutável, extensão em public, etc.) não foram introduzidos pela governança e ficam fora do escopo.
 
-**Storage:** novo bucket privado `data-exports` com policy "tenant isolation via path prefix".
+## 🛠 Correções a aplicar nesta iteração
 
-**Cron (pg_cron):**
-- diário 03:00 — expirar exports vencidos (`status=expired`, remove arquivo);
-- diário 04:00 — invocar `governance-execute-deletion` para tenants com `retention_until < now()`.
+### Migration (adicionar coluna)
+```sql
+ALTER TABLE public.data_deletion_requests
+  ADD COLUMN IF NOT EXISTS error_message text;
+```
 
-## Frontend
+### Edge `governance-deletion-request/index.ts`
+Substituir o INSERT em `audit_logs` para usar `actor_user_id` e `entity`. Adicionar validação Zod já está ok.
 
-Novos arquivos em `src/pages/settings/governance/`:
-- `GovernanceHub.tsx` (container com `<Tabs>`)
-- `OverviewTab.tsx`, `ExportsTab.tsx`, `AuditTab.tsx` (reaproveita AuditLogsView), `RetentionTab.tsx`, `ComplianceTab.tsx`, `SubjectRequestsTab.tsx`, `ConsentsTab.tsx`, `PoliciesTab.tsx`
-- `NewExportDialog.tsx`, `NewSubjectRequestDialog.tsx`, `CancelAccountDialog.tsx`, `ConfirmDeletionDialog.tsx`
+### Edge `governance-execute-deletion/index.ts`
+- Trocar `entity_type` → `entity`, remover `user_id`.
+- Trocar `completed_at` → `executed_at` no UPDATE.
+- Gravar erro em `error_message` e em `audit_snapshot.error`.
+- Adicionar autenticação por header `x-cron-secret`:
+  ```ts
+  if (req.headers.get("x-cron-secret") !== Deno.env.get("GOVERNANCE_CRON_SECRET")) {
+    return new Response("forbidden", { status: 403 });
+  }
+  ```
+- Pedir ao usuário para criar a secret `GOVERNANCE_CRON_SECRET` (via `add_secret`).
+- Reagendar o pg_cron incluindo o header no `net.http_post`.
 
-Hook `useGovernance.ts` com queries/mutations React Query.
+### Compliance Report
+Adicionar verificação automática "super_admin separado de admin" como item informativo (passa enquanto não houver role super_admin, marcado como "pendente roadmap").
 
-Adicionar entrada em `SettingsLayout.tsx` (grupo novo "GOVERNANÇA" → item "Governança de Dados") e registrar no `Settings.tsx` `SECTION_MAP`.
+## 📋 Entregáveis ao final
 
-Mensagens de áudito em PT-BR. Toda mutação crítica → `audit_logs` com severity adequada.
+Relatório técnico final com:
+- Tabelas criadas/alteradas (já listadas acima)
+- Políticas RLS aplicadas (todas com `tenant_id` + `has_role`)
+- Edge Functions: 5 (governance-export, governance-compliance-report, governance-cancel-account, governance-deletion-request, governance-execute-deletion)
+- Página: `/settings/governance` com 8 abas + integração no `SettingsLayout`
+- Permissão: módulo `governanca` (admin only)
+- Riscos corrigidos: 4 falhas críticas acima
+- Riscos remanescentes: super_admin global, search_path warnings, SELECT amplo em consents
 
-## Pontos técnicos
-
-- Tudo usa `tenant_id = get_user_tenant_id()` em RLS — isolamento total por conta.
-- Edge Functions usam `service_role` apenas após validar `getClaims()` + papel admin + `tenant_id` do solicitante.
-- `data_exports.scope` permite escolha granular (todos os módulos por padrão).
-- `data_consents` é alimentado por triggers nos pontos de captura (form_responses, leads novos, opt-in WhatsApp) — fora do escopo desta entrega entregar todos os triggers; entregamos schema + UI + ingest manual + helper para futuros pontos.
-- Nenhuma permissão padrão concedida a não-admin; super-admin AXHolding fica para etapa posterior (não há tabela cross-tenant ainda).
-
-## Entrega final
-
-Relatório técnico em chat ao concluir: tabelas criadas/alteradas, RLS, Edge Functions, páginas, permissões, riscos corrigidos e remanescentes (ex.: triggers de consentimento automáticos por canal, painel super-admin AXHolding).
+Aprove para eu aplicar as 4 correções (migration + 2 edges + secret + reagendamento do cron).

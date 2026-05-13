@@ -1,0 +1,1 @@
+ALTER TABLE public.data_deletion_requests ADD COLUMN IF NOT EXISTS error_message text;
