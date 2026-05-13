@@ -15,7 +15,8 @@ type SettingsSection =
   | "categories"
   | "warehouses"
   | "integrations"
-  | "templates";
+  | "templates"
+  | "data-governance";
 
 interface MenuItem {
   id: SettingsSection;
