@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Building2, Users, Key, Settings2, ScrollText, Tag, Warehouse, Plug, UserCircle, Bell, FileText, ListChecks, Receipt } from "lucide-react";
+import { Building2, Users, Key, Settings2, ScrollText, Tag, Warehouse, Plug, UserCircle, Bell, FileText, ListChecks, Receipt, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type SettingsSection =
@@ -15,7 +15,8 @@ type SettingsSection =
   | "categories"
   | "warehouses"
   | "integrations"
-  | "templates";
+  | "templates"
+  | "data-governance";
 
 interface MenuItem {
   id: SettingsSection;
@@ -69,6 +70,10 @@ const menuGroups: MenuGroup[] = [
   {
     title: "INTEGRAÇÕES",
     items: [{ id: "integrations", label: "Integrações", icon: Plug }],
+  },
+  {
+    title: "GOVERNANÇA",
+    items: [{ id: "data-governance", label: "Governança de Dados", icon: Shield }],
   },
 ];
 
