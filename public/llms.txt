@@ -1,0 +1,14 @@
+# AXIS
+
+> Plataforma B2B de CRM, ERP, WhatsApp, automações, BI e governança comercial com IA nativa para PMEs venderem, operarem e decidirem com previsibilidade.
+
+AXIS é uma plataforma multi-tenant que integra CRM (leads, contas, contatos, oportunidades, kanban, funis, propostas), ERP (produtos, estoque, pedidos, fornecedores, compras), financeiro (contas a pagar/receber, bancos, DRE, balanço), atendimento via WhatsApp (Evolution API), workflows visuais, BI (dashboards, widgets), formulários públicos, contratos eletrônicos, governança de dados (LGPD/GDPR) e cadências de vendas — tudo com IA nativa.
+
+## Pages
+
+- [Home](/): Visão geral do AXIS, módulos, planos e contato.
+- [Entrar / Criar conta](/auth): Login, cadastro e recuperação de acesso para clientes B2B.
+
+## Optional
+
+- [Recuperar senha](/reset-password): Fluxo de redefinição de senha.
