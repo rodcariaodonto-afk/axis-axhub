@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Building2, Users, Key, Settings2, ScrollText, Tag, Warehouse, Plug, UserCircle, Bell, FileText, ListChecks, Receipt } from "lucide-react";
+import { Building2, Users, Key, Settings2, ScrollText, Tag, Warehouse, Plug, UserCircle, Bell, FileText, ListChecks, Receipt, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type SettingsSection =
