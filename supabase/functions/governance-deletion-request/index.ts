@@ -49,12 +49,12 @@ Deno.serve(async (req) => {
 
     await admin.from("audit_logs").insert({
       tenant_id: profile!.tenant_id,
-      user_id: user.id,
+      actor_user_id: user.id,
       action: "deletion_request_created",
-      entity_type: "data_deletion_requests",
+      entity: "data_deletion_requests",
       entity_id: data.id,
       event_type: "governance",
-      severity: "high",
+      severity: "critical",
       metadata: { reqId, scope: parsed.data.scope },
     });
 
