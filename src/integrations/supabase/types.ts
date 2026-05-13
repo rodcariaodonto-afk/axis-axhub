@@ -2061,6 +2061,7 @@ export type Database = {
           confirmation_token: string | null
           confirmed_at: string | null
           created_at: string
+          error_message: string | null
           executed_at: string | null
           id: string
           reason: string | null
@@ -2076,6 +2077,7 @@ export type Database = {
           confirmation_token?: string | null
           confirmed_at?: string | null
           created_at?: string
+          error_message?: string | null
           executed_at?: string | null
           id?: string
           reason?: string | null
@@ -2091,6 +2093,7 @@ export type Database = {
           confirmation_token?: string | null
           confirmed_at?: string | null
           created_at?: string
+          error_message?: string | null
           executed_at?: string | null
           id?: string
           reason?: string | null
