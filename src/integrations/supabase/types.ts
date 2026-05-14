@@ -5021,6 +5021,10 @@ export type Database = {
           number: string
           paid_status: string
           payment_method: string
+          recurring_amount: number
+          recurring_method: string | null
+          recurring_months: number | null
+          recurring_start_date: string | null
           shipping_address_json: Json | null
           source: string
           status: string
@@ -5041,6 +5045,10 @@ export type Database = {
           number: string
           paid_status?: string
           payment_method?: string
+          recurring_amount?: number
+          recurring_method?: string | null
+          recurring_months?: number | null
+          recurring_start_date?: string | null
           shipping_address_json?: Json | null
           source?: string
           status?: string
@@ -5061,6 +5069,10 @@ export type Database = {
           number?: string
           paid_status?: string
           payment_method?: string
+          recurring_amount?: number
+          recurring_method?: string | null
+          recurring_months?: number | null
+          recurring_start_date?: string | null
           shipping_address_json?: Json | null
           source?: string
           status?: string

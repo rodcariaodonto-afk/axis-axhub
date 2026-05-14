@@ -1,86 +1,71 @@
-# Auditoria — Governança de Dados (AXHUB)
+## Problema
 
-## ✅ O que está correto
+Hoje, em **ERP → Pedidos**, cada pedido só aceita **um único bloco de cobrança total** (parcelado em N vezes). Para vender "Setup R$ 2.000 em 10x + Mensalidade R$ 120/mês recorrente" o usuário precisa criar **2 pedidos separados**, o que polui o histórico, quebra relatórios por cliente e dificulta o vínculo comercial.
 
-| Item | Status |
-|---|---|
-| Página `/settings/governance` com 8 abas | ✅ Visão geral, Exportações, Auditoria, Retenção & Exclusão, Conformidade, Pedidos dos titulares, Consentimentos, Políticas |
-| RLS ativa em todas as 5 novas tabelas | ✅ `data_exports`, `data_deletion_requests`, `data_subject_requests`, `data_governance_policies`, `data_consents` |
-| Isolamento por `tenant_id = get_user_tenant_id()` | ✅ Em todas as policies |
-| Restrição de gravação a `admin` via `has_role(auth.uid(),'admin')` | ✅ Em todas as policies sensíveis |
-| Bucket privado `data-exports` com isolamento por path `{tenant_id}/...` | ✅ |
-| Edge Functions `governance-export` e `governance-cancel-account` validam JWT, tenant e role admin | ✅ Usam `getClaims` + checagem em `user_roles` |
-| Exportação JSON exclui anexos/mídias, mantém metadados/URLs | ✅ Comentado no `_meta.note` e tabelas de mídia binária ficam fora do scope |
-| Cancelamento define `cancelled_at`, `retention_until = +30 dias`, `deletion_status='pending_retention'` e gera audit `severity=critical` | ✅ |
-| Cards/Overview consomem dados reais (sem dados fictícios) | ✅ Todas as queries vão ao banco |
-| Compliance report calculado em runtime sobre tabelas reais | ✅ |
-| pg_cron diário 03:00 UTC para `governance-execute-deletion` | ✅ Agendado |
+## Solução proposta
 
-## 🔴 Falhas críticas encontradas
+Permitir que **um único Pedido** contenha **dois tipos de cobrança simultâneos**:
 
-### 1. `governance-deletion-request` quebra ao gravar auditoria
-Usa colunas que **não existem** em `audit_logs`:
-- envia `user_id` → correto é `actor_user_id`
-- envia `entity_type` → correto é `entity`
+1. **Cobrança Única (Setup / pontual)** — valor fixo, podendo ser parcelado.
+2. **Cobrança Recorrente (Mensalidade / Assinatura)** — valor mensal contínuo, gerado automaticamente todo mês via o motor de assinaturas que já existe (`subscriptions` + edge `generate-recurring-invoices`).
 
-Resultado: a inserção falha e o request é retornado mesmo sem trilha auditável.
+O usuário monta os dois blocos no mesmo modal, vê um resumo claro ("Setup: R$ 2.000 em 10x cartão + Mensal: R$ 120/mês PIX") e o sistema gera tudo: recebíveis do setup + assinatura ativa para a mensalidade.
 
-### 2. `governance-execute-deletion` quebra em 2 pontos
-- Mesmos campos errados em `audit_logs` (`entity_type` em vez de `entity`).
-- Atualiza `data_deletion_requests` com `completed_at` e `error_message` — **essas colunas não existem na tabela**. As corretas são `executed_at` e `audit_snapshot.error`.
+## Como ficará a UX (modal "Novo Pedido")
 
-Resultado: o cron diário falhará silenciosamente em todas as execuções.
-
-### 3. `governance-execute-deletion` é publicamente invocável
-Não valida JWT nem segredo compartilhado do cron. Qualquer pessoa com a URL pode disparar processamento de exclusões.
-
-Correção: exigir header `x-cron-secret` comparado com secret `GOVERNANCE_CRON_SECRET` (a ser adicionado) e atualizar o pg_cron para enviar esse header.
-
-### 4. Coluna ausente para rastrear erro de exclusão
-`data_deletion_requests` precisa de `executed_at` (já existe) e um campo de erro. Adicionar `error_message text` para rastreabilidade.
-
-## 🟡 Riscos remanescentes (documentar, não bloqueante)
-
-- **Super-admin AXHolding ainda não está separado do admin do cliente.** Hoje qualquer `role='admin'` da própria conta tem acesso a Governança. Não existe role `super_admin` global. Recomendação para próxima iteração: criar role `super_admin` em `user_roles` (sem `tenant_id` exigido) e gating extra para ações cross-tenant. **Esta auditoria não cobre essa entrega — apenas confirma que admin de tenant A nunca vê dados do tenant B (RLS garante isolamento).**
-- **Policies de `data_consents` permitem SELECT a qualquer usuário autenticado do tenant** (não só admin). Intencional para que vendedores vejam opt-ins, mas vale registrar.
-- **42 warnings pré-existentes do linter Supabase** (search_path mutável, extensão em public, etc.) não foram introduzidos pela governança e ficam fora do escopo.
-
-## 🛠 Correções a aplicar nesta iteração
-
-### Migration (adicionar coluna)
-```sql
-ALTER TABLE public.data_deletion_requests
-  ADD COLUMN IF NOT EXISTS error_message text;
+```text
+┌─ Novo Pedido ─────────────────────────────────┐
+│ Cliente: [ Acme Ltda ▾ ]                      │
+│ Itens:   [+ adicionar produto]                │
+│   • Plataforma AXHUB (1x) ............. R$ 0  │
+│                                                │
+│ ┌─ Cobrança ─────────────────────────────────┐│
+│ │ [✓] Setup / Cobrança única                 ││
+│ │     Valor: R$ 2.000,00                     ││
+│ │     Forma: [Cartão ▾]  Parcelas: [10x]     ││
+│ │     1ª venc.: [05/06/2026]                 ││
+│ │                                            ││
+│ │ [✓] Mensalidade recorrente                 ││
+│ │     Valor: R$ 120,00 / mês                 ││
+│ │     Forma:  [PIX ▾]                        ││
+│ │     Início: [05/06/2026]                   ││
+│ │     Duração: ( ) Indeterminada             ││
+│ │              (•) Por X meses [12]          ││
+│ └────────────────────────────────────────────┘│
+│ Resumo: Setup R$ 2.000 (10x cartão) + R$ 120/mês PIX │
+│                            [Cancelar] [Criar]│
+└────────────────────────────────────────────────┘
 ```
 
-### Edge `governance-deletion-request/index.ts`
-Substituir o INSERT em `audit_logs` para usar `actor_user_id` e `entity`. Adicionar validação Zod já está ok.
+Pelo menos um dos dois blocos precisa estar marcado. Se só Setup → comportamento idêntico ao de hoje.
 
-### Edge `governance-execute-deletion/index.ts`
-- Trocar `entity_type` → `entity`, remover `user_id`.
-- Trocar `completed_at` → `executed_at` no UPDATE.
-- Gravar erro em `error_message` e em `audit_snapshot.error`.
-- Adicionar autenticação por header `x-cron-secret`:
-  ```ts
-  if (req.headers.get("x-cron-secret") !== Deno.env.get("GOVERNANCE_CRON_SECRET")) {
-    return new Response("forbidden", { status: 403 });
-  }
-  ```
-- Pedir ao usuário para criar a secret `GOVERNANCE_CRON_SECRET` (via `add_secret`).
-- Reagendar o pg_cron incluindo o header no `net.http_post`.
+## O que vai acontecer no backend ao criar
 
-### Compliance Report
-Adicionar verificação automática "super_admin separado de admin" como item informativo (passa enquanto não houver role super_admin, marcado como "pendente roadmap").
+1. **`orders`** — 1 registro com `total = setup_total` (recorrente não entra no total do pedido, fica em campo separado para BI).
+2. **`order_payments`** — N parcelas do Setup (já funciona hoje).
+3. **`receivables`** — N recebíveis do Setup vinculados ao `order_id` (já funciona hoje).
+4. **`subscriptions`** — 1 nova assinatura ativa (`status='active'`, `price=120`, `billing_cycle='mensal'`, `next_billing_date=início`, `order_id=<novo>`) para a parte recorrente.
+5. A edge function `generate-recurring-invoices` (que já roda) passa a gerar o recebível mensal de R$ 120 automaticamente, sem nova infra.
 
-## 📋 Entregáveis ao final
+## Mudanças técnicas (resumo para devs)
 
-Relatório técnico final com:
-- Tabelas criadas/alteradas (já listadas acima)
-- Políticas RLS aplicadas (todas com `tenant_id` + `has_role`)
-- Edge Functions: 5 (governance-export, governance-compliance-report, governance-cancel-account, governance-deletion-request, governance-execute-deletion)
-- Página: `/settings/governance` com 8 abas + integração no `SettingsLayout`
-- Permissão: módulo `governanca` (admin only)
-- Riscos corrigidos: 4 falhas críticas acima
-- Riscos remanescentes: super_admin global, search_path warnings, SELECT amplo em consents
+**Frontend — `src/pages/Orders.tsx`**
+- Substituir o array único `payments` por 2 estados: `setupPayment` (opcional, mesma estrutura atual) e `recurringPayment` (`{ amount, method, start_date, duration_months | null }`).
+- Atualizar `handleCreate`: criar order com `total = setup_total`; gerar `order_payments` + `receivables` só para setup; se `recurringPayment` ativo, inserir em `subscriptions`.
+- Listagem: mostrar badge "Recorrente" nos pedidos que têm assinatura vinculada (ícone de loop ao lado do número).
+- Validação: ao menos um bloco ativo; se só recorrente, total do pedido = 0 e itens são opcionais (ou exigir um produto-âncora).
 
-Aprove para eu aplicar as 4 correções (migration + 2 edges + secret + reagendamento do cron).
+**Backend — migração leve**
+- Adicionar coluna `subscriptions.order_id uuid REFERENCES orders(id)` (nullable, indexada) para vincular assinatura ao pedido de origem.
+- Adicionar `orders.recurring_amount numeric DEFAULT 0` e `orders.recurring_method text` para visibilidade no BI/listagem (não afeta `total`).
+- Nenhuma mudança em `generate-recurring-invoices` — ela já lê `subscriptions` e gera recebíveis.
+
+**Compatibilidade**
+- Pedidos antigos continuam funcionando (campos novos default 0/null).
+- A função `on_deal_won` (trigger que cria pedido a partir de deal ganho) não é afetada.
+
+## Pontos a confirmar antes de implementar
+
+1. **Itens (produtos) do pedido recorrente:** quando o cliente assina só mensalidade, ainda é obrigatório selecionar um produto da lista, ou o pedido pode ser "vazio de itens" e usar apenas a descrição da mensalidade?
+2. **Faixa do recorrente no `total` do pedido:** mantenho `total = só setup` (recomendado, evita inflar receita à vista) ou prefere `total = setup + (mensal × meses)` para projeções comerciais?
+3. **Duração padrão da mensalidade:** indeterminada (até cancelar) ou sempre exigir prazo em meses?

@@ -49,6 +49,7 @@ const parseBRCurrency = (v: string): number => {
 
 interface OrderItem { product_id: string; product_name: string; quantity: number; unit_price: number; total: number; }
 interface PaymentEntry { method: string; amount: string; installments: number; first_due_date: Date | undefined; }
+interface RecurringEntry { enabled: boolean; amount: string; method: string; months: string; start_date: Date | undefined; }
 
 export default function Orders() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -62,7 +63,9 @@ export default function Orders() {
   const [selectedProduct, setSelectedProduct] = useState("");
   const [itemQty, setItemQty] = useState("1");
   const [notes, setNotes] = useState("");
+  const [setupEnabled, setSetupEnabled] = useState(true);
   const [payments, setPayments] = useState<PaymentEntry[]>([{ method: "pix", amount: "", installments: 1, first_due_date: undefined }]);
+  const [recurring, setRecurring] = useState<RecurringEntry>({ enabled: false, amount: "", method: "pix", months: "12", start_date: undefined });
   const [invoiceMap, setInvoiceMap] = useState<Record<string, any>>({});
   const [emittingId, setEmittingId] = useState<string | null>(null);
   const { toast } = useToast();
@@ -99,7 +102,14 @@ export default function Orders() {
     setCustomers(c || []); setProducts(p || []);
   };
 
-  const handleOpenDialog = () => { loadFormData(); setSelectedCustomer(""); setItems([]); setNotes(""); setPayments([{ method: "pix", amount: "", installments: 1, first_due_date: undefined }]); setDialogOpen(true); };
+  const handleOpenDialog = () => {
+    loadFormData();
+    setSelectedCustomer(""); setItems([]); setNotes("");
+    setSetupEnabled(true);
+    setPayments([{ method: "pix", amount: "", installments: 1, first_due_date: undefined }]);
+    setRecurring({ enabled: false, amount: "", method: "pix", months: "12", start_date: undefined });
+    setDialogOpen(true);
+  };
 
   const addItem = () => {
     const product = products.find((p) => p.id === selectedProduct);
@@ -112,10 +122,22 @@ export default function Orders() {
   const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index));
   const subtotal = items.reduce((sum, i) => sum + i.total, 0);
 
-  // Payment helpers
+  // Setup payment helpers
   const totalAllocated = payments.reduce((sum, p) => sum + parseBRCurrency(p.amount), 0);
   const remaining = subtotal - totalAllocated;
-  const isFullyAllocated = Math.abs(remaining) < 0.01 && subtotal > 0;
+  const isSetupAllocated = !setupEnabled || (Math.abs(remaining) < 0.01 && subtotal > 0);
+
+  // Recurring helpers
+  const recurringAmountNum = parseBRCurrency(recurring.amount);
+  const recurringMonthsNum = parseInt(recurring.months) || 0;
+  const isRecurringValid = !recurring.enabled || (recurringAmountNum > 0 && recurringMonthsNum > 0 && !!recurring.start_date);
+
+  const canSubmit =
+    !!selectedCustomer &&
+    items.length > 0 &&
+    (setupEnabled || recurring.enabled) &&
+    isSetupAllocated &&
+    isRecurringValid;
 
   const addPayment = () => {
     const rem = Math.max(0, subtotal - totalAllocated);
@@ -125,7 +147,6 @@ export default function Orders() {
   const updatePayment = (i: number, field: keyof PaymentEntry, value: any) => {
     const updated = [...payments];
     (updated[i] as any)[field] = value;
-    
     setPayments(updated);
   };
 
@@ -133,58 +154,104 @@ export default function Orders() {
     paymentList.map(p => `${pmLabels[p.method] || p.method}${p.installments > 1 ? ` ${p.installments}x` : ""}`).join(" + ");
 
   const handleCreate = async () => {
-    if (!selectedCustomer || items.length === 0 || !isFullyAllocated) { toast({ title: "Erro", description: "Preencha todos os campos e aloque o valor total.", variant: "destructive" }); return; }
+    if (!canSubmit) {
+      toast({ title: "Erro", description: "Preencha todos os campos obrigatórios.", variant: "destructive" });
+      return;
+    }
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
     if (!profile) return;
     const orderNumber = `PED-${Date.now().toString(36).toUpperCase()}`;
-    const summary = paymentSummary(payments);
-    const { data: order, error } = await supabase.from("orders").insert({ tenant_id: profile.tenant_id, number: orderNumber, customer_id: selectedCustomer, subtotal, total: subtotal, notes: notes || null, payment_method: summary, installments: payments[0]?.installments || 1 } as any).select().single();
+
+    const setupTotal = setupEnabled ? subtotal : 0;
+    const summaryParts: string[] = [];
+    if (setupEnabled) summaryParts.push(`Setup: ${paymentSummary(payments)}`);
+    if (recurring.enabled) summaryParts.push(`Mensal: ${pmLabels[recurring.method] || recurring.method} ${recurringMonthsNum}x`);
+    const summary = summaryParts.join(" + ");
+
+    const { data: order, error } = await supabase.from("orders").insert({
+      tenant_id: profile.tenant_id,
+      number: orderNumber,
+      customer_id: selectedCustomer,
+      subtotal,
+      total: setupTotal,
+      notes: notes || null,
+      payment_method: summary || "pix",
+      installments: setupEnabled ? (payments[0]?.installments || 1) : 1,
+      recurring_amount: recurring.enabled ? recurringAmountNum : 0,
+      recurring_method: recurring.enabled ? recurring.method : null,
+      recurring_months: recurring.enabled ? recurringMonthsNum : null,
+      recurring_start_date: recurring.enabled && recurring.start_date ? format(recurring.start_date, "yyyy-MM-dd") : null,
+    } as any).select().single();
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+
     const orderItems = items.map((i) => ({ tenant_id: profile.tenant_id, order_id: order.id, product_id: i.product_id, quantity: i.quantity, unit_price: i.unit_price, total: i.total }));
     await supabase.from("order_items").insert(orderItems);
-    // Insert split payments with installment date generation
-    const orderPayments: any[] = [];
-    for (const p of payments) {
-      const pAmount = parseBRCurrency(p.amount);
-      if (p.installments > 1 && p.first_due_date) {
-        const perInstallment = Number((pAmount / p.installments).toFixed(2));
-        for (let n = 0; n < p.installments; n++) {
-          const dueDate = addMonths(p.first_due_date, n);
-          orderPayments.push({ tenant_id: profile.tenant_id, order_id: order.id, method: p.method, amount: perInstallment, installments: 1, due_date: format(dueDate, "yyyy-MM-dd") });
+
+    const receivables: any[] = [];
+
+    // ========= SETUP =========
+    if (setupEnabled) {
+      const orderPayments: any[] = [];
+      for (const p of payments) {
+        const pAmount = parseBRCurrency(p.amount);
+        if (p.installments > 1 && p.first_due_date) {
+          const perInstallment = Number((pAmount / p.installments).toFixed(2));
+          for (let n = 0; n < p.installments; n++) {
+            const dueDate = addMonths(p.first_due_date, n);
+            orderPayments.push({ tenant_id: profile.tenant_id, order_id: order.id, method: p.method, amount: perInstallment, installments: 1, due_date: format(dueDate, "yyyy-MM-dd") });
+          }
+        } else {
+          orderPayments.push({ tenant_id: profile.tenant_id, order_id: order.id, method: p.method, amount: pAmount, installments: p.installments, due_date: p.first_due_date ? format(p.first_due_date, "yyyy-MM-dd") : null });
         }
-      } else {
-        orderPayments.push({ tenant_id: profile.tenant_id, order_id: order.id, method: p.method, amount: pAmount, installments: p.installments, due_date: p.first_due_date ? format(p.first_due_date, "yyyy-MM-dd") : null });
+      }
+      await supabase.from("order_payments").insert(orderPayments as any);
+
+      const installmentCounter: Record<string, { current: number; total: number }> = {};
+      for (const p of payments) {
+        if (!installmentCounter[p.method]) installmentCounter[p.method] = { current: 0, total: p.installments };
+      }
+      for (const op of orderPayments) {
+        const methodLabel = pmLabels[op.method] || op.method;
+        installmentCounter[op.method].current++;
+        const cur = installmentCounter[op.method].current;
+        const tot = installmentCounter[op.method].total;
+        const desc = tot > 1
+          ? `Pedido ${orderNumber} — Setup ${methodLabel} ${cur}/${tot}`
+          : `Pedido ${orderNumber} — Setup ${methodLabel}`;
+        receivables.push({
+          tenant_id: profile.tenant_id,
+          description: desc,
+          amount: op.amount,
+          due_date: op.due_date || new Date().toISOString().split("T")[0],
+          order_id: order.id,
+          customer_id: selectedCustomer,
+          payment_method: op.method,
+        });
       }
     }
-    await supabase.from("order_payments").insert(orderPayments as any);
 
-    // Generate receivables for each payment/installment
-    const receivables: any[] = [];
-    let installmentCounter: Record<string, { current: number; total: number }> = {};
-    for (const p of payments) {
-      const key = p.method;
-      if (!installmentCounter[key]) installmentCounter[key] = { current: 0, total: p.installments };
+    // ========= RECURRING (Mensalidade) =========
+    if (recurring.enabled && recurring.start_date) {
+      const methodLabel = pmLabels[recurring.method] || recurring.method;
+      for (let n = 0; n < recurringMonthsNum; n++) {
+        const dueDate = addMonths(recurring.start_date, n);
+        receivables.push({
+          tenant_id: profile.tenant_id,
+          description: `Pedido ${orderNumber} — Mensalidade ${methodLabel} ${n + 1}/${recurringMonthsNum}`,
+          amount: recurringAmountNum,
+          due_date: format(dueDate, "yyyy-MM-dd"),
+          order_id: order.id,
+          customer_id: selectedCustomer,
+          payment_method: recurring.method,
+          is_recurring: true,
+          billing_period_start: format(dueDate, "yyyy-MM-dd"),
+          billing_period_end: format(addMonths(dueDate, 1), "yyyy-MM-dd"),
+        });
+      }
     }
-    for (const op of orderPayments) {
-      const methodLabel = pmLabels[op.method] || op.method;
-      const counterKey = op.method;
-      installmentCounter[counterKey].current++;
-      const cur = installmentCounter[counterKey].current;
-      const tot = installmentCounter[counterKey].total;
-      const desc = tot > 1
-        ? `Pedido ${orderNumber} — ${methodLabel} ${cur}/${tot}`
-        : `Pedido ${orderNumber} — ${methodLabel}`;
-      receivables.push({
-        tenant_id: profile.tenant_id,
-        description: desc,
-        amount: op.amount,
-        due_date: op.due_date || new Date().toISOString().split("T")[0],
-        order_id: order.id,
-        customer_id: selectedCustomer,
-      });
-    }
+
     if (receivables.length > 0) {
       await supabase.from("receivables").insert(receivables as any);
     }
@@ -349,15 +416,20 @@ export default function Orders() {
                 </div>
               )}
 
-              {/* Split Payment Section */}
-              <div className="space-y-3">
+              {/* Setup (Cobrança Única) Section */}
+              <div className="space-y-3 border border-border rounded-md p-4">
                 <div className="flex items-center justify-between">
-                  <Label className="text-base font-semibold">Formas de Pagamento</Label>
-                  <Button type="button" variant="outline" size="sm" onClick={addPayment} disabled={subtotal === 0}>
-                    <Plus className="h-3 w-3 mr-1" />Adicionar Forma
-                  </Button>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={setupEnabled} onChange={(e) => setSetupEnabled(e.target.checked)} className="h-4 w-4" />
+                    <span className="text-base font-semibold">Setup / Cobrança única</span>
+                  </label>
+                  {setupEnabled && (
+                    <Button type="button" variant="outline" size="sm" onClick={addPayment} disabled={subtotal === 0}>
+                      <Plus className="h-3 w-3 mr-1" />Adicionar Forma
+                    </Button>
+                  )}
                 </div>
-                {payments.map((pm, i) => (
+                {setupEnabled && payments.map((pm, i) => (
                   <div key={i} className="flex gap-2 items-end border border-border rounded-md p-3">
                     <div className="flex-1 space-y-1">
                       <Label className="text-xs text-muted-foreground">Método</Label>
@@ -407,15 +479,67 @@ export default function Orders() {
                     )}
                   </div>
                 ))}
-                {subtotal > 0 && (
-                  <div className={`text-sm text-right font-medium ${isFullyAllocated ? "text-green-600" : "text-destructive"}`}>
-                    {isFullyAllocated ? `✓ Alocado: R$ ${totalAllocated.toFixed(2)}` : `Falta alocar: R$ ${remaining.toFixed(2)}`}
+                {setupEnabled && subtotal > 0 && (
+                  <div className={`text-sm text-right font-medium ${isSetupAllocated ? "text-green-600" : "text-destructive"}`}>
+                    {isSetupAllocated ? `✓ Alocado: R$ ${totalAllocated.toFixed(2)}` : `Falta alocar: R$ ${remaining.toFixed(2)}`}
+                  </div>
+                )}
+              </div>
+
+              {/* Recurring (Mensalidade) Section */}
+              <div className="space-y-3 border border-border rounded-md p-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={recurring.enabled} onChange={(e) => setRecurring({ ...recurring, enabled: e.target.checked })} className="h-4 w-4" />
+                  <span className="text-base font-semibold">Mensalidade recorrente</span>
+                </label>
+                {recurring.enabled && (
+                  <div className="flex gap-2 items-end">
+                    <div className="w-32 space-y-1">
+                      <Label className="text-xs text-muted-foreground">Valor mensal (R$)</Label>
+                      <Input type="text" inputMode="decimal" value={recurring.amount} onChange={(e) => setRecurring({ ...recurring, amount: e.target.value.replace(/[^0-9.,]/g, "") })} placeholder="120,00" />
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <Label className="text-xs text-muted-foreground">Forma</Label>
+                      <Select value={recurring.method} onValueChange={(v) => setRecurring({ ...recurring, method: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pix">PIX</SelectItem>
+                          <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
+                          <SelectItem value="debit_card">Cartão de Débito</SelectItem>
+                          <SelectItem value="boleto">Boleto</SelectItem>
+                          <SelectItem value="transfer">Transferência</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="w-24 space-y-1">
+                      <Label className="text-xs text-muted-foreground">Meses</Label>
+                      <Input type="number" min="1" max="120" value={recurring.months} onChange={(e) => setRecurring({ ...recurring, months: e.target.value })} />
+                    </div>
+                    <div className="w-36 space-y-1">
+                      <Label className="text-xs text-muted-foreground">1º vencimento</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-10", !recurring.start_date && "text-muted-foreground")}>
+                            <CalendarIcon className="mr-1 h-3 w-3" />
+                            {recurring.start_date ? format(recurring.start_date, "dd/MM/yyyy") : <span className="text-xs">Selecionar</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={recurring.start_date} onSelect={(d) => setRecurring({ ...recurring, start_date: d })} initialFocus className={cn("p-3 pointer-events-auto")} locale={ptBR} />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                )}
+                {recurring.enabled && recurringAmountNum > 0 && recurringMonthsNum > 0 && (
+                  <div className="text-sm text-right text-muted-foreground">
+                    Total contratado: R$ {(recurringAmountNum * recurringMonthsNum).toFixed(2)} ({recurringMonthsNum}x R$ {recurringAmountNum.toFixed(2)})
                   </div>
                 )}
               </div>
 
               <div className="space-y-2"><Label>Observações</Label><Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notas do pedido (opcional)" /></div>
-              <Button onClick={handleCreate} className="w-full" disabled={!selectedCustomer || items.length === 0 || !isFullyAllocated}>
+              <Button onClick={handleCreate} className="w-full" disabled={!canSubmit}>
                 Criar Pedido
                 {items.length === 0 && <span className="ml-2 text-xs opacity-70">(adicione itens com o botão +)</span>}
               </Button>
