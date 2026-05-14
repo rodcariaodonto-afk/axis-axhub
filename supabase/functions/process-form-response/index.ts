@@ -212,7 +212,7 @@ Deno.serve(async (req) => {
           tenant_id,
           name: `Oportunidade - ${institution}`,
           amount: estimatedValue,
-          probability: 30,
+          probability: 0.3,
           stage: stageName,
           account_id: account_id,
           contact_id: contact_id,

@@ -231,44 +231,61 @@ export default function PublicForm() {
 
   const handleSubmit = async () => {
     setSubmitting(true);
-    const responseId = crypto.randomUUID();
-    const cleanDoc = stripDocument(identify.documento);
-    const cleanPhone = identify.telefone.replace(/\D/g, "");
-    const enrichedAnswers = {
-      ...answers,
-      __identificacao: {
-        nome: identify.nome.trim(),
-        documento: cleanDoc,
-        documento_tipo: detectDocumentType(cleanDoc),
-        empresa: identify.empresa.trim(),
-        telefone: cleanPhone,
-        email: identify.email.trim(),
-      },
-    };
-    const { error } = await supabase.from("form_responses").insert({
-      id: responseId,
-      form_id: form.id,
-      tenant_id: form.tenant_id,
-      respondent_name: identify.nome.trim(),
-      respondent_email: identify.email.trim(),
-      response_data: enrichedAnswers,
-      completed: true,
-    });
-    if (error) { setSubmitting(false); toast({ title: "Erro ao enviar", description: error.message, variant: "destructive" }); return; }
-
-    // Trigger process-form-response automatically
     try {
-      await supabase.functions.invoke("process-form-response", {
-        body: { form_response_id: responseId },
-      });
-    } catch (e) {
-      console.error("[PublicForm] process-form-response invoke error:", e);
-    }
+      const responseId = crypto.randomUUID();
+      const cleanDoc = stripDocument(identify.documento);
+      const cleanPhone = identify.telefone.replace(/\D/g, "");
+      const enrichedAnswers = {
+        ...answers,
+        __identificacao: {
+          nome: identify.nome.trim(),
+          documento: cleanDoc,
+          documento_tipo: detectDocumentType(cleanDoc),
+          empresa: identify.empresa.trim(),
+          telefone: cleanPhone,
+          email: identify.email.trim(),
+        },
+      };
 
-    setSubmitting(false);
-    try { localStorage.removeItem(storageKey); localStorage.removeItem(tokenKey); } catch {}
-    try { await supabase.from("form_response_drafts").delete().eq("form_id", form.id).eq("draft_token", draftToken); } catch {}
-    setStep("success");
+      const { error } = await supabase.from("form_responses").insert({
+        id: responseId,
+        form_id: form.id,
+        tenant_id: form.tenant_id,
+        respondent_name: identify.nome.trim(),
+        respondent_email: identify.email.trim(),
+        response_data: enrichedAnswers,
+        completed: true,
+      });
+      if (error) {
+        toast({ title: "Erro ao enviar", description: error.message, variant: "destructive" });
+        return;
+      }
+
+      // Pós-envio: nada aqui pode bloquear a transição para "success"
+      // O trigger no banco já dispara process-form-response, então o invoke abaixo é apenas redundância.
+      try {
+        await Promise.race([
+          supabase.functions.invoke("process-form-response", { body: { form_response_id: responseId } }),
+          new Promise((resolve) => setTimeout(resolve, 4000)), // não esperar mais que 4s
+        ]);
+      } catch (e) {
+        console.warn("[PublicForm] process-form-response invoke ignorado:", e);
+      }
+
+      try { localStorage.removeItem(storageKey); localStorage.removeItem(tokenKey); } catch {}
+      try { await supabase.from("form_response_drafts").delete().eq("form_id", form.id).eq("draft_token", draftToken); } catch {}
+
+      setStep("success");
+    } catch (err: any) {
+      console.error("[PublicForm] handleSubmit fatal:", err);
+      toast({
+        title: "Não foi possível enviar",
+        description: err?.message || "Tente novamente em instantes.",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const isLastSection = currentSection === sections.length - 1;
