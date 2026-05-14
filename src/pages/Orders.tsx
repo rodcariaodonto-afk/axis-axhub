@@ -102,7 +102,14 @@ export default function Orders() {
     setCustomers(c || []); setProducts(p || []);
   };
 
-  const handleOpenDialog = () => { loadFormData(); setSelectedCustomer(""); setItems([]); setNotes(""); setPayments([{ method: "pix", amount: "", installments: 1, first_due_date: undefined }]); setDialogOpen(true); };
+  const handleOpenDialog = () => {
+    loadFormData();
+    setSelectedCustomer(""); setItems([]); setNotes("");
+    setSetupEnabled(true);
+    setPayments([{ method: "pix", amount: "", installments: 1, first_due_date: undefined }]);
+    setRecurring({ enabled: false, amount: "", method: "pix", months: "12", start_date: undefined });
+    setDialogOpen(true);
+  };
 
   const addItem = () => {
     const product = products.find((p) => p.id === selectedProduct);
