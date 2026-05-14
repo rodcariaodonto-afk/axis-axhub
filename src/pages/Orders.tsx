@@ -122,10 +122,22 @@ export default function Orders() {
   const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index));
   const subtotal = items.reduce((sum, i) => sum + i.total, 0);
 
-  // Payment helpers
+  // Setup payment helpers
   const totalAllocated = payments.reduce((sum, p) => sum + parseBRCurrency(p.amount), 0);
   const remaining = subtotal - totalAllocated;
-  const isFullyAllocated = Math.abs(remaining) < 0.01 && subtotal > 0;
+  const isSetupAllocated = !setupEnabled || (Math.abs(remaining) < 0.01 && subtotal > 0);
+
+  // Recurring helpers
+  const recurringAmountNum = parseBRCurrency(recurring.amount);
+  const recurringMonthsNum = parseInt(recurring.months) || 0;
+  const isRecurringValid = !recurring.enabled || (recurringAmountNum > 0 && recurringMonthsNum > 0 && !!recurring.start_date);
+
+  const canSubmit =
+    !!selectedCustomer &&
+    items.length > 0 &&
+    (setupEnabled || recurring.enabled) &&
+    isSetupAllocated &&
+    isRecurringValid;
 
   const addPayment = () => {
     const rem = Math.max(0, subtotal - totalAllocated);
@@ -135,7 +147,6 @@ export default function Orders() {
   const updatePayment = (i: number, field: keyof PaymentEntry, value: any) => {
     const updated = [...payments];
     (updated[i] as any)[field] = value;
-    
     setPayments(updated);
   };
 
@@ -143,58 +154,104 @@ export default function Orders() {
     paymentList.map(p => `${pmLabels[p.method] || p.method}${p.installments > 1 ? ` ${p.installments}x` : ""}`).join(" + ");
 
   const handleCreate = async () => {
-    if (!selectedCustomer || items.length === 0 || !isFullyAllocated) { toast({ title: "Erro", description: "Preencha todos os campos e aloque o valor total.", variant: "destructive" }); return; }
+    if (!canSubmit) {
+      toast({ title: "Erro", description: "Preencha todos os campos obrigatórios.", variant: "destructive" });
+      return;
+    }
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).single();
     if (!profile) return;
     const orderNumber = `PED-${Date.now().toString(36).toUpperCase()}`;
-    const summary = paymentSummary(payments);
-    const { data: order, error } = await supabase.from("orders").insert({ tenant_id: profile.tenant_id, number: orderNumber, customer_id: selectedCustomer, subtotal, total: subtotal, notes: notes || null, payment_method: summary, installments: payments[0]?.installments || 1 } as any).select().single();
+
+    const setupTotal = setupEnabled ? subtotal : 0;
+    const summaryParts: string[] = [];
+    if (setupEnabled) summaryParts.push(`Setup: ${paymentSummary(payments)}`);
+    if (recurring.enabled) summaryParts.push(`Mensal: ${pmLabels[recurring.method] || recurring.method} ${recurringMonthsNum}x`);
+    const summary = summaryParts.join(" + ");
+
+    const { data: order, error } = await supabase.from("orders").insert({
+      tenant_id: profile.tenant_id,
+      number: orderNumber,
+      customer_id: selectedCustomer,
+      subtotal,
+      total: setupTotal,
+      notes: notes || null,
+      payment_method: summary || "pix",
+      installments: setupEnabled ? (payments[0]?.installments || 1) : 1,
+      recurring_amount: recurring.enabled ? recurringAmountNum : 0,
+      recurring_method: recurring.enabled ? recurring.method : null,
+      recurring_months: recurring.enabled ? recurringMonthsNum : null,
+      recurring_start_date: recurring.enabled && recurring.start_date ? format(recurring.start_date, "yyyy-MM-dd") : null,
+    } as any).select().single();
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+
     const orderItems = items.map((i) => ({ tenant_id: profile.tenant_id, order_id: order.id, product_id: i.product_id, quantity: i.quantity, unit_price: i.unit_price, total: i.total }));
     await supabase.from("order_items").insert(orderItems);
-    // Insert split payments with installment date generation
-    const orderPayments: any[] = [];
-    for (const p of payments) {
-      const pAmount = parseBRCurrency(p.amount);
-      if (p.installments > 1 && p.first_due_date) {
-        const perInstallment = Number((pAmount / p.installments).toFixed(2));
-        for (let n = 0; n < p.installments; n++) {
-          const dueDate = addMonths(p.first_due_date, n);
-          orderPayments.push({ tenant_id: profile.tenant_id, order_id: order.id, method: p.method, amount: perInstallment, installments: 1, due_date: format(dueDate, "yyyy-MM-dd") });
+
+    const receivables: any[] = [];
+
+    // ========= SETUP =========
+    if (setupEnabled) {
+      const orderPayments: any[] = [];
+      for (const p of payments) {
+        const pAmount = parseBRCurrency(p.amount);
+        if (p.installments > 1 && p.first_due_date) {
+          const perInstallment = Number((pAmount / p.installments).toFixed(2));
+          for (let n = 0; n < p.installments; n++) {
+            const dueDate = addMonths(p.first_due_date, n);
+            orderPayments.push({ tenant_id: profile.tenant_id, order_id: order.id, method: p.method, amount: perInstallment, installments: 1, due_date: format(dueDate, "yyyy-MM-dd") });
+          }
+        } else {
+          orderPayments.push({ tenant_id: profile.tenant_id, order_id: order.id, method: p.method, amount: pAmount, installments: p.installments, due_date: p.first_due_date ? format(p.first_due_date, "yyyy-MM-dd") : null });
         }
-      } else {
-        orderPayments.push({ tenant_id: profile.tenant_id, order_id: order.id, method: p.method, amount: pAmount, installments: p.installments, due_date: p.first_due_date ? format(p.first_due_date, "yyyy-MM-dd") : null });
+      }
+      await supabase.from("order_payments").insert(orderPayments as any);
+
+      const installmentCounter: Record<string, { current: number; total: number }> = {};
+      for (const p of payments) {
+        if (!installmentCounter[p.method]) installmentCounter[p.method] = { current: 0, total: p.installments };
+      }
+      for (const op of orderPayments) {
+        const methodLabel = pmLabels[op.method] || op.method;
+        installmentCounter[op.method].current++;
+        const cur = installmentCounter[op.method].current;
+        const tot = installmentCounter[op.method].total;
+        const desc = tot > 1
+          ? `Pedido ${orderNumber} — Setup ${methodLabel} ${cur}/${tot}`
+          : `Pedido ${orderNumber} — Setup ${methodLabel}`;
+        receivables.push({
+          tenant_id: profile.tenant_id,
+          description: desc,
+          amount: op.amount,
+          due_date: op.due_date || new Date().toISOString().split("T")[0],
+          order_id: order.id,
+          customer_id: selectedCustomer,
+          payment_method: op.method,
+        });
       }
     }
-    await supabase.from("order_payments").insert(orderPayments as any);
 
-    // Generate receivables for each payment/installment
-    const receivables: any[] = [];
-    let installmentCounter: Record<string, { current: number; total: number }> = {};
-    for (const p of payments) {
-      const key = p.method;
-      if (!installmentCounter[key]) installmentCounter[key] = { current: 0, total: p.installments };
+    // ========= RECURRING (Mensalidade) =========
+    if (recurring.enabled && recurring.start_date) {
+      const methodLabel = pmLabels[recurring.method] || recurring.method;
+      for (let n = 0; n < recurringMonthsNum; n++) {
+        const dueDate = addMonths(recurring.start_date, n);
+        receivables.push({
+          tenant_id: profile.tenant_id,
+          description: `Pedido ${orderNumber} — Mensalidade ${methodLabel} ${n + 1}/${recurringMonthsNum}`,
+          amount: recurringAmountNum,
+          due_date: format(dueDate, "yyyy-MM-dd"),
+          order_id: order.id,
+          customer_id: selectedCustomer,
+          payment_method: recurring.method,
+          is_recurring: true,
+          billing_period_start: format(dueDate, "yyyy-MM-dd"),
+          billing_period_end: format(addMonths(dueDate, 1), "yyyy-MM-dd"),
+        });
+      }
     }
-    for (const op of orderPayments) {
-      const methodLabel = pmLabels[op.method] || op.method;
-      const counterKey = op.method;
-      installmentCounter[counterKey].current++;
-      const cur = installmentCounter[counterKey].current;
-      const tot = installmentCounter[counterKey].total;
-      const desc = tot > 1
-        ? `Pedido ${orderNumber} — ${methodLabel} ${cur}/${tot}`
-        : `Pedido ${orderNumber} — ${methodLabel}`;
-      receivables.push({
-        tenant_id: profile.tenant_id,
-        description: desc,
-        amount: op.amount,
-        due_date: op.due_date || new Date().toISOString().split("T")[0],
-        order_id: order.id,
-        customer_id: selectedCustomer,
-      });
-    }
+
     if (receivables.length > 0) {
       await supabase.from("receivables").insert(receivables as any);
     }
