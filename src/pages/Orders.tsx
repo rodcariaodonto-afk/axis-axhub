@@ -49,6 +49,7 @@ const parseBRCurrency = (v: string): number => {
 
 interface OrderItem { product_id: string; product_name: string; quantity: number; unit_price: number; total: number; }
 interface PaymentEntry { method: string; amount: string; installments: number; first_due_date: Date | undefined; }
+interface RecurringEntry { enabled: boolean; amount: string; method: string; months: string; start_date: Date | undefined; }
 
 export default function Orders() {
   const [orders, setOrders] = useState<any[]>([]);
