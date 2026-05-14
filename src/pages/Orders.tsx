@@ -63,7 +63,9 @@ export default function Orders() {
   const [selectedProduct, setSelectedProduct] = useState("");
   const [itemQty, setItemQty] = useState("1");
   const [notes, setNotes] = useState("");
+  const [setupEnabled, setSetupEnabled] = useState(true);
   const [payments, setPayments] = useState<PaymentEntry[]>([{ method: "pix", amount: "", installments: 1, first_due_date: undefined }]);
+  const [recurring, setRecurring] = useState<RecurringEntry>({ enabled: false, amount: "", method: "pix", months: "12", start_date: undefined });
   const [invoiceMap, setInvoiceMap] = useState<Record<string, any>>({});
   const [emittingId, setEmittingId] = useState<string | null>(null);
   const { toast } = useToast();
