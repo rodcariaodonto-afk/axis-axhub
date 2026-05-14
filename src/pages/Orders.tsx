@@ -416,15 +416,20 @@ export default function Orders() {
                 </div>
               )}
 
-              {/* Split Payment Section */}
-              <div className="space-y-3">
+              {/* Setup (Cobrança Única) Section */}
+              <div className="space-y-3 border border-border rounded-md p-4">
                 <div className="flex items-center justify-between">
-                  <Label className="text-base font-semibold">Formas de Pagamento</Label>
-                  <Button type="button" variant="outline" size="sm" onClick={addPayment} disabled={subtotal === 0}>
-                    <Plus className="h-3 w-3 mr-1" />Adicionar Forma
-                  </Button>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={setupEnabled} onChange={(e) => setSetupEnabled(e.target.checked)} className="h-4 w-4" />
+                    <span className="text-base font-semibold">Setup / Cobrança única</span>
+                  </label>
+                  {setupEnabled && (
+                    <Button type="button" variant="outline" size="sm" onClick={addPayment} disabled={subtotal === 0}>
+                      <Plus className="h-3 w-3 mr-1" />Adicionar Forma
+                    </Button>
+                  )}
                 </div>
-                {payments.map((pm, i) => (
+                {setupEnabled && payments.map((pm, i) => (
                   <div key={i} className="flex gap-2 items-end border border-border rounded-md p-3">
                     <div className="flex-1 space-y-1">
                       <Label className="text-xs text-muted-foreground">Método</Label>
@@ -474,15 +479,67 @@ export default function Orders() {
                     )}
                   </div>
                 ))}
-                {subtotal > 0 && (
-                  <div className={`text-sm text-right font-medium ${isFullyAllocated ? "text-green-600" : "text-destructive"}`}>
-                    {isFullyAllocated ? `✓ Alocado: R$ ${totalAllocated.toFixed(2)}` : `Falta alocar: R$ ${remaining.toFixed(2)}`}
+                {setupEnabled && subtotal > 0 && (
+                  <div className={`text-sm text-right font-medium ${isSetupAllocated ? "text-green-600" : "text-destructive"}`}>
+                    {isSetupAllocated ? `✓ Alocado: R$ ${totalAllocated.toFixed(2)}` : `Falta alocar: R$ ${remaining.toFixed(2)}`}
+                  </div>
+                )}
+              </div>
+
+              {/* Recurring (Mensalidade) Section */}
+              <div className="space-y-3 border border-border rounded-md p-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={recurring.enabled} onChange={(e) => setRecurring({ ...recurring, enabled: e.target.checked })} className="h-4 w-4" />
+                  <span className="text-base font-semibold">Mensalidade recorrente</span>
+                </label>
+                {recurring.enabled && (
+                  <div className="flex gap-2 items-end">
+                    <div className="w-32 space-y-1">
+                      <Label className="text-xs text-muted-foreground">Valor mensal (R$)</Label>
+                      <Input type="text" inputMode="decimal" value={recurring.amount} onChange={(e) => setRecurring({ ...recurring, amount: e.target.value.replace(/[^0-9.,]/g, "") })} placeholder="120,00" />
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <Label className="text-xs text-muted-foreground">Forma</Label>
+                      <Select value={recurring.method} onValueChange={(v) => setRecurring({ ...recurring, method: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pix">PIX</SelectItem>
+                          <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
+                          <SelectItem value="debit_card">Cartão de Débito</SelectItem>
+                          <SelectItem value="boleto">Boleto</SelectItem>
+                          <SelectItem value="transfer">Transferência</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="w-24 space-y-1">
+                      <Label className="text-xs text-muted-foreground">Meses</Label>
+                      <Input type="number" min="1" max="120" value={recurring.months} onChange={(e) => setRecurring({ ...recurring, months: e.target.value })} />
+                    </div>
+                    <div className="w-36 space-y-1">
+                      <Label className="text-xs text-muted-foreground">1º vencimento</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-10", !recurring.start_date && "text-muted-foreground")}>
+                            <CalendarIcon className="mr-1 h-3 w-3" />
+                            {recurring.start_date ? format(recurring.start_date, "dd/MM/yyyy") : <span className="text-xs">Selecionar</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={recurring.start_date} onSelect={(d) => setRecurring({ ...recurring, start_date: d })} initialFocus className={cn("p-3 pointer-events-auto")} locale={ptBR} />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                )}
+                {recurring.enabled && recurringAmountNum > 0 && recurringMonthsNum > 0 && (
+                  <div className="text-sm text-right text-muted-foreground">
+                    Total contratado: R$ {(recurringAmountNum * recurringMonthsNum).toFixed(2)} ({recurringMonthsNum}x R$ {recurringAmountNum.toFixed(2)})
                   </div>
                 )}
               </div>
 
               <div className="space-y-2"><Label>Observações</Label><Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notas do pedido (opcional)" /></div>
-              <Button onClick={handleCreate} className="w-full" disabled={!selectedCustomer || items.length === 0 || !isFullyAllocated}>
+              <Button onClick={handleCreate} className="w-full" disabled={!canSubmit}>
                 Criar Pedido
                 {items.length === 0 && <span className="ml-2 text-xs opacity-70">(adicione itens com o botão +)</span>}
               </Button>
