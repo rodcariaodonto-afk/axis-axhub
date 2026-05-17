@@ -67,6 +67,15 @@ const Iris = lazy(() => import("./pages/Iris"));
 const FiscalInvoices = lazy(() => import("./pages/erp/FiscalInvoices"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
+// Super Admin module (AXHolding internal)
+const SuperAdminLayout = lazy(() => import("./pages/admin/SuperAdminLayout"));
+const AdminTenants = lazy(() => import("./pages/admin/AdminTenants"));
+const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
+const AdminMetrics = lazy(() => import("./pages/admin/AdminMetrics"));
+const AdminAudit = lazy(() => import("./pages/admin/AdminAudit"));
+const AdminHealth = lazy(() => import("./pages/admin/AdminHealth"));
+const AdminBilling = lazy(() => import("./pages/admin/AdminBilling"));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -149,6 +158,18 @@ const App = () => (
               <Route path="/iris" element={<ProtectedRoute><Iris /></ProtectedRoute>} />
               <Route path="/erp/notas-fiscais" element={<ProtectedRoute><FiscalInvoices /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+
+              {/* Super Admin module - guard interno via useIsSuperAdmin */}
+              <Route path="/admin" element={<ProtectedRoute><SuperAdminLayout /></ProtectedRoute>}>
+                <Route index element={<AdminTenants />} />
+                <Route path="tenants" element={<AdminTenants />} />
+                <Route path="users" element={<AdminUsers />} />
+                <Route path="metrics" element={<AdminMetrics />} />
+                <Route path="audit" element={<AdminAudit />} />
+                <Route path="health" element={<AdminHealth />} />
+                <Route path="billing" element={<AdminBilling />} />
+              </Route>
+
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

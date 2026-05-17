@@ -11,10 +11,14 @@ import {
   ClipboardList,
   Sparkles,
   Receipt,
+  ShieldCheck,
+  Activity,
+  DollarSign,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
+import { useIsSuperAdmin } from "@/hooks/useIsSuperAdmin";
 import { useLocation } from "react-router-dom";
 import {
   Sidebar, SidebarContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
@@ -28,6 +32,7 @@ interface MenuChild {
   url: string;
   icon: React.ElementType;
   module?: string; // permission module key
+  bypassPermission?: boolean; // se true, ignora hasPermission (uso: super admin)
 }
 
 interface MenuGroup {
@@ -41,9 +46,25 @@ interface MenuGroup {
 export function AppSidebar() {
   const { signOut } = useAuth();
   const { hasPermission, isAdmin, isLoading: permLoading } = useUserPermissions();
+  const { isSuperAdmin } = useIsSuperAdmin();
   const location = useLocation();
 
+  const superAdminGroup: MenuGroup = {
+    label: "Super Admin",
+    icon: ShieldCheck,
+    defaultOpen: true,
+    children: [
+      { title: "Tenants", url: "/admin/tenants", icon: Building2, bypassPermission: true },
+      { title: "Usuarios", url: "/admin/users", icon: Users, bypassPermission: true },
+      { title: "Metricas", url: "/admin/metrics", icon: BarChart3, bypassPermission: true },
+      { title: "Auditoria", url: "/admin/audit", icon: FileText, bypassPermission: true },
+      { title: "Saude", url: "/admin/health", icon: Activity, bypassPermission: true },
+      { title: "Billing", url: "/admin/billing", icon: DollarSign, bypassPermission: true },
+    ],
+  };
+
   const groups: MenuGroup[] = [
+    ...(isSuperAdmin ? [superAdminGroup] : []),
     {
       label: "CRM",
       icon: BarChart3,
@@ -124,6 +145,7 @@ export function AppSidebar() {
   ];
 
   const canViewChild = (child: MenuChild) => {
+    if (child.bypassPermission) return true;
     if (isAdmin || permLoading) return true;
     if (!child.module) return true;
     return hasPermission(child.module, "view");
