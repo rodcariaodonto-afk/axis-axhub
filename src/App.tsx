@@ -70,6 +70,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 // Super Admin module (AXHolding internal)
 const SuperAdminLayout = lazy(() => import("./pages/admin/SuperAdminLayout"));
 const AdminTenants = lazy(() => import("./pages/admin/AdminTenants"));
+const AdminTenantDetail = lazy(() => import("./pages/admin/AdminTenantDetail"));
 const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
 const AdminMetrics = lazy(() => import("./pages/admin/AdminMetrics"));
 const AdminAudit = lazy(() => import("./pages/admin/AdminAudit"));
@@ -163,6 +164,7 @@ const App = () => (
               <Route path="/admin" element={<ProtectedRoute><SuperAdminLayout /></ProtectedRoute>}>
                 <Route index element={<AdminTenants />} />
                 <Route path="tenants" element={<AdminTenants />} />
+                <Route path="tenants/:id" element={<AdminTenantDetail />} />
                 <Route path="users" element={<AdminUsers />} />
                 <Route path="metrics" element={<AdminMetrics />} />
                 <Route path="audit" element={<AdminAudit />} />
