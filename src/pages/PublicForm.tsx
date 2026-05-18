@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "@/hooks/use-toast";
 import { CheckCircle, ArrowRight, ArrowLeft, Pencil } from "lucide-react";
-import axisLogo from "@/assets/axis-logo.png";
+import axisLogo from "@/assets/axis-logo.svg";
 import type { FormQuestion } from "@/components/forms/formSeedData";
 import { formatDocument, stripDocument, detectDocumentType } from "@/lib/documentMask";
 
