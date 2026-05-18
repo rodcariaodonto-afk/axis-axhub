@@ -1,4 +1,4 @@
-import axisLogo from "@/assets/axis-logo.png";
+import axisLogo from "@/assets/axis-logo.svg";
 import {
   BarChart3, Package, Banknote, MessageCircle, Zap, BrainCircuit, Settings,
   Gauge, UserPlus, Building2, Contact, TrendingUp, FileText, CalendarCheck, FileBarChart, Scale,
