@@ -156,7 +156,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="px-3 py-3">
+      <SidebarHeader className="px-[80px] py-0 mx-0">
         <div className="flex items-center justify-center">
           <img src={axisLogo} alt="Axis" className="w-full max-w-[180px] h-auto object-contain" />
         </div>
