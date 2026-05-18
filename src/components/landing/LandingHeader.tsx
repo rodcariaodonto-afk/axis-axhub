@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import axisLogo from "@/assets/axis-logo.png";
+import axisLogo from "@/assets/axis-logo.svg";
 import { SUPPORT_WHATSAPP_DEFAULT } from "./supportLink";
 
 const NAV = [

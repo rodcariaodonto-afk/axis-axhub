@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axisLogo from "@/assets/axis-logo.png";
+import axisLogo from "@/assets/axis-logo.svg";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
