@@ -11,6 +11,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { TenantActionsMenu } from "@/components/admin/TenantActionsMenu";
 
 type Tenant = {
   id: string;
@@ -143,11 +144,14 @@ export default function AdminTenantDetail() {
                 <p className="text-xs text-muted-foreground font-mono mt-1">{tenant.id}</p>
               </div>
             </div>
-            <div className="flex flex-col items-end gap-2">
-              <StatusBadge tenant={tenant} />
-              <Badge variant="outline" className="capitalize">
-                Plano: {tenant.plan_name ?? "free"}
-              </Badge>
+            <div className="flex items-start gap-3">
+              <div className="flex flex-col items-end gap-2">
+                <StatusBadge tenant={tenant} />
+                <Badge variant="outline" className="capitalize">
+                  Plano: {tenant.plan_name ?? "free"}
+                </Badge>
+              </div>
+              <TenantActionsMenu tenant={tenant} variant="button" />
             </div>
           </div>
         </CardHeader>

@@ -13,6 +13,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { TenantActionsMenu } from "@/components/admin/TenantActionsMenu";
 
 type TenantRow = {
   id: string;
@@ -136,7 +137,8 @@ export default function AdminTenants() {
                   <TableHead className="text-center">Ativos</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Criado em</TableHead>
-                  <TableHead className="text-right">Acoes</TableHead>
+                  <TableHead className="text-right">Detalhes</TableHead>
+                  <TableHead className="text-right w-12">Acoes</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -162,9 +164,12 @@ export default function AdminTenants() {
                         to={`/admin/tenants/${t.id}`}
                         className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                       >
-                        Ver detalhes
+                        Ver
                         <ExternalLink className="h-3 w-3" />
                       </Link>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <TenantActionsMenu tenant={t} variant="icon" />
                     </TableCell>
                   </TableRow>
                 ))}
