@@ -281,6 +281,16 @@ export const CONNECTORS: ConnectorDefinition[] = [
     icon: "💲",
     events: ["order.created", "order.paid"],
   },
+  {
+    slug: "clicksign",
+    name: "Clicksign",
+    description: "Assinatura eletrônica de contratos com validade jurídica (Lei 14.063/2020)",
+    type: "native",
+    category: "productivity",
+    authType: "api_key",
+    icon: "✍️",
+    events: ["contract.sent", "contract.signed", "contract.refused", "contract.cancelled"],
+  },
 ];
 
 export const CATEGORY_LABELS: Record<string, string> = {

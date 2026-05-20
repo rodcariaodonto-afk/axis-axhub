@@ -13,10 +13,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Pencil, EyeOff, History, PenTool, RotateCcw, FileText, Mail, ShieldCheck, Download } from "lucide-react";
+import { ArrowLeft, Pencil, EyeOff, History, PenTool, RotateCcw, FileText, Download } from "lucide-react";
 import { differenceInDays, parseISO } from "date-fns";
+import ClicksignSignaturePanel from "@/components/contracts/ClicksignSignaturePanel";
 
 const statusOptions = ["Em elaboracao", "Ativo", "Expirado", "Cancelado", "Renovado"];
 const statusColors: Record<string, string> = {
@@ -29,7 +30,10 @@ const statusColors: Record<string, string> = {
 const sigStatusColors: Record<string, string> = {
   "Unsigned": "bg-muted text-muted-foreground",
   "Pending": "bg-yellow-500/20 text-yellow-400",
+  "PartiallySigned": "bg-blue-500/20 text-blue-400",
   "Signed": "bg-green-500/20 text-green-400",
+  "Cancelado": "bg-destructive/20 text-destructive",
+  "Expirado": "bg-destructive/20 text-destructive",
 };
 const typeOptions = ["Servico", "Venda", "Parceria", "Licenca", "Outro"];
 const currencyOptions = ["BRL", "USD", "EUR"];
@@ -105,14 +109,7 @@ export default function ContractDetail() {
   const [changeDescription, setChangeDescription] = useState("");
   const [agreed, setAgreed] = useState(false);
 
-  // OTP Signature state
-  const [signerEmail, setSignerEmail] = useState("");
-  const [signerName, setSignerName] = useState("");
-  const [otpCode, setOtpCode] = useState("");
-  const [otpSending, setOtpSending] = useState(false);
-  const [otpVerifying, setOtpVerifying] = useState(false);
-  const [pdfGenerating, setPdfGenerating] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  // (Assinatura agora gerenciada pelo ClicksignSignaturePanel)
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawing = useRef(false);
@@ -138,9 +135,6 @@ export default function ContractDetail() {
     setSignatures(sRes.data || []);
     setTemplates(tRes.data || []);
     setAuditLogs(alRes.data || []);
-    // Prefill signer from contract
-    if (cRes.data.signer_email) setSignerEmail(cRes.data.signer_email);
-    if (cRes.data.signer_name) setSignerName(cRes.data.signer_name);
     setLoading(false);
   }, [id, navigate]);
 
@@ -301,77 +295,7 @@ export default function ContractDetail() {
     fetchAll();
   };
 
-  // --- OTP Signature Functions ---
-  const handleGeneratePdf = async () => {
-    setPdfGenerating(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("generate-contract", {
-        body: { contract_id: id },
-      });
-      if (error) throw error;
-      if (data?.url) {
-        setPdfUrl(data.url);
-        toast({ title: "PDF gerado com sucesso!" });
-        fetchAll();
-      } else {
-        toast({ title: "Erro ao gerar PDF", variant: "destructive" });
-      }
-    } catch {
-      toast({ title: "Erro ao gerar documento", variant: "destructive" });
-    } finally {
-      setPdfGenerating(false);
-    }
-  };
-
-  const handleRequestOtp = async () => {
-    if (!signerEmail || !signerEmail.includes("@")) {
-      toast({ title: "Informe um e-mail válido", variant: "destructive" });
-      return;
-    }
-    setOtpSending(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("request-otp", {
-        body: { contract_id: id, signer_email: signerEmail, signer_name: signerName },
-      });
-      if (error) throw error;
-      if (data?.success) {
-        toast({ title: "Código OTP enviado!", description: `Enviado para ${signerEmail}` });
-        fetchAll();
-      } else {
-        toast({ title: data?.error || "Erro ao enviar OTP", variant: "destructive" });
-      }
-    } catch {
-      toast({ title: "Erro ao solicitar código", variant: "destructive" });
-    } finally {
-      setOtpSending(false);
-    }
-  };
-
-  const handleVerifyOtp = async () => {
-    if (otpCode.length !== 6) {
-      toast({ title: "Insira o código de 6 dígitos", variant: "destructive" });
-      return;
-    }
-    setOtpVerifying(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("verify-and-sign", {
-        body: { contract_id: id, otp_code: otpCode },
-      });
-      if (error) throw error;
-      if (data?.success) {
-        toast({ title: "Contrato assinado eletronicamente!", description: "Assinatura registrada com sucesso." });
-        setOtpCode("");
-        fetchAll();
-      } else {
-        toast({ title: data?.error || "Código inválido", variant: "destructive" });
-      }
-    } catch {
-      toast({ title: "Erro ao verificar assinatura", variant: "destructive" });
-    } finally {
-      setOtpVerifying(false);
-    }
-  };
-
+  // --- Audit export (mantido para LGPD) ---
   const exportAuditJson = () => {
     const exportData = auditLogs.map((log) => ({
       id: log.id,
@@ -383,7 +307,6 @@ export default function ContractDetail() {
       user_agent: log.user_agent,
       signed_at: log.signed_at,
       created_at: log.created_at,
-      otp_verified: log.otp_verified,
     }));
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -393,6 +316,7 @@ export default function ContractDetail() {
     a.click();
     URL.revokeObjectURL(url);
   };
+
 
   if (loading) return <div className="flex items-center justify-center h-64 text-muted-foreground">Carregando...</div>;
   if (!contract) return null;
@@ -427,7 +351,7 @@ export default function ContractDetail() {
         <TabsList>
           <TabsTrigger value="details">Detalhes</TabsTrigger>
           <TabsTrigger value="signature">Assinatura</TabsTrigger>
-          <TabsTrigger value="electronic-signature">Assinatura Eletrônica (OTP)</TabsTrigger>
+          <TabsTrigger value="electronic-signature">Assinatura Digital (Clicksign)</TabsTrigger>
           <TabsTrigger value="activities">Atividades</TabsTrigger>
         </TabsList>
 
@@ -505,84 +429,7 @@ export default function ContractDetail() {
         </TabsContent>
 
         <TabsContent value="electronic-signature" className="space-y-6 mt-4">
-          <Card className="border-border">
-            <CardHeader><CardTitle className="text-base flex items-center gap-2"><FileText className="h-4 w-4" /> Gerar Documento PDF</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">Gere o PDF do contrato para envio ao signatário. O documento será armazenado de forma segura.</p>
-              <div className="flex items-center gap-4">
-                <Button onClick={handleGeneratePdf} disabled={pdfGenerating}>
-                  <FileText className="mr-2 h-4 w-4" />
-                  {pdfGenerating ? "Gerando..." : "Gerar PDF"}
-                </Button>
-                {(pdfUrl || contract.document_url) && (
-                  <a href={pdfUrl || "#"} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1">
-                    <Download className="h-3 w-3" /> Download PDF
-                  </a>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border">
-            <CardHeader><CardTitle className="text-base flex items-center gap-2"><Mail className="h-4 w-4" /> Solicitar Assinatura (OTP)</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">Informe os dados do signatário e envie o código OTP de 6 dígitos por e-mail.</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Nome do Signatário</Label>
-                  <Input value={signerName} onChange={(e) => setSignerName(e.target.value)} placeholder="Nome completo" />
-                </div>
-                <div className="space-y-2">
-                  <Label>E-mail do Signatário *</Label>
-                  <Input type="email" value={signerEmail} onChange={(e) => setSignerEmail(e.target.value)} placeholder="email@exemplo.com" required />
-                </div>
-              </div>
-              <Button onClick={handleRequestOtp} disabled={otpSending || contract.signature_status === "Signed"}>
-                <Mail className="mr-2 h-4 w-4" />
-                {otpSending ? "Enviando..." : "Enviar Código OTP"}
-              </Button>
-            </CardContent>
-          </Card>
-
-          {contract.signature_status === "Pending" && (
-            <Card className="border-border">
-              <CardHeader><CardTitle className="text-base flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> Verificar Código e Assinar</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">Insira o código de 6 dígitos recebido por e-mail para confirmar a assinatura.</p>
-                <div className="flex items-center gap-4">
-                  <InputOTP maxLength={6} value={otpCode} onChange={(value) => setOtpCode(value)}>
-                    <InputOTPGroup>
-                      <InputOTPSlot index={0} />
-                      <InputOTPSlot index={1} />
-                      <InputOTPSlot index={2} />
-                      <InputOTPSlot index={3} />
-                      <InputOTPSlot index={4} />
-                      <InputOTPSlot index={5} />
-                    </InputOTPGroup>
-                  </InputOTP>
-                </div>
-                <Button onClick={handleVerifyOtp} disabled={otpVerifying || otpCode.length !== 6}>
-                  <ShieldCheck className="mr-2 h-4 w-4" />
-                  {otpVerifying ? "Verificando..." : "Verificar e Assinar"}
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          {contract.signature_status === "Signed" && (
-            <Card className="border-border border-green-500/30">
-              <CardContent className="py-6 flex items-center gap-3">
-                <ShieldCheck className="h-6 w-6 text-green-400" />
-                <div>
-                  <p className="font-semibold text-green-400">Contrato assinado eletronicamente</p>
-                  <p className="text-sm text-muted-foreground">
-                    Assinado em {contract.signed_at ? new Date(contract.signed_at).toLocaleString("pt-BR") : "—"}
-                    {contract.signer_email && ` por ${contract.signer_email}`}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <ClicksignSignaturePanel contractId={id!} contract={contract} onReload={fetchAll} />
 
           <Card className="border-border">
             <CardHeader>
@@ -631,6 +478,7 @@ export default function ContractDetail() {
             </CardContent>
           </Card>
         </TabsContent>
+
 
         <TabsContent value="activities" className="mt-4">
           <ActivitiesTab contractId={id!} navigate={navigate} />
