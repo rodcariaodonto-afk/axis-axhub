@@ -161,18 +161,28 @@ export default function Contracts() {
     setDialogOpen(true);
   };
 
-  const applyTemplate = (templateId: string) => {
-    const tpl = templates.find(t => t.id === templateId);
-    if (!tpl) return;
+  const applyTemplate = (templateId?: string, overrideContactId?: string) => {
+    const tplId = templateId ?? form.template_id;
+    const tpl = templates.find(t => t.id === tplId);
+    if (!tpl) {
+      toast({ title: "Selecione um template", variant: "destructive" });
+      return;
+    }
     const account = accounts.find(a => a.id === form.account_id);
     const deal = deals.find(d => d.id === form.deal_id);
     const currentUser = users.find(u => u.id === form.owner_id);
+    const cId = overrideContactId ?? contactId;
+    const contact = cId
+      ? contacts.find(c => c.id === cId)
+      : contacts.find(c => c.account_id === form.account_id && c.is_primary)
+        || contacts.find(c => c.account_id === form.account_id);
     const contractData = {
       name: form.name, contract_type: form.contract_type, value: form.value ? parseFloat(form.value) : null,
       currency: form.currency, start_date: form.start_date, end_date: form.end_date, renewal_date: form.renewal_date,
     };
-    const filled = replaceMacros(tpl.content, { account, deal, contract: contractData, user: currentUser ? { full_name: currentUser.full_name, email: currentUser.email } : undefined });
-    setForm(f => ({ ...f, template_id: templateId, description: filled }));
+    const filled = replaceMacros(tpl.content, { account, deal, contact, contract: contractData, user: currentUser ? { full_name: currentUser.full_name, email: currentUser.email } : undefined });
+    setForm(f => ({ ...f, template_id: tplId, description: filled }));
+    if (contact && !cId) setContactId(contact.id);
   };
 
   const validate = () => {
