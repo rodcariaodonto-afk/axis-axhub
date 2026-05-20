@@ -351,7 +351,7 @@ export default function ContractDetail() {
         <TabsList>
           <TabsTrigger value="details">Detalhes</TabsTrigger>
           <TabsTrigger value="signature">Assinatura</TabsTrigger>
-          <TabsTrigger value="electronic-signature">Assinatura Eletrônica (OTP)</TabsTrigger>
+          <TabsTrigger value="electronic-signature">Assinatura Digital (Clicksign)</TabsTrigger>
           <TabsTrigger value="activities">Atividades</TabsTrigger>
         </TabsList>
 
@@ -429,84 +429,7 @@ export default function ContractDetail() {
         </TabsContent>
 
         <TabsContent value="electronic-signature" className="space-y-6 mt-4">
-          <Card className="border-border">
-            <CardHeader><CardTitle className="text-base flex items-center gap-2"><FileText className="h-4 w-4" /> Gerar Documento PDF</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">Gere o PDF do contrato para envio ao signatário. O documento será armazenado de forma segura.</p>
-              <div className="flex items-center gap-4">
-                <Button onClick={handleGeneratePdf} disabled={pdfGenerating}>
-                  <FileText className="mr-2 h-4 w-4" />
-                  {pdfGenerating ? "Gerando..." : "Gerar PDF"}
-                </Button>
-                {(pdfUrl || contract.document_url) && (
-                  <a href={pdfUrl || "#"} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1">
-                    <Download className="h-3 w-3" /> Download PDF
-                  </a>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border">
-            <CardHeader><CardTitle className="text-base flex items-center gap-2"><Mail className="h-4 w-4" /> Solicitar Assinatura (OTP)</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">Informe os dados do signatário e envie o código OTP de 6 dígitos por e-mail.</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Nome do Signatário</Label>
-                  <Input value={signerName} onChange={(e) => setSignerName(e.target.value)} placeholder="Nome completo" />
-                </div>
-                <div className="space-y-2">
-                  <Label>E-mail do Signatário *</Label>
-                  <Input type="email" value={signerEmail} onChange={(e) => setSignerEmail(e.target.value)} placeholder="email@exemplo.com" required />
-                </div>
-              </div>
-              <Button onClick={handleRequestOtp} disabled={otpSending || contract.signature_status === "Signed"}>
-                <Mail className="mr-2 h-4 w-4" />
-                {otpSending ? "Enviando..." : "Enviar Código OTP"}
-              </Button>
-            </CardContent>
-          </Card>
-
-          {contract.signature_status === "Pending" && (
-            <Card className="border-border">
-              <CardHeader><CardTitle className="text-base flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> Verificar Código e Assinar</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">Insira o código de 6 dígitos recebido por e-mail para confirmar a assinatura.</p>
-                <div className="flex items-center gap-4">
-                  <InputOTP maxLength={6} value={otpCode} onChange={(value) => setOtpCode(value)}>
-                    <InputOTPGroup>
-                      <InputOTPSlot index={0} />
-                      <InputOTPSlot index={1} />
-                      <InputOTPSlot index={2} />
-                      <InputOTPSlot index={3} />
-                      <InputOTPSlot index={4} />
-                      <InputOTPSlot index={5} />
-                    </InputOTPGroup>
-                  </InputOTP>
-                </div>
-                <Button onClick={handleVerifyOtp} disabled={otpVerifying || otpCode.length !== 6}>
-                  <ShieldCheck className="mr-2 h-4 w-4" />
-                  {otpVerifying ? "Verificando..." : "Verificar e Assinar"}
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          {contract.signature_status === "Signed" && (
-            <Card className="border-border border-green-500/30">
-              <CardContent className="py-6 flex items-center gap-3">
-                <ShieldCheck className="h-6 w-6 text-green-400" />
-                <div>
-                  <p className="font-semibold text-green-400">Contrato assinado eletronicamente</p>
-                  <p className="text-sm text-muted-foreground">
-                    Assinado em {contract.signed_at ? new Date(contract.signed_at).toLocaleString("pt-BR") : "—"}
-                    {contract.signer_email && ` por ${contract.signer_email}`}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <ClicksignSignaturePanel contractId={id!} contract={contract} onReload={fetchAll} />
 
           <Card className="border-border">
             <CardHeader>
@@ -555,6 +478,7 @@ export default function ContractDetail() {
             </CardContent>
           </Card>
         </TabsContent>
+
 
         <TabsContent value="activities" className="mt-4">
           <ActivitiesTab contractId={id!} navigate={navigate} />
