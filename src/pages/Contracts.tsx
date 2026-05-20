@@ -88,19 +88,24 @@ export default function Contracts() {
 
   const isSubscription = form.contract_type === "Assinatura";
 
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [contactId, setContactId] = useState<string>("");
+
   const fetchData = useCallback(async () => {
-    const [contractsRes, accountsRes, dealsRes, usersRes, templatesRes] = await Promise.all([
+    const [contractsRes, accountsRes, dealsRes, usersRes, templatesRes, contactsRes] = await Promise.all([
       supabase.from("contracts").select("*, crm_accounts(id, name), deals(name)").eq("is_active", true).order("created_at", { ascending: false }),
       supabase.from("crm_accounts").select("id, name, cnpj, phone, email, segment, website").order("name"),
       supabase.from("deals").select("id, name, estimated_value, status").order("name"),
       supabase.from("profiles").select("id, full_name, email"),
       supabase.from("contract_templates").select("id, name, type, content").eq("is_active", true).order("name"),
+      supabase.from("contacts").select("id, account_id, first_name, last_name, email, phone, position, is_primary").order("is_primary", { ascending: false }),
     ]);
     setContracts(contractsRes.data || []);
     setAccounts(accountsRes.data || []);
     setDeals(dealsRes.data || []);
     setUsers(usersRes.data || []);
     setTemplates(templatesRes.data || []);
+    setContacts(contactsRes.data || []);
     setLoading(false);
   }, []);
 
@@ -156,18 +161,28 @@ export default function Contracts() {
     setDialogOpen(true);
   };
 
-  const applyTemplate = (templateId: string) => {
-    const tpl = templates.find(t => t.id === templateId);
-    if (!tpl) return;
+  const applyTemplate = (templateId?: string, overrideContactId?: string) => {
+    const tplId = templateId ?? form.template_id;
+    const tpl = templates.find(t => t.id === tplId);
+    if (!tpl) {
+      toast({ title: "Selecione um template", variant: "destructive" });
+      return;
+    }
     const account = accounts.find(a => a.id === form.account_id);
     const deal = deals.find(d => d.id === form.deal_id);
     const currentUser = users.find(u => u.id === form.owner_id);
+    const cId = overrideContactId ?? contactId;
+    const contact = cId
+      ? contacts.find(c => c.id === cId)
+      : contacts.find(c => c.account_id === form.account_id && c.is_primary)
+        || contacts.find(c => c.account_id === form.account_id);
     const contractData = {
       name: form.name, contract_type: form.contract_type, value: form.value ? parseFloat(form.value) : null,
       currency: form.currency, start_date: form.start_date, end_date: form.end_date, renewal_date: form.renewal_date,
     };
-    const filled = replaceMacros(tpl.content, { account, deal, contract: contractData, user: currentUser ? { full_name: currentUser.full_name, email: currentUser.email } : undefined });
-    setForm(f => ({ ...f, template_id: templateId, description: filled }));
+    const filled = replaceMacros(tpl.content, { account, deal, contact, contract: contractData, user: currentUser ? { full_name: currentUser.full_name, email: currentUser.email } : undefined });
+    setForm(f => ({ ...f, template_id: tplId, description: filled }));
+    if (contact && !cId) setContactId(contact.id);
   };
 
   const validate = () => {
@@ -312,16 +327,37 @@ export default function Contracts() {
               </div>
             </div>
             <div className="space-y-2"><Label>Título do Contrato *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
-            <div className="space-y-2">
-              <Label>Template (opcional)</Label>
-              {templates.length > 0 ? (
-                <Select value={form.template_id} onValueChange={(v) => applyTemplate(v)}>
-                  <SelectTrigger><SelectValue placeholder="Selecione um template..." /></SelectTrigger>
-                  <SelectContent>{templates.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Template (opcional)</Label>
+                {templates.length > 0 ? (
+                  <div className="flex gap-2">
+                    <Select value={form.template_id} onValueChange={(v) => applyTemplate(v)}>
+                      <SelectTrigger><SelectValue placeholder="Selecione um template..." /></SelectTrigger>
+                      <SelectContent>{templates.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                    <Button type="button" variant="outline" size="sm" onClick={() => applyTemplate()} disabled={!form.template_id}>
+                      Reaplicar
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Nenhum template cadastrado. <a href="/contract-templates" className="text-primary underline">Criar template</a></p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Contato para macros</Label>
+                <Select value={contactId || "none"} onValueChange={(v) => setContactId(v === "none" ? "" : v)}>
+                  <SelectTrigger><SelectValue placeholder="Auto (contato principal)" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Auto (contato principal)</SelectItem>
+                    {contacts.filter(c => !form.account_id || c.account_id === form.account_id).map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {[c.first_name, c.last_name].filter(Boolean).join(" ") || c.email || "—"}{c.is_primary ? " ⭐" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
-              ) : (
-                <p className="text-xs text-muted-foreground">Nenhum template cadastrado. <a href="/contract-templates" className="text-primary underline">Criar template</a></p>
-              )}
+              </div>
             </div>
             <div className="space-y-2"><Label>Descrição</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={5} /></div>
             <div className="grid grid-cols-3 gap-4">
