@@ -15,8 +15,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Pencil, EyeOff, History, PenTool, RotateCcw, FileText, Mail, ShieldCheck, Download } from "lucide-react";
+import { ArrowLeft, Pencil, EyeOff, History, PenTool, RotateCcw, FileText, Download } from "lucide-react";
 import { differenceInDays, parseISO } from "date-fns";
+import ClicksignSignaturePanel from "@/components/contracts/ClicksignSignaturePanel";
 
 const statusOptions = ["Em elaboracao", "Ativo", "Expirado", "Cancelado", "Renovado"];
 const statusColors: Record<string, string> = {
@@ -29,7 +30,10 @@ const statusColors: Record<string, string> = {
 const sigStatusColors: Record<string, string> = {
   "Unsigned": "bg-muted text-muted-foreground",
   "Pending": "bg-yellow-500/20 text-yellow-400",
+  "PartiallySigned": "bg-blue-500/20 text-blue-400",
   "Signed": "bg-green-500/20 text-green-400",
+  "Cancelado": "bg-destructive/20 text-destructive",
+  "Expirado": "bg-destructive/20 text-destructive",
 };
 const typeOptions = ["Servico", "Venda", "Parceria", "Licenca", "Outro"];
 const currencyOptions = ["BRL", "USD", "EUR"];
