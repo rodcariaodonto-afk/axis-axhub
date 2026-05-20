@@ -1705,6 +1705,76 @@ export type Database = {
           },
         ]
       }
+      contract_signers: {
+        Row: {
+          contract_id: string
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          ip_address: string | null
+          provider_signer_id: string | null
+          signed_at: string | null
+          signing_order: number
+          signing_url: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string
+          email: string
+          full_name: string
+          id?: string
+          ip_address?: string | null
+          provider_signer_id?: string | null
+          signed_at?: string | null
+          signing_order?: number
+          signing_url?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          ip_address?: string | null
+          provider_signer_id?: string | null
+          signed_at?: string | null
+          signing_order?: number
+          signing_url?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_signers_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_signers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_signers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_global_tenant_metrics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contract_templates: {
         Row: {
           content: string
@@ -1842,6 +1912,9 @@ export type Database = {
         Row: {
           account_id: string | null
           auto_renew: boolean | null
+          clicksign_document_key: string | null
+          clicksign_envelope_url: string | null
+          clicksign_sent_at: string | null
           contract_type: string | null
           contract_type_extended: string | null
           created_at: string
@@ -1873,6 +1946,9 @@ export type Database = {
         Insert: {
           account_id?: string | null
           auto_renew?: boolean | null
+          clicksign_document_key?: string | null
+          clicksign_envelope_url?: string | null
+          clicksign_sent_at?: string | null
           contract_type?: string | null
           contract_type_extended?: string | null
           created_at?: string
@@ -1904,6 +1980,9 @@ export type Database = {
         Update: {
           account_id?: string | null
           auto_renew?: boolean | null
+          clicksign_document_key?: string | null
+          clicksign_envelope_url?: string | null
+          clicksign_sent_at?: string | null
           contract_type?: string | null
           contract_type_extended?: string | null
           created_at?: string
