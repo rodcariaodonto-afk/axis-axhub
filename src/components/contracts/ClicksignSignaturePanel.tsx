@@ -28,6 +28,19 @@ const statusColors: Record<string, string> = {
   Expirado: "bg-destructive/20 text-destructive",
 };
 
+async function getFunctionErrorMessage(error: any, fallback: string) {
+  const response = error?.context;
+  if (response instanceof Response) {
+    try {
+      const payload = await response.clone().json();
+      if (typeof payload?.error === "string") return payload.error;
+    } catch {
+      // Keep default fallback when the response body is not JSON.
+    }
+  }
+  return error?.message || fallback;
+}
+
 export default function ClicksignSignaturePanel({ contractId, contract, onReload }: Props) {
   const { toast } = useToast();
   const [integrationConfigured, setIntegrationConfigured] = useState<boolean | null>(null);
@@ -119,7 +132,7 @@ export default function ClicksignSignaturePanel({ contractId, contract, onReload
           signers: valid.map((s, idx) => ({ email: s.email.trim(), name: s.name.trim(), signing_order: idx + 1 })),
         },
       });
-      if (error) throw error;
+      if (error) throw new Error(await getFunctionErrorMessage(error, "Erro ao enviar para Clicksign"));
       if (data?.success) {
         toast({ title: "Contrato enviado para Clicksign!", description: "Os signatários receberão um e-mail." });
         onReload();
