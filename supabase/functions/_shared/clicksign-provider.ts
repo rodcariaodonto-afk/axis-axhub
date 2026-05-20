@@ -23,6 +23,16 @@ export interface CreateEnvelopeResult {
   signers: Array<{ email: string; name: string; signer_key: string; sign_url?: string }>;
 }
 
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
 export class ClicksignClient {
   constructor(private token: string, private baseUrl = CLICKSIGN_BASE_URL) {}
 
@@ -40,14 +50,21 @@ export class ClicksignClient {
   }
 
   async createEnvelope(input: CreateEnvelopeInput): Promise<CreateEnvelopeResult> {
-    // 1) Upload document via content_url
+    const fileRes = await fetch(input.file_url);
+    if (!fileRes.ok) {
+      throw new Error(`Falha ao baixar PDF temporário (${fileRes.status})`);
+    }
+    const fileBytes = new Uint8Array(await fileRes.arrayBuffer());
+    const contentBase64 = `data:application/pdf;base64,${bytesToBase64(fileBytes)}`;
+
+    // 1) Upload document via content_base64 (formato exigido pela API v1)
     const docRes = await fetch(this.url("/documents"), {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({
         document: {
           path: `/AXHUB/${input.tenant_id}/${input.file_name}`,
-          content_url: input.file_url,
+          content_base64: contentBase64,
           deadline_at: input.deadline_at,
           auto_close: true,
           locale: "pt-BR",
