@@ -124,6 +124,25 @@ export class ClicksignClient {
         throw new Error(`Clicksign list bind failed (${listRes.status}): ${txt}`);
       }
       const listJson = await listRes.json();
+      const requestSignatureKey: string | undefined =
+        listJson?.list?.request_signature_key ?? listJson?.list?.key;
+
+      // 3) Dispara o e-mail de solicitação de assinatura
+      if (requestSignatureKey) {
+        const notifRes = await fetch(this.url("/notifications"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({
+            request_signature_key: requestSignatureKey,
+            message: input.message ?? "Por favor, assine o contrato.",
+          }),
+        });
+        if (!notifRes.ok) {
+          const txt = await notifRes.text();
+          console.warn(`Clicksign notification failed (${notifRes.status}): ${txt}`);
+        }
+      }
+
       resultSigners.push({
         email: s.email,
         name: s.name,
