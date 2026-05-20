@@ -327,16 +327,37 @@ export default function Contracts() {
               </div>
             </div>
             <div className="space-y-2"><Label>Título do Contrato *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
-            <div className="space-y-2">
-              <Label>Template (opcional)</Label>
-              {templates.length > 0 ? (
-                <Select value={form.template_id} onValueChange={(v) => applyTemplate(v)}>
-                  <SelectTrigger><SelectValue placeholder="Selecione um template..." /></SelectTrigger>
-                  <SelectContent>{templates.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Template (opcional)</Label>
+                {templates.length > 0 ? (
+                  <div className="flex gap-2">
+                    <Select value={form.template_id} onValueChange={(v) => applyTemplate(v)}>
+                      <SelectTrigger><SelectValue placeholder="Selecione um template..." /></SelectTrigger>
+                      <SelectContent>{templates.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                    <Button type="button" variant="outline" size="sm" onClick={() => applyTemplate()} disabled={!form.template_id}>
+                      Reaplicar
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Nenhum template cadastrado. <a href="/contract-templates" className="text-primary underline">Criar template</a></p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Contato para macros</Label>
+                <Select value={contactId || "none"} onValueChange={(v) => setContactId(v === "none" ? "" : v)}>
+                  <SelectTrigger><SelectValue placeholder="Auto (contato principal)" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Auto (contato principal)</SelectItem>
+                    {contacts.filter(c => !form.account_id || c.account_id === form.account_id).map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {[c.first_name, c.last_name].filter(Boolean).join(" ") || c.email || "—"}{c.is_primary ? " ⭐" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
-              ) : (
-                <p className="text-xs text-muted-foreground">Nenhum template cadastrado. <a href="/contract-templates" className="text-primary underline">Criar template</a></p>
-              )}
+              </div>
             </div>
             <div className="space-y-2"><Label>Descrição</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={5} /></div>
             <div className="grid grid-cols-3 gap-4">
