@@ -1,0 +1,2 @@
+UPDATE public.contract_signers SET status='signed', signed_at='2026-05-20T18:30:34.882Z'::timestamptz WHERE id='9777cb2b-0d0f-4374-a569-e95e4acea775';
+INSERT INTO public.signature_audit_logs (tenant_id, contract_id, signer_email, status, signed_at, otp_verified) VALUES ('7df9b3e1-4a54-4b72-bf42-4c2de3ef36ad','d62b4116-9a0e-458a-b348-5942063a0d9c','rico@axhub.com.br','verified','2026-05-20T18:30:34.882Z'::timestamptz, true);
