@@ -88,19 +88,24 @@ export default function Contracts() {
 
   const isSubscription = form.contract_type === "Assinatura";
 
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [contactId, setContactId] = useState<string>("");
+
   const fetchData = useCallback(async () => {
-    const [contractsRes, accountsRes, dealsRes, usersRes, templatesRes] = await Promise.all([
+    const [contractsRes, accountsRes, dealsRes, usersRes, templatesRes, contactsRes] = await Promise.all([
       supabase.from("contracts").select("*, crm_accounts(id, name), deals(name)").eq("is_active", true).order("created_at", { ascending: false }),
       supabase.from("crm_accounts").select("id, name, cnpj, phone, email, segment, website").order("name"),
       supabase.from("deals").select("id, name, estimated_value, status").order("name"),
       supabase.from("profiles").select("id, full_name, email"),
       supabase.from("contract_templates").select("id, name, type, content").eq("is_active", true).order("name"),
+      supabase.from("contacts").select("id, account_id, first_name, last_name, email, phone, position, is_primary").order("is_primary", { ascending: false }),
     ]);
     setContracts(contractsRes.data || []);
     setAccounts(accountsRes.data || []);
     setDeals(dealsRes.data || []);
     setUsers(usersRes.data || []);
     setTemplates(templatesRes.data || []);
+    setContacts(contactsRes.data || []);
     setLoading(false);
   }, []);
 
