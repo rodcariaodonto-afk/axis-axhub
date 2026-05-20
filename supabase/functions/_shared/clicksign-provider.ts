@@ -191,15 +191,20 @@ export function parseClicksignWebhook(payload: any): ClicksignWebhookEvent {
     cancel: "cancelled",
     deadline: "expired",
   };
-  // Clicksign envia o signatário que acabou de assinar em event.data.signer / event.data.user
+  // Clicksign coloca o signatário que acabou de assinar em event.data
+  // e o signed_at em signers[i].signature.signed_at
   const eventSignerEmail: string | undefined =
     payload?.event?.data?.signer?.email ??
     payload?.event?.data?.user?.email ??
     payload?.signer?.email;
   const docSigners: any[] = payload?.document?.signers ?? [];
   const lastSigned = docSigners
-    .filter((x: any) => x?.signed_at)
-    .sort((a: any, b: any) => String(b.signed_at).localeCompare(String(a.signed_at)))[0];
+    .filter((x: any) => x?.signature?.signed_at || x?.signed_at)
+    .sort((a: any, b: any) => {
+      const av = a?.signature?.signed_at ?? a?.signed_at ?? "";
+      const bv = b?.signature?.signed_at ?? b?.signed_at ?? "";
+      return String(bv).localeCompare(String(av));
+    })[0];
   return {
     event_name: eventName,
     document_key: docKey,
