@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Pencil, EyeOff, History, PenTool, RotateCcw, FileText, Download } from "lucide-react";
 import { differenceInDays, parseISO } from "date-fns";
@@ -109,14 +109,7 @@ export default function ContractDetail() {
   const [changeDescription, setChangeDescription] = useState("");
   const [agreed, setAgreed] = useState(false);
 
-  // OTP Signature state
-  const [signerEmail, setSignerEmail] = useState("");
-  const [signerName, setSignerName] = useState("");
-  const [otpCode, setOtpCode] = useState("");
-  const [otpSending, setOtpSending] = useState(false);
-  const [otpVerifying, setOtpVerifying] = useState(false);
-  const [pdfGenerating, setPdfGenerating] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  // (Assinatura agora gerenciada pelo ClicksignSignaturePanel)
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawing = useRef(false);
@@ -142,9 +135,6 @@ export default function ContractDetail() {
     setSignatures(sRes.data || []);
     setTemplates(tRes.data || []);
     setAuditLogs(alRes.data || []);
-    // Prefill signer from contract
-    if (cRes.data.signer_email) setSignerEmail(cRes.data.signer_email);
-    if (cRes.data.signer_name) setSignerName(cRes.data.signer_name);
     setLoading(false);
   }, [id, navigate]);
 
@@ -305,77 +295,7 @@ export default function ContractDetail() {
     fetchAll();
   };
 
-  // --- OTP Signature Functions ---
-  const handleGeneratePdf = async () => {
-    setPdfGenerating(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("generate-contract", {
-        body: { contract_id: id },
-      });
-      if (error) throw error;
-      if (data?.url) {
-        setPdfUrl(data.url);
-        toast({ title: "PDF gerado com sucesso!" });
-        fetchAll();
-      } else {
-        toast({ title: "Erro ao gerar PDF", variant: "destructive" });
-      }
-    } catch {
-      toast({ title: "Erro ao gerar documento", variant: "destructive" });
-    } finally {
-      setPdfGenerating(false);
-    }
-  };
-
-  const handleRequestOtp = async () => {
-    if (!signerEmail || !signerEmail.includes("@")) {
-      toast({ title: "Informe um e-mail válido", variant: "destructive" });
-      return;
-    }
-    setOtpSending(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("request-otp", {
-        body: { contract_id: id, signer_email: signerEmail, signer_name: signerName },
-      });
-      if (error) throw error;
-      if (data?.success) {
-        toast({ title: "Código OTP enviado!", description: `Enviado para ${signerEmail}` });
-        fetchAll();
-      } else {
-        toast({ title: data?.error || "Erro ao enviar OTP", variant: "destructive" });
-      }
-    } catch {
-      toast({ title: "Erro ao solicitar código", variant: "destructive" });
-    } finally {
-      setOtpSending(false);
-    }
-  };
-
-  const handleVerifyOtp = async () => {
-    if (otpCode.length !== 6) {
-      toast({ title: "Insira o código de 6 dígitos", variant: "destructive" });
-      return;
-    }
-    setOtpVerifying(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("verify-and-sign", {
-        body: { contract_id: id, otp_code: otpCode },
-      });
-      if (error) throw error;
-      if (data?.success) {
-        toast({ title: "Contrato assinado eletronicamente!", description: "Assinatura registrada com sucesso." });
-        setOtpCode("");
-        fetchAll();
-      } else {
-        toast({ title: data?.error || "Código inválido", variant: "destructive" });
-      }
-    } catch {
-      toast({ title: "Erro ao verificar assinatura", variant: "destructive" });
-    } finally {
-      setOtpVerifying(false);
-    }
-  };
-
+  // --- Audit export (mantido para LGPD) ---
   const exportAuditJson = () => {
     const exportData = auditLogs.map((log) => ({
       id: log.id,
@@ -387,7 +307,6 @@ export default function ContractDetail() {
       user_agent: log.user_agent,
       signed_at: log.signed_at,
       created_at: log.created_at,
-      otp_verified: log.otp_verified,
     }));
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -397,6 +316,7 @@ export default function ContractDetail() {
     a.click();
     URL.revokeObjectURL(url);
   };
+
 
   if (loading) return <div className="flex items-center justify-center h-64 text-muted-foreground">Carregando...</div>;
   if (!contract) return null;
