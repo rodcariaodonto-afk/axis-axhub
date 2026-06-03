@@ -3949,6 +3949,7 @@ export type Database = {
           created_at: string
           form_id: string
           id: string
+          processed_at: string | null
           respondent_email: string
           respondent_name: string
           response_data: Json
@@ -3960,6 +3961,7 @@ export type Database = {
           created_at?: string
           form_id: string
           id?: string
+          processed_at?: string | null
           respondent_email: string
           respondent_name: string
           response_data?: Json
@@ -3971,6 +3973,7 @@ export type Database = {
           created_at?: string
           form_id?: string
           id?: string
+          processed_at?: string | null
           respondent_email?: string
           respondent_name?: string
           response_data?: Json
@@ -8688,6 +8691,10 @@ export type Database = {
         }
         Returns: string
       }
+      delete_form_draft: {
+        Args: { p_draft_token: string; p_form_id: string }
+        Returns: undefined
+      }
       execute_bi_widget_query: {
         Args: {
           p_aggregation: string
@@ -8698,6 +8705,15 @@ export type Database = {
           p_metric: string
         }
         Returns: Json
+      }
+      get_form_draft: {
+        Args: { p_draft_token: string; p_form_id: string }
+        Returns: {
+          answers: Json
+          current_section: number
+          identify: Json
+          step: string
+        }[]
       }
       get_user_tenant_id: { Args: never; Returns: string }
       has_role: {
@@ -8712,6 +8728,21 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: never; Returns: boolean }
+      upsert_form_draft: {
+        Args: {
+          p_answers: Json
+          p_current_section: number
+          p_draft_token: string
+          p_form_id: string
+          p_identify: Json
+          p_respondent_email: string
+          p_respondent_name: string
+          p_respondent_phone: string
+          p_step: string
+          p_tenant_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role:

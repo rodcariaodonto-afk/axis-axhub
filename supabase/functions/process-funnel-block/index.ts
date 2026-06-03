@@ -8,6 +8,13 @@ const corsHeaders = {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  if (req.headers.get("Authorization") !== `Bearer ${serviceRoleKey}`) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+
+
   try {
     const { execucao_id, bloco_id, tenant_id } = await req.json();
     if (!execucao_id || !bloco_id || !tenant_id) {

@@ -12,6 +12,20 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  // Require cron secret OR service-role bearer
+  const cronSecret = Deno.env.get("CRON_SECRET");
+  const providedSecret = req.headers.get("x-cron-secret");
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const isServiceRoleCall = authHeader === `Bearer ${serviceRoleKey}`;
+  const isCronCall = !!cronSecret && providedSecret === cronSecret;
+  if (!isServiceRoleCall && !isCronCall) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   const webhookUrl = Deno.env.get("N8N_WEBHOOK_URL");
   const n8nToken = Deno.env.get("N8N_TOKEN");
 
