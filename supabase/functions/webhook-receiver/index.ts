@@ -80,9 +80,25 @@ Deno.serve(async (req) => {
 
   const tenantId = (webhook as any).integrations.tenant_id;
 
-  // Validate HMAC signature
+  // Validate HMAC signature (REQUIRED — missing signature = unauthorized)
   const signature = req.headers.get("x-webhook-signature");
-  if (signature) {
+  if (!signature) {
+    await supabase.from("integration_logs").insert({
+      integration_id: integrationId,
+      tenant_id: tenantId,
+      event_type: "webhook.auth_failed",
+      action: "receive",
+      request_payload: { headers: Object.fromEntries(req.headers.entries()) },
+      status: "failed",
+      error_message: "Missing x-webhook-signature header",
+      duration_ms: Date.now() - startTime,
+    });
+    return new Response(JSON.stringify({ error: "Missing signature" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  {
     const valid = await verifyHmac(webhook.webhook_secret, rawBody, signature);
     if (!valid) {
       await supabase.from("integration_logs").insert({
