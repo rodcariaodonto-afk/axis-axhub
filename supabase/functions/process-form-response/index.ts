@@ -30,6 +30,29 @@ Deno.serve(async (req) => {
 
     if (respErr || !response) throw new Error("Response not found: " + respErr?.message);
 
+    // Idempotency: bail out if this response was already processed.
+    if ((response as any).processed_at) {
+      console.log("[process-form-response] Already processed, skipping:", form_response_id);
+      return new Response(JSON.stringify({ ok: true, skipped: "already_processed" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Atomically claim the response. If the update affects 0 rows, another worker won the race.
+    const { data: claimed, error: claimErr } = await supabase
+      .from("form_responses")
+      .update({ processed_at: new Date().toISOString() })
+      .eq("id", form_response_id)
+      .is("processed_at", null)
+      .select("id")
+      .maybeSingle();
+    if (claimErr || !claimed) {
+      console.log("[process-form-response] Could not claim (already processed):", form_response_id);
+      return new Response(JSON.stringify({ ok: true, skipped: "already_processed" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const tenant_id = response.forms.tenant_id;
     const form_owner_id = response.forms.user_id;
     const rd = response.response_data as Record<string, any>;
