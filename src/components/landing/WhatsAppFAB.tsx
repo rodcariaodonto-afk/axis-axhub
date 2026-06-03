@@ -1,7 +1,7 @@
 import { MessageCircle } from "lucide-react";
 import { buildSupportWhatsAppUrl } from "./supportLink";
 
-const WHATSAPP_URL = buildSupportWhatsAppUrl("Olá! Gostaria de falar com o suporte AXIS.");
+const WHATSAPP_URL = buildSupportWhatsAppUrl("Olá, quero saber mais sobre o Axis. Pode me apresentar a plataforma?");
 
 export default function WhatsAppFAB() {
   return (
