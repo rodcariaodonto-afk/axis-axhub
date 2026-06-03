@@ -38,9 +38,43 @@ Deno.serve(async (req) => {
 
   // POST — receber mensagens/eventos
   if (req.method === "POST") {
+    const rawBody = await req.text();
+
+    // Verify Meta HMAC-SHA256 signature when app secret is configured
+    const appSecret = Deno.env.get("WHATSAPP_META_APP_SECRET");
+    if (appSecret) {
+      const signatureHeader = req.headers.get("x-hub-signature-256") || "";
+      const provided = signatureHeader.startsWith("sha256=") ? signatureHeader.slice(7) : "";
+      try {
+        const key = await crypto.subtle.importKey(
+          "raw",
+          new TextEncoder().encode(appSecret),
+          { name: "HMAC", hash: "SHA-256" },
+          false,
+          ["sign"],
+        );
+        const sigBuf = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
+        const expected = Array.from(new Uint8Array(sigBuf))
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+        if (!provided || provided.length !== expected.length) {
+          return new Response("Invalid signature", { status: 403 });
+        }
+        // constant-time compare
+        let diff = 0;
+        for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ provided.charCodeAt(i);
+        if (diff !== 0) return new Response("Invalid signature", { status: 403 });
+      } catch (e) {
+        console.error("HMAC verification failed:", e);
+        return new Response("Signature verification error", { status: 403 });
+      }
+    } else {
+      console.warn("WHATSAPP_META_APP_SECRET not set — webhook signature NOT verified");
+    }
+
     let payload: any;
     try {
-      payload = await req.json();
+      payload = JSON.parse(rawBody);
     } catch {
       return new Response(JSON.stringify({ error: "invalid_json" }), {
         status: 400,
@@ -66,6 +100,7 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
+
 
   return new Response("Method not allowed", { status: 405 });
 });
