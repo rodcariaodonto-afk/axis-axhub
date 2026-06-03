@@ -109,13 +109,12 @@ export default function PublicForm() {
           .eq("unique_code", code)
           .maybeSingle();
         if (f?.id) {
-          const { data: d } = await supabase
-            .from("form_response_drafts")
-            .select("identify, answers, current_section, step")
-            .eq("form_id", f.id)
-            .eq("draft_token", draftToken)
-            .maybeSingle();
-          if (d) server = d;
+          const { data: d } = await (supabase as any).rpc("get_form_draft", {
+            p_form_id: f.id,
+            p_draft_token: draftToken,
+          });
+          if (d && Array.isArray(d) && d[0]) server = d[0];
+          else if (d && !Array.isArray(d)) server = d;
         }
       } catch (e) {
         console.warn("[PublicForm] server draft fetch failed", e);
@@ -169,21 +168,18 @@ export default function PublicForm() {
 
     const timer = setTimeout(async () => {
       try {
-        await supabase.from("form_response_drafts").upsert(
-          {
-            form_id: form.id,
-            tenant_id: form.tenant_id,
-            draft_token: draftToken,
-            respondent_name: identify.nome?.trim() || null,
-            respondent_email: identify.email?.trim() || null,
-            respondent_phone: identify.telefone?.replace(/\D/g, "") || null,
-            identify,
-            answers,
-            current_section: currentSection,
-            step,
-          },
-          { onConflict: "form_id,draft_token" },
-        );
+        await (supabase as any).rpc("upsert_form_draft", {
+          p_form_id: form.id,
+          p_tenant_id: form.tenant_id,
+          p_draft_token: draftToken,
+          p_respondent_name: identify.nome?.trim() || null,
+          p_respondent_email: identify.email?.trim() || null,
+          p_respondent_phone: identify.telefone?.replace(/\D/g, "") || null,
+          p_identify: identify,
+          p_answers: answers,
+          p_current_section: currentSection,
+          p_step: step,
+        });
       } catch (e) {
         console.warn("[PublicForm] server draft upsert failed", e);
       }
@@ -273,7 +269,7 @@ export default function PublicForm() {
       }
 
       try { localStorage.removeItem(storageKey); localStorage.removeItem(tokenKey); } catch {}
-      try { await supabase.from("form_response_drafts").delete().eq("form_id", form.id).eq("draft_token", draftToken); } catch {}
+      try { await (supabase as any).rpc("delete_form_draft", { p_form_id: form.id, p_draft_token: draftToken }); } catch {}
 
       setStep("success");
     } catch (err: any) {
