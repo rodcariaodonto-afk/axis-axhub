@@ -65,6 +65,8 @@ export default function Opportunities() {
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [showNewModal, setShowNewModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
+  const [showStageModal, setShowStageModal] = useState(false);
+  const [stageForm, setStageForm] = useState({ name: "", color: "#6B7280", is_won: false, is_lost: false });
   const [closingOpp, setClosingOpp] = useState<{ id: string; stage: string } | null>(null);
   const [closeReason, setCloseReason] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
