@@ -360,6 +360,38 @@ export default function Opportunities() {
           <DialogFooter><Button variant="outline" onClick={() => setShowCloseModal(false)}>Cancelar</Button><Button onClick={confirmClose}>Confirmar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* New Stage Modal */}
+      <Dialog open={showStageModal} onOpenChange={setShowStageModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nova Coluna do Kanban</DialogTitle>
+            <DialogDescription>Adicione um novo estágio ao funil de oportunidades.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div><Label>Nome *</Label><Input value={stageForm.name} onChange={e => setStageForm(f => ({ ...f, name: e.target.value }))} placeholder="Ex: Discovery" /></div>
+            <div>
+              <Label>Cor</Label>
+              <div className="flex items-center gap-2">
+                <Input type="color" className="w-16 h-10 p-1" value={stageForm.color} onChange={e => setStageForm(f => ({ ...f, color: e.target.value }))} />
+                <Input value={stageForm.color} onChange={e => setStageForm(f => ({ ...f, color: e.target.value }))} placeholder="#6B7280" />
+              </div>
+            </div>
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <div><Label>Estágio de Ganho</Label><p className="text-xs text-muted-foreground">Marca a oportunidade como ganha</p></div>
+              <Switch checked={stageForm.is_won} onCheckedChange={(v) => setStageForm(f => ({ ...f, is_won: v, is_lost: v ? false : f.is_lost }))} />
+            </div>
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <div><Label>Estágio de Perda</Label><p className="text-xs text-muted-foreground">Marca a oportunidade como perdida</p></div>
+              <Switch checked={stageForm.is_lost} onCheckedChange={(v) => setStageForm(f => ({ ...f, is_lost: v, is_won: v ? false : f.is_won }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowStageModal(false)}>Cancelar</Button>
+            <Button onClick={handleCreateStage}>Criar Coluna</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
