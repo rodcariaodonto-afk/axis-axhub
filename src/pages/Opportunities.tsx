@@ -12,7 +12,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Kanban, List, Search, DollarSign, Target, TrendingUp, Trophy, XCircle } from "lucide-react";
+import { Plus, Kanban, List, Search, DollarSign, Target, TrendingUp, Trophy, XCircle, Columns } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 interface Opportunity {
   id: string;
@@ -64,6 +65,8 @@ export default function Opportunities() {
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [showNewModal, setShowNewModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
+  const [showStageModal, setShowStageModal] = useState(false);
+  const [stageForm, setStageForm] = useState({ name: "", color: "#6B7280", is_won: false, is_lost: false });
   const [closingOpp, setClosingOpp] = useState<{ id: string; stage: string } | null>(null);
   const [closeReason, setCloseReason] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -183,6 +186,28 @@ export default function Opportunities() {
     fetchAll();
   };
 
+  const handleCreateStage = async () => {
+    if (!stageForm.name.trim() || !tenantId) {
+      toast({ title: "Informe um nome para a coluna", variant: "destructive" }); return;
+    }
+    if (stages.some(s => s.name.toLowerCase() === stageForm.name.trim().toLowerCase())) {
+      toast({ title: "Já existe uma coluna com esse nome", variant: "destructive" }); return;
+    }
+    const nextOrder = stages.length > 0 ? Math.max(...stages.map(s => s.order_index)) + 1 : 1;
+    const { error } = await supabase.from("opportunity_stages").insert({
+      tenant_id: tenantId,
+      name: stageForm.name.trim(),
+      color: stageForm.color,
+      order_index: nextOrder,
+      is_won: stageForm.is_won,
+      is_lost: stageForm.is_lost,
+    });
+    if (error) { toast({ title: "Erro ao criar coluna", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Coluna criada!" });
+    setShowStageModal(false);
+    fetchAll();
+  };
+
   const filteredContacts = form.account_id ? contacts.filter(c => c.account_id === form.account_id) : contacts;
   const pageSize = 10;
   const paged = filtered.slice(page * pageSize, (page + 1) * pageSize);
@@ -196,9 +221,10 @@ export default function Opportunities() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Oportunidades</h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button variant={viewMode === "kanban" ? "default" : "outline"} size="sm" onClick={() => setViewMode("kanban")}><Kanban className="h-4 w-4 mr-1" />Kanban</Button>
           <Button variant={viewMode === "list" ? "default" : "outline"} size="sm" onClick={() => setViewMode("list")}><List className="h-4 w-4 mr-1" />Lista</Button>
+          <Button variant="outline" onClick={() => { setStageForm({ name: "", color: "#6B7280", is_won: false, is_lost: false }); setShowStageModal(true); }}><Columns className="h-4 w-4 mr-1" />Nova Coluna</Button>
           <Button onClick={() => setShowNewModal(true)}><Plus className="h-4 w-4 mr-1" />Nova Oportunidade</Button>
         </div>
       </div>
@@ -332,6 +358,38 @@ export default function Opportunities() {
           <DialogHeader><DialogTitle>{closingOpp && stages.find(s => s.name === closingOpp.stage)?.is_won ? "Marcar como Ganha" : "Marcar como Perdida"}</DialogTitle><DialogDescription>Informe o motivo do fechamento.</DialogDescription></DialogHeader>
           <div><Label>Motivo</Label><Textarea value={closeReason} onChange={e => setCloseReason(e.target.value)} placeholder="Descreva o motivo..." /></div>
           <DialogFooter><Button variant="outline" onClick={() => setShowCloseModal(false)}>Cancelar</Button><Button onClick={confirmClose}>Confirmar</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Stage Modal */}
+      <Dialog open={showStageModal} onOpenChange={setShowStageModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nova Coluna do Kanban</DialogTitle>
+            <DialogDescription>Adicione um novo estágio ao funil de oportunidades.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div><Label>Nome *</Label><Input value={stageForm.name} onChange={e => setStageForm(f => ({ ...f, name: e.target.value }))} placeholder="Ex: Discovery" /></div>
+            <div>
+              <Label>Cor</Label>
+              <div className="flex items-center gap-2">
+                <Input type="color" className="w-16 h-10 p-1" value={stageForm.color} onChange={e => setStageForm(f => ({ ...f, color: e.target.value }))} />
+                <Input value={stageForm.color} onChange={e => setStageForm(f => ({ ...f, color: e.target.value }))} placeholder="#6B7280" />
+              </div>
+            </div>
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <div><Label>Estágio de Ganho</Label><p className="text-xs text-muted-foreground">Marca a oportunidade como ganha</p></div>
+              <Switch checked={stageForm.is_won} onCheckedChange={(v) => setStageForm(f => ({ ...f, is_won: v, is_lost: v ? false : f.is_lost }))} />
+            </div>
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <div><Label>Estágio de Perda</Label><p className="text-xs text-muted-foreground">Marca a oportunidade como perdida</p></div>
+              <Switch checked={stageForm.is_lost} onCheckedChange={(v) => setStageForm(f => ({ ...f, is_lost: v, is_won: v ? false : f.is_won }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowStageModal(false)}>Cancelar</Button>
+            <Button onClick={handleCreateStage}>Criar Coluna</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
