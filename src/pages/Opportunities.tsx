@@ -186,6 +186,28 @@ export default function Opportunities() {
     fetchAll();
   };
 
+  const handleCreateStage = async () => {
+    if (!stageForm.name.trim() || !tenantId) {
+      toast({ title: "Informe um nome para a coluna", variant: "destructive" }); return;
+    }
+    if (stages.some(s => s.name.toLowerCase() === stageForm.name.trim().toLowerCase())) {
+      toast({ title: "Já existe uma coluna com esse nome", variant: "destructive" }); return;
+    }
+    const nextOrder = stages.length > 0 ? Math.max(...stages.map(s => s.order_index)) + 1 : 1;
+    const { error } = await supabase.from("opportunity_stages").insert({
+      tenant_id: tenantId,
+      name: stageForm.name.trim(),
+      color: stageForm.color,
+      order_index: nextOrder,
+      is_won: stageForm.is_won,
+      is_lost: stageForm.is_lost,
+    });
+    if (error) { toast({ title: "Erro ao criar coluna", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Coluna criada!" });
+    setShowStageModal(false);
+    fetchAll();
+  };
+
   const filteredContacts = form.account_id ? contacts.filter(c => c.account_id === form.account_id) : contacts;
   const pageSize = 10;
   const paged = filtered.slice(page * pageSize, (page + 1) * pageSize);
