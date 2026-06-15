@@ -12,7 +12,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Kanban, List, Search, DollarSign, Target, TrendingUp, Trophy, XCircle } from "lucide-react";
+import { Plus, Kanban, List, Search, DollarSign, Target, TrendingUp, Trophy, XCircle, Columns } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 interface Opportunity {
   id: string;
