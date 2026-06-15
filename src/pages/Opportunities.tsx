@@ -199,9 +199,10 @@ export default function Opportunities() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Oportunidades</h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button variant={viewMode === "kanban" ? "default" : "outline"} size="sm" onClick={() => setViewMode("kanban")}><Kanban className="h-4 w-4 mr-1" />Kanban</Button>
           <Button variant={viewMode === "list" ? "default" : "outline"} size="sm" onClick={() => setViewMode("list")}><List className="h-4 w-4 mr-1" />Lista</Button>
+          <Button variant="outline" onClick={() => { setStageForm({ name: "", color: "#6B7280", is_won: false, is_lost: false }); setShowStageModal(true); }}><Columns className="h-4 w-4 mr-1" />Nova Coluna</Button>
           <Button onClick={() => setShowNewModal(true)}><Plus className="h-4 w-4 mr-1" />Nova Oportunidade</Button>
         </div>
       </div>
