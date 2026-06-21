@@ -21,6 +21,8 @@ export interface RepasseAdmin {
   data_repasse: string;
   status: string;
   comprovante_url: string | null;
+  pix_payload: string | null;
+  pix_qrcode_url: string | null;
   created_at: string;
 }
 
@@ -68,7 +70,7 @@ export function useRepassesAdmin(filters: RepasseAdminFilters = {}) {
     queryFn: async () => {
       let q = (supabase as any)
         .from("pj_repasse_history")
-        .select("id, tenant_id, pj_id, payable_id, contract_id, valor, data_repasse, status, comprovante_url, created_at, crm_accounts(name)")
+        .select("id, tenant_id, pj_id, payable_id, contract_id, valor, data_repasse, status, comprovante_url, pix_payload, pix_qrcode_url, created_at, crm_accounts(name)")
         .order("data_repasse", { ascending: false });
 
       if (filters.pjId && filters.pjId !== "todos") q = q.eq("pj_id", filters.pjId);

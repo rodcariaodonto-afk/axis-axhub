@@ -1,12 +1,13 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CheckCircle, Search, SlidersHorizontal } from "lucide-react";
+import { CheckCircle, QrCode, Search, SlidersHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
   useRepassesAdmin,
@@ -16,6 +17,7 @@ import {
 } from "@/hooks/useRepasseAdmin";
 import { usePJProviders } from "@/hooks/useRepasseAdmin";
 import { RepasseComprovante } from "./RepasseComprovante";
+import { PixPayloadGenerator } from "@/components/bank-management/PixPayloadGenerator";
 import { toast } from "sonner";
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
@@ -36,6 +38,7 @@ function fmtCurrency(v: number) {
 export function RepasseHistoryTable() {
   const [filters, setFilters] = useState<RepasseAdminFilters>({});
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [pixRepasse, setPixRepasse] = useState<RepasseAdmin | null>(null);
 
   const { data: providers = [] } = usePJProviders();
   const { data: repasses = [], isLoading } = useRepassesAdmin(filters);
@@ -152,6 +155,7 @@ export function RepasseHistoryTable() {
                 <TableHead className="text-right">Valor</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Comprovante</TableHead>
+                <TableHead>PIX</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -171,6 +175,18 @@ export function RepasseHistoryTable() {
                     </TableCell>
                     <TableCell>
                       <RepasseComprovante repasse={r} />
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 gap-1 text-xs"
+                        onClick={() => setPixRepasse(r)}
+                        title={r.pix_payload ? "Ver / Regerar PIX" : "Gerar PIX"}
+                      >
+                        <QrCode className="h-3.5 w-3.5" />
+                        {r.pix_payload ? "Ver PIX" : "Gerar PIX"}
+                      </Button>
                     </TableCell>
                     <TableCell className="text-right">
                       {canMarkPaid && !r.comprovante_url && (
@@ -193,6 +209,22 @@ export function RepasseHistoryTable() {
           </Table>
         </div>
       )}
+
+      {/* PIX dialog */}
+      <Dialog open={!!pixRepasse} onOpenChange={(o) => { if (!o) setPixRepasse(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>PIX — {pixRepasse?.pj_name ?? "Repasse"}</DialogTitle>
+          </DialogHeader>
+          {pixRepasse && (
+            <PixPayloadGenerator
+              repasseId={pixRepasse.id}
+              existingPayload={pixRepasse.pix_payload}
+              existingQrcode={pixRepasse.pix_qrcode_url}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
