@@ -17,6 +17,7 @@ import {
   Wallet,
   FileCheck,
   FolderKanban,
+  Percent,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -144,6 +145,7 @@ export function AppSidebar() {
       icon: Settings,
       children: [
         { title: "Gestão Documental", url: "/pj-documents", icon: FolderKanban, module: "financeiro" },
+        { title: "Impostos PJ", url: "/tax-management", icon: Percent, module: "financeiro" },
         { title: "Configurações", url: "/settings", icon: Settings, module: "configuracoes" },
         { title: "Documentação", url: "/documentation", icon: BookOpen },
       ],

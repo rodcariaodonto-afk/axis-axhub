@@ -134,6 +134,34 @@ Deno.serve(async (req) => {
           .eq("tenant_id", nfRecord.tenant_id)
           .maybeSingle();
 
+        // Calculate tax retentions before creating payable
+        let valorLiquido: number = Number(nfRecord.nf_value);
+        let taxRetentionId: string | null = null;
+        try {
+          const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+          const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+          const taxResp = await fetch(
+            `${supabaseUrl}/functions/v1/calculate-tax-retention`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${serviceKey}`,
+              },
+              body: JSON.stringify({ nf_approval_id }),
+            }
+          );
+          if (taxResp.ok) {
+            const taxData = await taxResp.json();
+            valorLiquido  = taxData.valor_liquido ?? valorLiquido;
+            taxRetentionId = taxData.tax_retention_id ?? null;
+          } else {
+            console.error("[approve-nf-step] calculate-tax-retention failed:", await taxResp.text());
+          }
+        } catch (taxErr) {
+          console.error("[approve-nf-step] tax calculation error:", taxErr);
+        }
+
         const autoCreate = (config as any)?.auto_create_payable !== false;
         if (autoCreate) {
           const pjName = (nfRecord.crm_accounts as any)?.name ?? nfRecord.pj_id;
@@ -143,7 +171,7 @@ Deno.serve(async (req) => {
               .insert({
                 tenant_id: nfRecord.tenant_id,
                 description: `NF ${nfRecord.nf_number} - ${pjName}`,
-                amount: nfRecord.nf_value,
+                amount: valorLiquido,
                 due_date: nfRecord.nf_due_date ?? nfRecord.nf_date,
                 pj_id: nfRecord.pj_id,
                 status: "pending",
@@ -157,6 +185,14 @@ Deno.serve(async (req) => {
                 .from("nf_approvals" as any)
                 .update({ payable_id: (payable as any).id })
                 .eq("id", nf_approval_id);
+
+              // Link tax retention to payable
+              if (taxRetentionId) {
+                await supabase
+                  .from("pj_tax_retentions" as any)
+                  .update({ payable_id: (payable as any).id })
+                  .eq("id", taxRetentionId);
+              }
             }
           } catch (payableErr) {
             console.error("[approve-nf-step] payable creation failed:", payableErr);
@@ -169,8 +205,8 @@ Deno.serve(async (req) => {
           pj_id: nfRecord.pj_id,
           type: "nf_aprovada",
           title: "Nota Fiscal Aprovada",
-          body: `Sua NF ${nfRecord.nf_number} foi aprovada com sucesso.`,
-          read: false,
+          message: `Sua NF ${nfRecord.nf_number} foi aprovada com sucesso.`,
+          is_read: false,
         });
       }
     } else {
@@ -191,8 +227,8 @@ Deno.serve(async (req) => {
         pj_id: nfRecord.pj_id,
         type: "nf_rejeitada",
         title: "Nota Fiscal Rejeitada",
-        body: `Sua NF ${nfRecord.nf_number} foi rejeitada. Motivo: ${comment}`,
-        read: false,
+        message: `Sua NF ${nfRecord.nf_number} foi rejeitada. Motivo: ${comment}`,
+        is_read: false,
       });
     }
 
