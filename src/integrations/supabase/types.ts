@@ -5336,6 +5336,210 @@ export type Database = {
           },
         ]
       }
+      nf_approval_steps: {
+        Row: {
+          acted_at: string | null
+          approver_id: string
+          comment: string | null
+          created_at: string
+          id: string
+          nf_approval_id: string
+          status: string
+          step_number: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          acted_at?: string | null
+          approver_id: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          nf_approval_id: string
+          status?: string
+          step_number: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          acted_at?: string | null
+          approver_id?: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          nf_approval_id?: string
+          status?: string
+          step_number?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nf_approval_steps_nf_approval_id_fkey"
+            columns: ["nf_approval_id"]
+            isOneToOne: false
+            referencedRelation: "nf_approvals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nf_approval_steps_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nf_approval_steps_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_global_tenant_metrics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nf_approvals: {
+        Row: {
+          approved_at: string | null
+          cnpj_emitente: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          nf_date: string
+          nf_due_date: string | null
+          nf_number: string
+          nf_series: string | null
+          nf_value: number
+          payable_id: string | null
+          pdf_url: string | null
+          pj_id: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          validation_errors: Json | null
+          xml_url: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          cnpj_emitente?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nf_date: string
+          nf_due_date?: string | null
+          nf_number: string
+          nf_series?: string | null
+          nf_value: number
+          payable_id?: string | null
+          pdf_url?: string | null
+          pj_id: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          validation_errors?: Json | null
+          xml_url?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          cnpj_emitente?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nf_date?: string
+          nf_due_date?: string | null
+          nf_number?: string
+          nf_series?: string | null
+          nf_value?: number
+          payable_id?: string | null
+          pdf_url?: string | null
+          pj_id?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          validation_errors?: Json | null
+          xml_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nf_approvals_payable_id_fkey"
+            columns: ["payable_id"]
+            isOneToOne: false
+            referencedRelation: "payables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nf_approvals_pj_id_fkey"
+            columns: ["pj_id"]
+            isOneToOne: false
+            referencedRelation: "crm_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nf_approvals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nf_approvals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_global_tenant_metrics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nf_workflow_config: {
+        Row: {
+          approval_levels: number
+          auto_create_payable: boolean
+          created_at: string
+          id: string
+          level1_approver_id: string | null
+          level2_approver_id: string | null
+          level3_approver_id: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          approval_levels?: number
+          auto_create_payable?: boolean
+          created_at?: string
+          id?: string
+          level1_approver_id?: string | null
+          level2_approver_id?: string | null
+          level3_approver_id?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          approval_levels?: number
+          auto_create_payable?: boolean
+          created_at?: string
+          id?: string
+          level1_approver_id?: string | null
+          level2_approver_id?: string | null
+          level3_approver_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nf_workflow_config_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nf_workflow_config_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "v_global_tenant_metrics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_logs: {
         Row: {
           channel: string
@@ -6094,6 +6298,160 @@ export type Database = {
           },
         ]
       }
+      pj_document_types: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_mandatory: boolean
+          name: string
+          tenant_id: string
+          validity_days: number | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_mandatory?: boolean
+          name: string
+          tenant_id: string
+          validity_days?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_mandatory?: boolean
+          name?: string
+          tenant_id?: string
+          validity_days?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pj_document_types_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_document_types_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_global_tenant_metrics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pj_document_versions: {
+        Row: {
+          created_at: string
+          file_url: string
+          id: string
+          pj_document_id: string
+          uploaded_by: string | null
+          version_number: number
+        }
+        Insert: {
+          created_at?: string
+          file_url: string
+          id?: string
+          pj_document_id: string
+          uploaded_by?: string | null
+          version_number: number
+        }
+        Update: {
+          created_at?: string
+          file_url?: string
+          id?: string
+          pj_document_id?: string
+          uploaded_by?: string | null
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pj_document_versions_pj_document_id_fkey"
+            columns: ["pj_document_id"]
+            isOneToOne: false
+            referencedRelation: "pj_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pj_documents: {
+        Row: {
+          created_at: string
+          current_version: number
+          document_number: string | null
+          document_type_id: string
+          expiry_date: string | null
+          file_url: string
+          id: string
+          issue_date: string | null
+          pj_id: string
+          tenant_id: string
+          updated_at: string
+          validation_status: string
+        }
+        Insert: {
+          created_at?: string
+          current_version?: number
+          document_number?: string | null
+          document_type_id: string
+          expiry_date?: string | null
+          file_url: string
+          id?: string
+          issue_date?: string | null
+          pj_id: string
+          tenant_id: string
+          updated_at?: string
+          validation_status?: string
+        }
+        Update: {
+          created_at?: string
+          current_version?: number
+          document_number?: string | null
+          document_type_id?: string
+          expiry_date?: string | null
+          file_url?: string
+          id?: string
+          issue_date?: string | null
+          pj_id?: string
+          tenant_id?: string
+          updated_at?: string
+          validation_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pj_documents_document_type_id_fkey"
+            columns: ["document_type_id"]
+            isOneToOne: false
+            referencedRelation: "pj_document_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_documents_pj_id_fkey"
+            columns: ["pj_id"]
+            isOneToOne: false
+            referencedRelation: "crm_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_documents_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_documents_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_global_tenant_metrics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pj_notifications: {
         Row: {
           created_at: string
@@ -6215,47 +6573,76 @@ export type Database = {
       }
       pj_repasse_history: {
         Row: {
+          bank_transfer_id: string | null
           comprovante_url: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
           contract_id: string | null
           created_at: string
           data_repasse: string
           id: string
+          nf_approval_id: string | null
           payable_id: string | null
           pj_id: string
+          schedule_id: string | null
           status: string
           tenant_id: string
           valor: number
         }
         Insert: {
+          bank_transfer_id?: string | null
           comprovante_url?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
           contract_id?: string | null
           created_at?: string
           data_repasse: string
           id?: string
+          nf_approval_id?: string | null
           payable_id?: string | null
           pj_id: string
+          schedule_id?: string | null
           status?: string
           tenant_id: string
           valor: number
         }
         Update: {
+          bank_transfer_id?: string | null
           comprovante_url?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
           contract_id?: string | null
           created_at?: string
           data_repasse?: string
           id?: string
+          nf_approval_id?: string | null
           payable_id?: string | null
           pj_id?: string
+          schedule_id?: string | null
           status?: string
           tenant_id?: string
           valor?: number
         }
         Relationships: [
           {
+            foreignKeyName: "pj_repasse_history_bank_transfer_id_fkey"
+            columns: ["bank_transfer_id"]
+            isOneToOne: false
+            referencedRelation: "bank_transfers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "pj_repasse_history_contract_id_fkey"
             columns: ["contract_id"]
             isOneToOne: false
             referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_repasse_history_nf_approval_id_fkey"
+            columns: ["nf_approval_id"]
+            isOneToOne: false
+            referencedRelation: "nf_approvals"
             referencedColumns: ["id"]
           },
           {
@@ -6273,6 +6660,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "pj_repasse_history_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "pj_repasse_schedules"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "pj_repasse_history_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -6281,6 +6675,243 @@ export type Database = {
           },
           {
             foreignKeyName: "pj_repasse_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_global_tenant_metrics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pj_repasse_schedules: {
+        Row: {
+          bank_account_id: string | null
+          created_at: string
+          dia_execucao: number | null
+          frequencia: string | null
+          id: string
+          pj_id: string
+          proxima_data: string
+          recorrente: boolean
+          status: string
+          tenant_id: string
+          tipo_valor: string
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          bank_account_id?: string | null
+          created_at?: string
+          dia_execucao?: number | null
+          frequencia?: string | null
+          id?: string
+          pj_id: string
+          proxima_data: string
+          recorrente?: boolean
+          status?: string
+          tenant_id: string
+          tipo_valor?: string
+          updated_at?: string
+          valor: number
+        }
+        Update: {
+          bank_account_id?: string | null
+          created_at?: string
+          dia_execucao?: number | null
+          frequencia?: string | null
+          id?: string
+          pj_id?: string
+          proxima_data?: string
+          recorrente?: boolean
+          status?: string
+          tenant_id?: string
+          tipo_valor?: string
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pj_repasse_schedules_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_repasse_schedules_pj_id_fkey"
+            columns: ["pj_id"]
+            isOneToOne: false
+            referencedRelation: "crm_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_repasse_schedules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_repasse_schedules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_global_tenant_metrics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pj_tax_retentions: {
+        Row: {
+          cofins_value: number
+          created_at: string
+          csll_value: number
+          id: string
+          inss_value: number
+          ir_value: number
+          iss_value: number
+          nf_approval_id: string | null
+          payable_id: string | null
+          pis_value: number
+          pj_id: string
+          rpa_url: string | null
+          tenant_id: string
+          total_retention: number
+          valor_bruto: number
+          valor_liquido: number
+        }
+        Insert: {
+          cofins_value?: number
+          created_at?: string
+          csll_value?: number
+          id?: string
+          inss_value?: number
+          ir_value?: number
+          iss_value?: number
+          nf_approval_id?: string | null
+          payable_id?: string | null
+          pis_value?: number
+          pj_id: string
+          rpa_url?: string | null
+          tenant_id: string
+          total_retention?: number
+          valor_bruto: number
+          valor_liquido: number
+        }
+        Update: {
+          cofins_value?: number
+          created_at?: string
+          csll_value?: number
+          id?: string
+          inss_value?: number
+          ir_value?: number
+          iss_value?: number
+          nf_approval_id?: string | null
+          payable_id?: string | null
+          pis_value?: number
+          pj_id?: string
+          rpa_url?: string | null
+          tenant_id?: string
+          total_retention?: number
+          valor_bruto?: number
+          valor_liquido?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pj_tax_retentions_nf_approval_id_fkey"
+            columns: ["nf_approval_id"]
+            isOneToOne: false
+            referencedRelation: "nf_approvals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_tax_retentions_payable_id_fkey"
+            columns: ["payable_id"]
+            isOneToOne: false
+            referencedRelation: "payables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_tax_retentions_pj_id_fkey"
+            columns: ["pj_id"]
+            isOneToOne: false
+            referencedRelation: "crm_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_tax_retentions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_tax_retentions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_global_tenant_metrics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pj_tax_settings: {
+        Row: {
+          aliquota_cofins: number
+          aliquota_csll: number
+          aliquota_inss: number
+          aliquota_ir: number
+          aliquota_iss: number
+          aliquota_pis: number
+          created_at: string
+          id: string
+          pj_id: string
+          regime_tributario: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          aliquota_cofins?: number
+          aliquota_csll?: number
+          aliquota_inss?: number
+          aliquota_ir?: number
+          aliquota_iss?: number
+          aliquota_pis?: number
+          created_at?: string
+          id?: string
+          pj_id: string
+          regime_tributario?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          aliquota_cofins?: number
+          aliquota_csll?: number
+          aliquota_inss?: number
+          aliquota_ir?: number
+          aliquota_iss?: number
+          aliquota_pis?: number
+          created_at?: string
+          id?: string
+          pj_id?: string
+          regime_tributario?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pj_tax_settings_pj_id_fkey"
+            columns: ["pj_id"]
+            isOneToOne: false
+            referencedRelation: "crm_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_tax_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_tax_settings_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_global_tenant_metrics"
