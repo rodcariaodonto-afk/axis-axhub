@@ -16,6 +16,7 @@ import {
   DollarSign,
   Wallet,
   FileCheck,
+  FolderKanban,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -142,6 +143,7 @@ export function AppSidebar() {
       label: "Administração",
       icon: Settings,
       children: [
+        { title: "Gestão Documental", url: "/pj-documents", icon: FolderKanban, module: "financeiro" },
         { title: "Configurações", url: "/settings", icon: Settings, module: "configuracoes" },
         { title: "Documentação", url: "/documentation", icon: BookOpen },
       ],
