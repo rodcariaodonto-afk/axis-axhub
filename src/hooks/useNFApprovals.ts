@@ -13,9 +13,12 @@ export interface NFApproval {
   nf_date: string;
   nf_due_date: string | null;
   cnpj_emitente: string | null;
+  chave_nfe: string | null;
   xml_url: string | null;
   pdf_url: string | null;
   status: string;
+  sefaz_status: string | null;
+  sefaz_validation: any | null;
   validation_errors: any | null;
   payable_id: string | null;
   approved_at: string | null;
@@ -40,6 +43,7 @@ export interface NFApprovalFilters {
   status?: string;
   startDate?: string;
   endDate?: string;
+  sefazStatus?: string;
 }
 
 export interface CreateNFApprovalInput {
@@ -50,6 +54,7 @@ export interface CreateNFApprovalInput {
   nf_date: string;
   nf_due_date?: string;
   cnpj_emitente?: string;
+  chave_nfe?: string | null;
   xmlFile?: File | null;
   pdfFile?: File | null;
 }
@@ -60,6 +65,7 @@ export interface ParsedNFData {
   nf_value: number | null;
   nf_date: string | null;
   cnpj_emitente: string | null;
+  chave_nfe: string | null;
   validation_errors: string[];
 }
 
@@ -96,6 +102,7 @@ export function useNFApprovals(filters: NFApprovalFilters = {}) {
       if (filters.status && filters.status !== "todos") q = q.eq("status", filters.status);
       if (filters.startDate) q = q.gte("nf_date", filters.startDate);
       if (filters.endDate) q = q.lte("nf_date", filters.endDate);
+      if (filters.sefazStatus && filters.sefazStatus !== "todos") q = q.eq("sefaz_status", filters.sefazStatus);
 
       const { data, error } = await q;
       if (error) {
@@ -122,9 +129,13 @@ export function useCreateNFApproval() {
 
       let xmlUrl: string | null = null;
       let pdfUrl: string | null = null;
+      let chaveNfe: string | null = null;
 
       if (input.xmlFile) {
         xmlUrl = await uploadNFFile(tenantId, input.pjId, input.nf_number, input.xmlFile, "xml");
+        // Extract chave_nfe from XML via edge function result (already parsed in form)
+        // input.chave_nfe is populated from parseNFXml result when available
+        chaveNfe = input.chave_nfe ?? null;
       }
       if (input.pdfFile) {
         pdfUrl = await uploadNFFile(tenantId, input.pjId, input.nf_number, input.pdfFile, "pdf");
@@ -144,6 +155,7 @@ export function useCreateNFApproval() {
           nf_date: input.nf_date,
           nf_due_date: input.nf_due_date || null,
           cnpj_emitente: input.cnpj_emitente || null,
+          chave_nfe: chaveNfe,
           xml_url: xmlUrl,
           pdf_url: pdfUrl,
           status: "pendente",
@@ -181,6 +193,15 @@ export function useCreateNFApproval() {
           .from("nf_approvals")
           .update({ status: "em_aprovacao" })
           .eq("id", nfData.id);
+
+        // Auto SEFAZ validation if enabled and chave_nfe available
+        if (config?.sefaz_validation_enabled && chaveNfe) {
+          supabase.functions.invoke("validate-nf-sefaz", {
+            body: { nf_approval_id: nfData.id },
+          }).catch((err: any) => {
+            console.warn("[useCreateNFApproval] SEFAZ validation failed (non-blocking):", err);
+          });
+        }
       } catch (stepErr) {
         console.error("[useCreateNFApproval] step creation failed:", stepErr);
       }
@@ -267,4 +288,13 @@ export async function parseNFXml(file: File): Promise<ParsedNFData> {
   });
   if (error) throw new Error(error.message ?? "Erro ao processar XML");
   return data as ParsedNFData;
+}
+
+// Calls validate-nf-sefaz edge function (fire-and-forget variant)
+export async function triggerSefazValidation(nfApprovalId: string): Promise<string> {
+  const { data, error } = await supabase.functions.invoke("validate-nf-sefaz", {
+    body: { nf_approval_id: nfApprovalId },
+  });
+  if (error) throw new Error(error.message ?? "Erro ao validar SEFAZ");
+  return (data as any)?.status ?? "sefaz_indisponivel";
 }

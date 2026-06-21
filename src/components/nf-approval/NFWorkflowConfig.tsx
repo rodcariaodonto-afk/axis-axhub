@@ -18,6 +18,7 @@ export function NFWorkflowConfig() {
   const [level2, setLevel2] = useState("");
   const [level3, setLevel3] = useState("");
   const [autoPayable, setAutoPayable] = useState(true);
+  const [sefazEnabled, setSefazEnabled] = useState(false);
 
   useEffect(() => {
     if (config) {
@@ -26,6 +27,7 @@ export function NFWorkflowConfig() {
       setLevel2(config.level2_approver_id ?? "");
       setLevel3(config.level3_approver_id ?? "");
       setAutoPayable(config.auto_create_payable);
+      setSefazEnabled(config.sefaz_validation_enabled ?? false);
     }
   }, [config]);
 
@@ -37,6 +39,7 @@ export function NFWorkflowConfig() {
         level2_approver_id: levels >= 2 ? (level2 || null) : null,
         level3_approver_id: levels >= 3 ? (level3 || null) : null,
         auto_create_payable: autoPayable,
+        sefaz_validation_enabled: sefazEnabled,
       });
       toast.success("Configuração salva");
     } catch (e: any) {
@@ -134,6 +137,17 @@ export function NFWorkflowConfig() {
             <p className="text-xs text-muted-foreground">Ao aprovar a NF, criar payable com valor líquido</p>
           </div>
           <Switch checked={autoPayable} onCheckedChange={setAutoPayable} />
+        </div>
+
+        {/* Validação SEFAZ */}
+        <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+          <div>
+            <p className="text-sm font-medium">Validação SEFAZ automática</p>
+            <p className="text-xs text-muted-foreground">
+              Consulta Focus NFe ao receber XML. Requer token configurado em Integrações Fiscais.
+            </p>
+          </div>
+          <Switch checked={sefazEnabled} onCheckedChange={setSefazEnabled} />
         </div>
 
         <Button onClick={handleSave} disabled={save.isPending}>
