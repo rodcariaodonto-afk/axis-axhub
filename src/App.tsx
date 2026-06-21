@@ -71,6 +71,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 // PJ Management — admin pages
 const ContractVigency = lazy(() => import("./pages/ContractVigency"));
 const Repasses = lazy(() => import("./pages/Repasses"));
+const NFApprovals = lazy(() => import("./pages/NFApprovals"));
 
 // PJ Portal module (layout 100% separado do admin)
 const PJPortalLayout = lazy(() => import("./components/pj-portal/PJPortalLayout"));
@@ -79,6 +80,7 @@ const PJContractsList = lazy(() => import("./components/pj-portal/PJContractsLis
 const PJRepassesList = lazy(() => import("./components/pj-portal/PJRepassesList"));
 const PJDocumentUpload = lazy(() => import("./components/pj-portal/PJDocumentUpload"));
 const PJNotificationsList = lazy(() => import("./components/pj-portal/PJNotificationsList"));
+const PJNFUpload = lazy(() => import("./components/pj-portal/PJNFUpload"));
 
 // Super Admin module (AXHolding internal)
 const SuperAdminLayout = lazy(() => import("./pages/admin/SuperAdminLayout"));
@@ -176,6 +178,7 @@ const App = () => (
 
               <Route path="/contracts/vigency" element={<ProtectedRoute><ContractVigency /></ProtectedRoute>} />
               <Route path="/repasses" element={<ProtectedRoute><Repasses /></ProtectedRoute>} />
+              <Route path="/nf-approvals" element={<ProtectedRoute><NFApprovals /></ProtectedRoute>} />
 
               {/* PJ Portal — layout separado, guards internos no PJPortalLayout */}
               <Route path="/portal" element={<PJPortalLayout />}>
@@ -185,6 +188,7 @@ const App = () => (
                 <Route path="repasses" element={<PJRepassesList />} />
                 <Route path="documentos" element={<PJDocumentUpload />} />
                 <Route path="notificacoes" element={<PJNotificationsList />} />
+                <Route path="notas-fiscais" element={<PJNFUpload />} />
               </Route>
 
               {/* Super Admin module - guard interno via useIsSuperAdmin */}
