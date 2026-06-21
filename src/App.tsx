@@ -73,6 +73,7 @@ const ContractVigency = lazy(() => import("./pages/ContractVigency"));
 const Repasses = lazy(() => import("./pages/Repasses"));
 const NFApprovals = lazy(() => import("./pages/NFApprovals"));
 const NFApprovalDetail = lazy(() => import("./pages/NFApprovalDetail"));
+const PJDocuments = lazy(() => import("./pages/PJDocuments"));
 
 // PJ Portal module (layout 100% separado do admin)
 const PJPortalLayout = lazy(() => import("./components/pj-portal/PJPortalLayout"));
@@ -181,6 +182,7 @@ const App = () => (
               <Route path="/repasses" element={<ProtectedRoute><Repasses /></ProtectedRoute>} />
               <Route path="/nf-approvals" element={<ProtectedRoute><NFApprovals /></ProtectedRoute>} />
               <Route path="/nf-approvals/:id" element={<ProtectedRoute><NFApprovalDetail /></ProtectedRoute>} />
+              <Route path="/pj-documents" element={<ProtectedRoute><PJDocuments /></ProtectedRoute>} />
 
               {/* PJ Portal — layout separado, guards internos no PJPortalLayout */}
               <Route path="/portal" element={<PJPortalLayout />}>
