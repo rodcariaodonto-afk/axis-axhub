@@ -70,6 +70,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 
 // PJ Management — admin pages
 const ContractVigency = lazy(() => import("./pages/ContractVigency"));
+const Repasses = lazy(() => import("./pages/Repasses"));
 
 // PJ Portal module (layout 100% separado do admin)
 const PJPortalLayout = lazy(() => import("./components/pj-portal/PJPortalLayout"));
@@ -174,6 +175,7 @@ const App = () => (
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
 
               <Route path="/contracts/vigency" element={<ProtectedRoute><ContractVigency /></ProtectedRoute>} />
+              <Route path="/repasses" element={<ProtectedRoute><Repasses /></ProtectedRoute>} />
 
               {/* PJ Portal — layout separado, guards internos no PJPortalLayout */}
               <Route path="/portal" element={<PJPortalLayout />}>
