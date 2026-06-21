@@ -189,24 +189,39 @@ export type Database = {
         Row: {
           api_key: string
           created_at: string
+          expires_at: string | null
           id: string
+          is_active: boolean
+          last_used_at: string | null
           name: string
+          rate_limit: number | null
+          scopes: string[] | null
           tenant_id: string
           user_id: string
         }
         Insert: {
           api_key: string
           created_at?: string
+          expires_at?: string | null
           id?: string
+          is_active?: boolean
+          last_used_at?: string | null
           name: string
+          rate_limit?: number | null
+          scopes?: string[] | null
           tenant_id: string
           user_id: string
         }
         Update: {
           api_key?: string
           created_at?: string
+          expires_at?: string | null
           id?: string
+          is_active?: boolean
+          last_used_at?: string | null
           name?: string
+          rate_limit?: number | null
+          scopes?: string[] | null
           tenant_id?: string
           user_id?: string
         }
@@ -220,6 +235,64 @@ export type Database = {
           },
           {
             foreignKeyName: "api_keys_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_global_tenant_metrics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_request_logs: {
+        Row: {
+          api_key_id: string
+          created_at: string
+          id: string
+          ip_address: string | null
+          method: string
+          path: string
+          response_time_ms: number | null
+          status_code: number
+          tenant_id: string
+        }
+        Insert: {
+          api_key_id: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          method: string
+          path: string
+          response_time_ms?: number | null
+          status_code: number
+          tenant_id: string
+        }
+        Update: {
+          api_key_id?: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          method?: string
+          path?: string
+          response_time_ms?: number | null
+          status_code?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_request_logs_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_request_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_request_logs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_global_tenant_metrics"
@@ -407,32 +480,57 @@ export type Database = {
       bank_accounts: {
         Row: {
           account_number: string | null
+          account_type: string | null
+          agency: string | null
           balance: number
           bank_code: string | null
+          cnpj_titular: string | null
           created_at: string
           id: string
           name: string
+          pix_key: string | null
+          pix_key_type: string | null
+          pj_id: string | null
           tenant_id: string
         }
         Insert: {
           account_number?: string | null
+          account_type?: string | null
+          agency?: string | null
           balance?: number
           bank_code?: string | null
+          cnpj_titular?: string | null
           created_at?: string
           id?: string
           name: string
+          pix_key?: string | null
+          pix_key_type?: string | null
+          pj_id?: string | null
           tenant_id: string
         }
         Update: {
           account_number?: string | null
+          account_type?: string | null
+          agency?: string | null
           balance?: number
           bank_code?: string | null
+          cnpj_titular?: string | null
           created_at?: string
           id?: string
           name?: string
+          pix_key?: string | null
+          pix_key_type?: string | null
+          pj_id?: string | null
           tenant_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "bank_accounts_pj_id_fkey"
+            columns: ["pj_id"]
+            isOneToOne: false
+            referencedRelation: "crm_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "bank_accounts_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -5400,6 +5498,7 @@ export type Database = {
       nf_approvals: {
         Row: {
           approved_at: string | null
+          chave_nfe: string | null
           cnpj_emitente: string | null
           created_at: string
           created_by: string | null
@@ -5412,6 +5511,8 @@ export type Database = {
           payable_id: string | null
           pdf_url: string | null
           pj_id: string
+          sefaz_status: string | null
+          sefaz_validation: Json | null
           status: string
           tenant_id: string
           updated_at: string
@@ -5420,6 +5521,7 @@ export type Database = {
         }
         Insert: {
           approved_at?: string | null
+          chave_nfe?: string | null
           cnpj_emitente?: string | null
           created_at?: string
           created_by?: string | null
@@ -5432,6 +5534,8 @@ export type Database = {
           payable_id?: string | null
           pdf_url?: string | null
           pj_id: string
+          sefaz_status?: string | null
+          sefaz_validation?: Json | null
           status?: string
           tenant_id: string
           updated_at?: string
@@ -5440,6 +5544,7 @@ export type Database = {
         }
         Update: {
           approved_at?: string | null
+          chave_nfe?: string | null
           cnpj_emitente?: string | null
           created_at?: string
           created_by?: string | null
@@ -5452,6 +5557,8 @@ export type Database = {
           payable_id?: string | null
           pdf_url?: string | null
           pj_id?: string
+          sefaz_status?: string | null
+          sefaz_validation?: Json | null
           status?: string
           tenant_id?: string
           updated_at?: string
@@ -5498,6 +5605,7 @@ export type Database = {
           level1_approver_id: string | null
           level2_approver_id: string | null
           level3_approver_id: string | null
+          sefaz_validation_enabled: boolean | null
           tenant_id: string
           updated_at: string
         }
@@ -5509,6 +5617,7 @@ export type Database = {
           level1_approver_id?: string | null
           level2_approver_id?: string | null
           level3_approver_id?: string | null
+          sefaz_validation_enabled?: boolean | null
           tenant_id: string
           updated_at?: string
         }
@@ -5520,6 +5629,7 @@ export type Database = {
           level1_approver_id?: string | null
           level2_approver_id?: string | null
           level3_approver_id?: string | null
+          sefaz_validation_enabled?: boolean | null
           tenant_id?: string
           updated_at?: string
         }
@@ -6298,6 +6408,64 @@ export type Database = {
           },
         ]
       }
+      pj_composite_scores: {
+        Row: {
+          calculated_at: string
+          compliance_score: number
+          evaluation_score: number
+          final_score: number
+          id: string
+          pj_id: string
+          punctuality_score: number
+          rejection_penalty: number
+          tenant_id: string
+        }
+        Insert: {
+          calculated_at?: string
+          compliance_score?: number
+          evaluation_score?: number
+          final_score?: number
+          id?: string
+          pj_id: string
+          punctuality_score?: number
+          rejection_penalty?: number
+          tenant_id: string
+        }
+        Update: {
+          calculated_at?: string
+          compliance_score?: number
+          evaluation_score?: number
+          final_score?: number
+          id?: string
+          pj_id?: string
+          punctuality_score?: number
+          rejection_penalty?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pj_composite_scores_pj_id_fkey"
+            columns: ["pj_id"]
+            isOneToOne: false
+            referencedRelation: "crm_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_composite_scores_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_composite_scores_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_global_tenant_metrics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pj_document_types: {
         Row: {
           created_at: string
@@ -6452,6 +6620,154 @@ export type Database = {
           },
         ]
       }
+      pj_evaluation_criteria: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          tenant_id: string
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          tenant_id: string
+          updated_at?: string
+          weight?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          tenant_id?: string
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pj_evaluation_criteria_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_evaluation_criteria_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_global_tenant_metrics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pj_evaluation_scores: {
+        Row: {
+          created_at: string
+          criteria_id: string
+          evaluation_id: string
+          id: string
+          score: number
+        }
+        Insert: {
+          created_at?: string
+          criteria_id: string
+          evaluation_id: string
+          id?: string
+          score: number
+        }
+        Update: {
+          created_at?: string
+          criteria_id?: string
+          evaluation_id?: string
+          id?: string
+          score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pj_evaluation_scores_criteria_id_fkey"
+            columns: ["criteria_id"]
+            isOneToOne: false
+            referencedRelation: "pj_evaluation_criteria"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_evaluation_scores_evaluation_id_fkey"
+            columns: ["evaluation_id"]
+            isOneToOne: false
+            referencedRelation: "pj_evaluations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pj_evaluations: {
+        Row: {
+          comment: string | null
+          created_at: string
+          evaluator_id: string
+          id: string
+          overall_score: number
+          period_end: string
+          period_start: string
+          pj_id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          evaluator_id: string
+          id?: string
+          overall_score?: number
+          period_end: string
+          period_start: string
+          pj_id: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          evaluator_id?: string
+          id?: string
+          overall_score?: number
+          period_end?: string
+          period_start?: string
+          pj_id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pj_evaluations_pj_id_fkey"
+            columns: ["pj_id"]
+            isOneToOne: false
+            referencedRelation: "crm_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_evaluations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_evaluations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_global_tenant_metrics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pj_notifications: {
         Row: {
           created_at: string
@@ -6575,6 +6891,7 @@ export type Database = {
         Row: {
           bank_transfer_id: string | null
           comprovante_url: string | null
+          conciliation_status: string | null
           confirmed_at: string | null
           confirmed_by: string | null
           contract_id: string | null
@@ -6582,16 +6899,22 @@ export type Database = {
           data_repasse: string
           id: string
           nf_approval_id: string | null
+          paid_amount: number | null
+          paid_date: string | null
           payable_id: string | null
+          pix_payload: string | null
+          pix_qrcode_url: string | null
           pj_id: string
           schedule_id: string | null
           status: string
           tenant_id: string
+          transaction_id: string | null
           valor: number
         }
         Insert: {
           bank_transfer_id?: string | null
           comprovante_url?: string | null
+          conciliation_status?: string | null
           confirmed_at?: string | null
           confirmed_by?: string | null
           contract_id?: string | null
@@ -6599,16 +6922,22 @@ export type Database = {
           data_repasse: string
           id?: string
           nf_approval_id?: string | null
+          paid_amount?: number | null
+          paid_date?: string | null
           payable_id?: string | null
+          pix_payload?: string | null
+          pix_qrcode_url?: string | null
           pj_id: string
           schedule_id?: string | null
           status?: string
           tenant_id: string
+          transaction_id?: string | null
           valor: number
         }
         Update: {
           bank_transfer_id?: string | null
           comprovante_url?: string | null
+          conciliation_status?: string | null
           confirmed_at?: string | null
           confirmed_by?: string | null
           contract_id?: string | null
@@ -6616,11 +6945,16 @@ export type Database = {
           data_repasse?: string
           id?: string
           nf_approval_id?: string | null
+          paid_amount?: number | null
+          paid_date?: string | null
           payable_id?: string | null
+          pix_payload?: string | null
+          pix_qrcode_url?: string | null
           pj_id?: string
           schedule_id?: string | null
           status?: string
           tenant_id?: string
+          transaction_id?: string | null
           valor?: number
         }
         Relationships: [
@@ -8606,6 +8940,70 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_global_tenant_metrics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webhook_delivery_logs: {
+        Row: {
+          attempt: number
+          created_at: string
+          delivered_at: string | null
+          event: string
+          id: string
+          next_retry_at: string | null
+          payload: Json
+          response_body: string | null
+          response_status: number | null
+          tenant_id: string
+          webhook_id: string
+        }
+        Insert: {
+          attempt?: number
+          created_at?: string
+          delivered_at?: string | null
+          event: string
+          id?: string
+          next_retry_at?: string | null
+          payload: Json
+          response_body?: string | null
+          response_status?: number | null
+          tenant_id: string
+          webhook_id: string
+        }
+        Update: {
+          attempt?: number
+          created_at?: string
+          delivered_at?: string | null
+          event?: string
+          id?: string
+          next_retry_at?: string | null
+          payload?: Json
+          response_body?: string | null
+          response_status?: number | null
+          tenant_id?: string
+          webhook_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_delivery_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_delivery_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_global_tenant_metrics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_delivery_logs_webhook_id_fkey"
+            columns: ["webhook_id"]
+            isOneToOne: false
+            referencedRelation: "integration_webhooks"
             referencedColumns: ["id"]
           },
         ]
