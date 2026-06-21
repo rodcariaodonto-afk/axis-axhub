@@ -8,6 +8,7 @@ import {
   Bell,
   User,
   FileCheck,
+  Building2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { usePJSession } from "./PJPortalLayout";
@@ -19,9 +20,10 @@ const NAV_ITEMS = [
   { label: "Contratos",     to: "/portal/contratos",      icon: FileText },
   { label: "Repasses",      to: "/portal/repasses",       icon: DollarSign },
   { label: "Documentos",    to: "/portal/documentos",     icon: FolderOpen },
-  { label: "Notas Fiscais", to: "/portal/notas-fiscais",  icon: FileCheck },
-  { label: "Notificações",  to: "/portal/notificacoes",   icon: Bell, badge: true },
-  { label: "Perfil",        to: "/portal/perfil",         icon: User },
+  { label: "Notas Fiscais",   to: "/portal/notas-fiscais",   icon: FileCheck },
+  { label: "Dados Bancários", to: "/portal/dados-bancarios", icon: Building2 },
+  { label: "Notificações",    to: "/portal/notificacoes",    icon: Bell, badge: true },
+  { label: "Perfil",          to: "/portal/perfil",          icon: User },
 ];
 
 export function PJPortalSidebar() {

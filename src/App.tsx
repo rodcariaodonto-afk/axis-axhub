@@ -84,6 +84,7 @@ const PJRepassesList = lazy(() => import("./components/pj-portal/PJRepassesList"
 const PJDocumentUpload = lazy(() => import("./components/pj-portal/PJDocumentUpload"));
 const PJNotificationsList = lazy(() => import("./components/pj-portal/PJNotificationsList"));
 const PJNFUpload = lazy(() => import("./components/pj-portal/PJNFUpload"));
+const PJBankData = lazy(() => import("./components/pj-portal/PJBankData"));
 
 // Super Admin module (AXHolding internal)
 const SuperAdminLayout = lazy(() => import("./pages/admin/SuperAdminLayout"));
@@ -195,6 +196,7 @@ const App = () => (
                 <Route path="documentos" element={<PJDocumentUpload />} />
                 <Route path="notificacoes" element={<PJNotificationsList />} />
                 <Route path="notas-fiscais" element={<PJNFUpload />} />
+                <Route path="dados-bancarios" element={<PJBankData />} />
               </Route>
 
               {/* Super Admin module - guard interno via useIsSuperAdmin */}
