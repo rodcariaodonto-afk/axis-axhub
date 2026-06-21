@@ -178,9 +178,15 @@ function UploadDocumentDialog({ open, onClose, initialPjId, initialTypeId }: Upl
   );
 }
 
-export function PJDocumentManager() {
-  const [filters, setFilters] = useState<PJDocumentFilters>({});
-  const [filtersOpen, setFiltersOpen] = useState(false);
+interface PJDocumentManagerProps {
+  initialPjId?: string;
+}
+
+export function PJDocumentManager({ initialPjId }: PJDocumentManagerProps = {}) {
+  const [filters, setFilters] = useState<PJDocumentFilters>(
+    initialPjId ? { pjId: initialPjId } : {}
+  );
+  const [filtersOpen, setFiltersOpen] = useState(!!initialPjId);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadForDoc, setUploadForDoc] = useState<{ pjId: string; typeId: string } | null>(null);
   const [historyDoc, setHistoryDoc] = useState<PJDocument | null>(null);
