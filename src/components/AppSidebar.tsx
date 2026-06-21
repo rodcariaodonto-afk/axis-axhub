@@ -1,7 +1,7 @@
 import axisLogo from "@/assets/axis-logo.svg";
 import {
   BarChart3, Package, Banknote, MessageCircle, Zap, BrainCircuit, Settings,
-  Gauge, UserPlus, Building2, Contact, TrendingUp, FileText, CalendarCheck, FileBarChart, Scale,
+  Gauge, UserPlus, Building2, Contact, TrendingUp, FileText, CalendarCheck, FileBarChart, Scale, Clock,
   Warehouse, Users, ShoppingCart, ArrowDownCircle, Truck,
   ArrowUpCircle, LogOut,
   MessageSquare, Megaphone, CalendarDays,
@@ -75,6 +75,7 @@ export function AppSidebar() {
         { title: "Contatos", url: "/contacts", icon: Contact, module: "contatos" },
         { title: "Oportunidades", url: "/opportunities", icon: TrendingUp, module: "crm" },
         { title: "Contratos", url: "/contracts", icon: FileText, module: "crm" },
+        { title: "Vigência de Contratos", url: "/contracts/vigency", icon: Clock, module: "crm" },
         { title: "Templates de Contratos", url: "/contract-templates", icon: FileText, module: "crm" },
         { title: "Atividades", url: "/activities", icon: CalendarCheck, module: "crm" },
         { title: "Relatórios", url: "/reports", icon: FileBarChart, module: "relatorios" },

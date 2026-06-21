@@ -68,6 +68,9 @@ const Iris = lazy(() => import("./pages/Iris"));
 const FiscalInvoices = lazy(() => import("./pages/erp/FiscalInvoices"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
+// PJ Management — admin pages
+const ContractVigency = lazy(() => import("./pages/ContractVigency"));
+
 // PJ Portal module (layout 100% separado do admin)
 const PJPortalLayout = lazy(() => import("./components/pj-portal/PJPortalLayout"));
 const PJPortalDashboard = lazy(() => import("./components/pj-portal/PJPortalDashboard"));
@@ -169,6 +172,8 @@ const App = () => (
               <Route path="/iris" element={<ProtectedRoute><Iris /></ProtectedRoute>} />
               <Route path="/erp/notas-fiscais" element={<ProtectedRoute><FiscalInvoices /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+
+              <Route path="/contracts/vigency" element={<ProtectedRoute><ContractVigency /></ProtectedRoute>} />
 
               {/* PJ Portal — layout separado, guards internos no PJPortalLayout */}
               <Route path="/portal" element={<PJPortalLayout />}>
