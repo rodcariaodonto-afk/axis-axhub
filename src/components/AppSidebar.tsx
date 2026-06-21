@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   Activity,
   DollarSign,
+  Wallet,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -105,6 +106,7 @@ export function AppSidebar() {
         { title: "Fluxo de Caixa", url: "/finance", icon: Banknote, module: "financeiro" },
         { title: "DRE", url: "/dre", icon: FileBarChart, module: "financeiro" },
         { title: "Balanço Patrimonial", url: "/balanco-patrimonial", icon: Scale, module: "financeiro" },
+        { title: "Repasses PJ", url: "/repasses", icon: Wallet, module: "financeiro" },
       ],
     },
     {
