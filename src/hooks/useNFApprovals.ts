@@ -18,6 +18,20 @@ export interface NFApproval {
   status: string;
   validation_errors: any | null;
   payable_id: string | null;
+  approved_at: string | null;
+  created_at: string;
+}
+
+export interface NFApprovalStep {
+  id: string;
+  tenant_id: string;
+  nf_approval_id: string;
+  step_number: number;
+  approver_id: string;
+  approver_name: string | null;
+  status: string;
+  comment: string | null;
+  acted_at: string | null;
   created_at: string;
 }
 
@@ -116,22 +130,132 @@ export function useCreateNFApproval() {
         pdfUrl = await uploadNFFile(tenantId, input.pjId, input.nf_number, input.pdfFile, "pdf");
       }
 
-      const { error } = await (supabase as any).from("nf_approvals").insert({
-        tenant_id: tenantId,
-        pj_id: input.pjId,
-        nf_number: input.nf_number,
-        nf_series: input.nf_series || null,
-        nf_value: input.nf_value,
-        nf_date: input.nf_date,
-        nf_due_date: input.nf_due_date || null,
-        cnpj_emitente: input.cnpj_emitente || null,
-        xml_url: xmlUrl,
-        pdf_url: pdfUrl,
-        status: "pendente",
-      });
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const userId = currentUser?.id ?? null;
+
+      const { data: nfData, error } = await (supabase as any)
+        .from("nf_approvals")
+        .insert({
+          tenant_id: tenantId,
+          pj_id: input.pjId,
+          nf_number: input.nf_number,
+          nf_series: input.nf_series || null,
+          nf_value: input.nf_value,
+          nf_date: input.nf_date,
+          nf_due_date: input.nf_due_date || null,
+          cnpj_emitente: input.cnpj_emitente || null,
+          xml_url: xmlUrl,
+          pdf_url: pdfUrl,
+          status: "pendente",
+          created_by: userId,
+        })
+        .select("id")
+        .single();
       if (error) throw error;
+
+      // Create workflow steps automatically
+      try {
+        const { data: config } = await (supabase as any)
+          .from("nf_workflow_config")
+          .select("*")
+          .eq("tenant_id", tenantId)
+          .maybeSingle();
+
+        const levels: number = config?.approval_levels ?? 1;
+        const approverIds: (string | null)[] = [
+          config?.level1_approver_id ?? null,
+          config?.level2_approver_id ?? null,
+          config?.level3_approver_id ?? null,
+        ];
+
+        const steps = Array.from({ length: levels }, (_, i) => ({
+          tenant_id: tenantId,
+          nf_approval_id: nfData.id,
+          step_number: i + 1,
+          approver_id: approverIds[i] ?? userId,
+          status: i === 0 ? "pendente" : "aguardando",
+        }));
+
+        await (supabase as any).from("nf_approval_steps").insert(steps);
+        await (supabase as any)
+          .from("nf_approvals")
+          .update({ status: "em_aprovacao" })
+          .eq("id", nfData.id);
+      } catch (stepErr) {
+        console.error("[useCreateNFApproval] step creation failed:", stepErr);
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["nf-approvals"] }),
+  });
+}
+
+export function useNFApprovalDetail(id: string) {
+  return useQuery({
+    queryKey: ["nf-approval", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("nf_approvals")
+        .select("*, crm_accounts(name)")
+        .eq("id", id)
+        .single();
+      if (error) throw error;
+      return {
+        ...data,
+        pj_name: (data.crm_accounts as any)?.name ?? null,
+      } as NFApproval;
+    },
+  });
+}
+
+export function useNFApprovalSteps(nfApprovalId: string) {
+  return useQuery({
+    queryKey: ["nf-approval-steps", nfApprovalId],
+    enabled: !!nfApprovalId,
+    queryFn: async () => {
+      const { data: steps, error } = await (supabase as any)
+        .from("nf_approval_steps")
+        .select("*")
+        .eq("nf_approval_id", nfApprovalId)
+        .order("step_number", { ascending: true });
+      if (error) throw error;
+      if (!steps || (steps as any[]).length === 0) return [] as NFApprovalStep[];
+
+      const approverIds = [...new Set((steps as any[]).map((s) => s.approver_id).filter(Boolean))];
+      const { data: profiles } = await (supabase as any)
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", approverIds);
+
+      const nameMap = new Map<string, string>((profiles ?? []).map((p: any) => [p.id, p.full_name]));
+
+      return (steps as any[]).map((s) => ({
+        ...s,
+        approver_name: nameMap.get(s.approver_id) ?? null,
+      })) as NFApprovalStep[];
+    },
+  });
+}
+
+export function useApproveNFStep() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      nf_approval_id: string;
+      step_id: string;
+      action: "approve" | "reject";
+      comment?: string;
+    }) => {
+      const { data, error } = await supabase.functions.invoke("approve-nf-step", { body: input });
+      if (error) throw new Error(error.message ?? "Erro ao processar aprovação");
+      if ((data as any)?.error) throw new Error((data as any).error);
+      return data;
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["nf-approvals"] });
+      queryClient.invalidateQueries({ queryKey: ["nf-approval", vars.nf_approval_id] });
+      queryClient.invalidateQueries({ queryKey: ["nf-approval-steps", vars.nf_approval_id] });
+    },
   });
 }
 
