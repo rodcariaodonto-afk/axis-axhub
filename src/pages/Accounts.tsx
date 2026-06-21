@@ -17,6 +17,13 @@ import PasswordConfirmDialog from "@/components/finance/PasswordConfirmDialog";
 const SEGMENTS = ["Tecnologia", "Varejo", "Serviços", "Indústria", "Saúde", "Educação", "Financeiro", "Outro"];
 const PAGE_SIZE = 10;
 
+const ACCOUNT_TYPES: { value: string; label: string; badgeClass: string }[] = [
+  { value: "client",      label: "Cliente",       badgeClass: "bg-muted text-muted-foreground border-border" },
+  { value: "pj_provider", label: "Prestador PJ",  badgeClass: "bg-blue-500/15 text-blue-600 border-blue-500/30" },
+  { value: "partner",     label: "Parceiro",      badgeClass: "bg-green-500/15 text-green-600 border-green-500/30" },
+  { value: "supplier",    label: "Fornecedor",    badgeClass: "bg-orange-500/15 text-orange-600 border-orange-500/30" },
+];
+
 import { detectDocumentType, type DocType } from "@/lib/documentMask";
 
 function validateDoc(doc: string, type: DocType): boolean {
@@ -38,6 +45,7 @@ export default function Accounts() {
   const [search, setSearch] = useState("");
   const [filterSegment, setFilterSegment] = useState("all");
   const [filterOwner, setFilterOwner] = useState("all");
+  const [filterAccountType, setFilterAccountType] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [owners, setOwners] = useState<any[]>([]);
@@ -47,6 +55,7 @@ export default function Accounts() {
     name: "", cnpj: "", email: "", phone: "", segment: "", website: "", instagram: "",
     street: "", city: "", state: "", country: "", postal_code: "", owner_user_id: "",
     resp_name: "", resp_cpf: "", resp_phone: "", resp_email: "",
+    account_type: "client",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
@@ -75,7 +84,7 @@ export default function Accounts() {
   const openCreate = () => {
     setEditingId(null);
     setDocType("cnpj" as DocType);
-    setForm({ name: "", cnpj: "", email: "", phone: "", segment: "", website: "", instagram: "", street: "", city: "", state: "", country: "", postal_code: "", owner_user_id: "", resp_name: "", resp_cpf: "", resp_phone: "", resp_email: "" });
+    setForm({ name: "", cnpj: "", email: "", phone: "", segment: "", website: "", instagram: "", street: "", city: "", state: "", country: "", postal_code: "", owner_user_id: "", resp_name: "", resp_cpf: "", resp_phone: "", resp_email: "", account_type: "client" });
     setErrors({});
     setDialogOpen(true);
   };
@@ -103,6 +112,7 @@ export default function Accounts() {
       resp_cpf: resp.cpf || "",
       resp_phone: resp.phone || "",
       resp_email: resp.email || "",
+      account_type: (a as any).account_type || "client",
     });
     setErrors({});
     setDialogOpen(true);
@@ -142,6 +152,7 @@ export default function Accounts() {
       address_json: addressJson,
       owner_user_id: form.owner_user_id || null,
       responsible_json: responsibleJson,
+      account_type: form.account_type || "client",
     };
 
     if (editingId) {
@@ -205,13 +216,14 @@ export default function Accounts() {
     const matchSearch = a.name.toLowerCase().includes(search.toLowerCase()) || (a.cnpj || "").includes(search) || (a.email || "").toLowerCase().includes(search.toLowerCase());
     const matchSegment = filterSegment === "all" || a.segment === filterSegment;
     const matchOwner = filterOwner === "all" || a.owner_user_id === filterOwner;
-    return matchSearch && matchSegment && matchOwner;
+    const matchType = filterAccountType === "all" || ((a as any).account_type || "client") === filterAccountType;
+    return matchSearch && matchSegment && matchOwner && matchType;
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  useEffect(() => { setPage(1); }, [search, filterSegment, filterOwner]);
+  useEffect(() => { setPage(1); }, [search, filterSegment, filterOwner, filterAccountType]);
 
   const getOwnerName = (id: string | null) => {
     if (!id) return "—";
@@ -237,6 +249,15 @@ export default function Accounts() {
               <Label>Nome da Empresa *</Label>
               <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
               {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo de Conta</Label>
+              <Select value={form.account_type} onValueChange={(v) => setForm({ ...form, account_type: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ACCOUNT_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -328,6 +349,13 @@ export default function Accounts() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Buscar por nome, documento ou email..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
+        <Select value={filterAccountType} onValueChange={setFilterAccountType}>
+          <SelectTrigger className="w-44"><SelectValue placeholder="Tipo de conta" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os tipos</SelectItem>
+            {ACCOUNT_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
         <Select value={filterSegment} onValueChange={setFilterSegment}>
           <SelectTrigger className="w-44"><SelectValue placeholder="Segmento" /></SelectTrigger>
           <SelectContent>
@@ -350,6 +378,7 @@ export default function Accounts() {
             <TableHeader>
               <TableRow className="border-border">
                 <TableHead>Empresa</TableHead>
+                <TableHead>Tipo</TableHead>
                 <TableHead>Documento</TableHead>
                 <TableHead>E-mail</TableHead>
                 <TableHead>Telefone</TableHead>
@@ -360,9 +389,9 @@ export default function Accounts() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
               ) : paginated.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhuma conta encontrada</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhuma conta encontrada</TableCell></TableRow>
               ) : paginated.map((a) => (
                 <TableRow key={a.id} className="border-border">
                   <TableCell className="font-medium">
@@ -370,6 +399,12 @@ export default function Accounts() {
                       <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
                       <span className="underline-offset-2 hover:underline">{a.name}</span>
                     </button>
+                  </TableCell>
+                  <TableCell>
+                    {(() => {
+                      const t = ACCOUNT_TYPES.find((x) => x.value === ((a as any).account_type || "client")) ?? ACCOUNT_TYPES[0];
+                      return <Badge variant="outline" className={`text-xs ${t.badgeClass}`}>{t.label}</Badge>;
+                    })()}
                   </TableCell>
                   <TableCell className="text-muted-foreground">{a.cnpj || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{a.email || "—"}</TableCell>
