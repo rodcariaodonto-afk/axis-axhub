@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ExternalLink, Search, SlidersHorizontal } from "lucide-react";
+import { ExternalLink, Eye, Search, SlidersHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +30,7 @@ function fmtCurrency(v: number) {
 }
 
 export function NFApprovalList() {
+  const navigate = useNavigate();
   const [filters, setFilters] = useState<NFApprovalFilters>({});
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -123,13 +125,18 @@ export function NFApprovalList() {
                 <TableHead>Vencimento</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Arquivos</TableHead>
+                <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
               {nfs.map((nf) => {
                 const cfg = STATUS_CONFIG[nf.status] ?? { label: nf.status, className: "bg-muted text-muted-foreground" };
                 return (
-                  <TableRow key={nf.id} className="border-border hover:bg-accent/20">
+                  <TableRow
+                    key={nf.id}
+                    className="border-border hover:bg-accent/20 cursor-pointer"
+                    onClick={() => navigate(`/nf-approvals/${nf.id}`)}
+                  >
                     <TableCell className="font-medium">{nf.pj_name ?? "—"}</TableCell>
                     <TableCell className="text-sm">
                       <span className="font-mono">{nf.nf_number}</span>
@@ -141,7 +148,7 @@ export function NFApprovalList() {
                     <TableCell>
                       <Badge variant="outline" className={cn("text-xs", cfg.className)}>{cfg.label}</Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex gap-1.5">
                         {nf.xml_url && (
                           <a href={nf.xml_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
@@ -155,6 +162,17 @@ export function NFApprovalList() {
                         )}
                         {!nf.xml_url && !nf.pdf_url && <span className="text-xs text-muted-foreground">—</span>}
                       </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        title="Ver detalhes"
+                        onClick={(e) => { e.stopPropagation(); navigate(`/nf-approvals/${nf.id}`); }}
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 );
