@@ -5,6 +5,8 @@ import { useNFApprovalDetail } from "@/hooks/useNFApprovals";
 import { NFApprovalDetailCard } from "@/components/nf-approval/NFApprovalDetail";
 import { NFWorkflowSteps } from "@/components/nf-approval/NFWorkflowSteps";
 import { RPAGenerator } from "@/components/tax-management/RPAGenerator";
+import { SefazValidationBadge, type SefazStatus } from "@/components/sefaz-validation/SefazValidationBadge";
+import { SefazRevalidateButton } from "@/components/sefaz-validation/SefazRevalidateButton";
 import { useAuth } from "@/hooks/useAuth";
 import PageLoader from "@/components/PageLoader";
 
@@ -47,6 +49,18 @@ export default function NFApprovalDetailPage() {
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <div className="space-y-4">
           <NFApprovalDetailCard nf={nf} />
+
+          {/* SEFAZ validation status + revalidate */}
+          <div className="flex items-center gap-3 rounded-lg border border-border px-4 py-3">
+            <span className="text-sm text-muted-foreground">Validação SEFAZ:</span>
+            <SefazValidationBadge status={(nf as any).sefaz_status as SefazStatus} />
+            {((nf as any).sefaz_status === "sefaz_indisponivel" ||
+              (nf as any).sefaz_status === "nao_verificado" ||
+              !(nf as any).sefaz_status) && (
+              <SefazRevalidateButton nfApprovalId={nf.id} />
+            )}
+          </div>
+
           {nf.status === "aprovada" && <RPAGenerator nfApprovalId={nf.id} />}
         </div>
         <NFWorkflowSteps

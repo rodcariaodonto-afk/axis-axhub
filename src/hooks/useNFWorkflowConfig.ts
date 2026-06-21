@@ -10,6 +10,7 @@ export interface NFWorkflowConfig {
   level2_approver_id: string | null;
   level3_approver_id: string | null;
   auto_create_payable: boolean;
+  sefaz_validation_enabled: boolean;
 }
 
 export interface TenantUser {
@@ -67,6 +68,7 @@ export function useSaveNFWorkflowConfig() {
             level2_approver_id: values.level2_approver_id || null,
             level3_approver_id: values.level3_approver_id || null,
             auto_create_payable: values.auto_create_payable,
+            sefaz_validation_enabled: values.sefaz_validation_enabled,
           },
           { onConflict: "tenant_id" }
         );

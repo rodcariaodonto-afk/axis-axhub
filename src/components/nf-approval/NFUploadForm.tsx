@@ -53,6 +53,7 @@ export function NFUploadForm({ mode = "admin", pjId: propPjId, onSuccess, onCanc
   const [xmlFile, setXmlFile] = useState<File | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [parsingXml, setParsingXml] = useState(false);
+  const [chaveNfe, setChaveNfe] = useState<string | null>(null);
 
   const { data: providers = [], isLoading: loadingProviders } = usePJProviders();
   const createNF = useCreateNFApproval();
@@ -77,6 +78,7 @@ export function NFUploadForm({ mode = "admin", pjId: propPjId, onSuccess, onCanc
     setParsingXml(true);
     try {
       const parsed = await parseNFXml(file);
+      setChaveNfe(parsed.chave_nfe ?? null);
       setForm((prev) => ({
         ...prev,
         nf_number: parsed.nf_number ?? prev.nf_number,
@@ -131,6 +133,7 @@ export function NFUploadForm({ mode = "admin", pjId: propPjId, onSuccess, onCanc
         nf_date: form.nf_date,
         nf_due_date: form.nf_due_date || undefined,
         cnpj_emitente: form.cnpj_emitente || undefined,
+        chave_nfe: chaveNfe,
         xmlFile,
         pdfFile,
       });

@@ -11,6 +11,7 @@ interface ParsedNF {
   nf_value: number | null;
   nf_date: string | null;
   cnpj_emitente: string | null;
+  chave_nfe: string | null;
   validation_errors: string[];
 }
 
@@ -19,6 +20,14 @@ function extractTag(xml: string, tag: string): string | null {
   const re = new RegExp(`<${tag}[^>]*>([^<]*)<\\/${tag}>`, "i");
   const m = xml.match(re);
   return m ? m[1].trim() : null;
+}
+
+/** Extract NF-e chave de acesso: <chNFe> tag or Id attr on <infNFe> */
+function extractChaveNFe(xml: string): string | null {
+  const tag = extractTag(xml, "chNFe");
+  if (tag && tag.length === 44) return tag;
+  const m = xml.match(/Id="NFe(\d{44})"/i);
+  return m ? m[1] : null;
 }
 
 /** Extract CNPJ from <emit> block (emitente, not destinatário) */
@@ -43,6 +52,7 @@ function parseNF(xml: string): ParsedNF {
   const nf_series = extractTag(xml, "serie");
   const nf_date = parseNFDate(extractTag(xml, "dhEmi") ?? extractTag(xml, "dEmi"));
   const cnpj_emitente = extractEmitenteCNPJ(xml);
+  const chave_nfe = extractChaveNFe(xml);
 
   // vNF lives inside <ICMSTot> or <total> — use last occurrence to avoid picking up item totals
   const vNFMatches = [...xml.matchAll(/<vNF>([\d.]+)<\/vNF>/gi)];
@@ -55,7 +65,7 @@ function parseNF(xml: string): ParsedNF {
   if (!nf_date) errors.push("Data de emissão não encontrada (dhEmi)");
   if (!cnpj_emitente) errors.push("CNPJ do emitente não encontrado");
 
-  return { nf_number, nf_series, nf_value, nf_date, cnpj_emitente, validation_errors: errors };
+  return { nf_number, nf_series, nf_value, nf_date, cnpj_emitente, chave_nfe, validation_errors: errors };
 }
 
 Deno.serve(async (req) => {

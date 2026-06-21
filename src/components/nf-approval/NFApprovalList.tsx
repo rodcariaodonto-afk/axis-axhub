@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { cn } from "@/lib/utils";
 import { useNFApprovals, type NFApprovalFilters } from "@/hooks/useNFApprovals";
 import { usePJProviders } from "@/hooks/useRepasseAdmin";
+import { SefazValidationBadge, type SefazStatus } from "@/components/sefaz-validation/SefazValidationBadge";
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   rascunho:     { label: "Rascunho",     className: "bg-muted text-muted-foreground border-border" },
@@ -41,7 +42,7 @@ export function NFApprovalList() {
     setFilters((prev) => ({ ...prev, [k]: v }));
   }
 
-  const hasActiveFilters = !!(filters.pjId || filters.status || filters.startDate || filters.endDate);
+  const hasActiveFilters = !!(filters.pjId || filters.status || filters.startDate || filters.endDate || filters.sefazStatus);
 
   return (
     <div className="space-y-4">
@@ -93,6 +94,20 @@ export function NFApprovalList() {
             </SelectContent>
           </Select>
 
+          <Select value={filters.sefazStatus ?? "todos"} onValueChange={(v) => setFilter("sefazStatus", v === "todos" ? undefined : v)}>
+            <SelectTrigger className="h-8 text-sm w-44">
+              <SelectValue placeholder="SEFAZ" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos SEFAZ</SelectItem>
+              <SelectItem value="validado_sefaz">SEFAZ válida</SelectItem>
+              <SelectItem value="invalido_sefaz">SEFAZ inválida</SelectItem>
+              <SelectItem value="sefaz_indisponivel">SEFAZ indispon.</SelectItem>
+              <SelectItem value="nao_verificado">Não verificado</SelectItem>
+              <SelectItem value="nao_configurado">Não configurado</SelectItem>
+            </SelectContent>
+          </Select>
+
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="shrink-0">De</span>
             <Input type="date" className="h-8 text-sm w-36" value={filters.startDate ?? ""} onChange={(e) => setFilter("startDate", e.target.value || undefined)} />
@@ -124,6 +139,7 @@ export function NFApprovalList() {
                 <TableHead>Emissão</TableHead>
                 <TableHead>Vencimento</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>SEFAZ</TableHead>
                 <TableHead>Arquivos</TableHead>
                 <TableHead />
               </TableRow>
@@ -147,6 +163,9 @@ export function NFApprovalList() {
                     <TableCell className="text-sm text-muted-foreground">{fmtDate(nf.nf_due_date)}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={cn("text-xs", cfg.className)}>{cfg.label}</Badge>
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <SefazValidationBadge status={(nf as any).sefaz_status as SefazStatus} compact />
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex gap-1.5">
