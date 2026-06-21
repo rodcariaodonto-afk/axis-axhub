@@ -15,6 +15,7 @@ import {
   Activity,
   DollarSign,
   Wallet,
+  FileCheck,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -107,6 +108,7 @@ export function AppSidebar() {
         { title: "DRE", url: "/dre", icon: FileBarChart, module: "financeiro" },
         { title: "Balanço Patrimonial", url: "/balanco-patrimonial", icon: Scale, module: "financeiro" },
         { title: "Repasses PJ", url: "/repasses", icon: Wallet, module: "financeiro" },
+        { title: "Notas Fiscais PJ", url: "/nf-approvals", icon: FileCheck, module: "financeiro" },
       ],
     },
     {
