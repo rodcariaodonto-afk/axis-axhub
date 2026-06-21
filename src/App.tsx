@@ -68,6 +68,10 @@ const Iris = lazy(() => import("./pages/Iris"));
 const FiscalInvoices = lazy(() => import("./pages/erp/FiscalInvoices"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
+// PJ Portal module (layout 100% separado do admin)
+const PJPortalLayout = lazy(() => import("./components/pj-portal/PJPortalLayout"));
+const PJPortalDashboard = lazy(() => import("./components/pj-portal/PJPortalDashboard"));
+
 // Super Admin module (AXHolding internal)
 const SuperAdminLayout = lazy(() => import("./pages/admin/SuperAdminLayout"));
 const AdminTenants = lazy(() => import("./pages/admin/AdminTenants"));
@@ -161,6 +165,12 @@ const App = () => (
               <Route path="/iris" element={<ProtectedRoute><Iris /></ProtectedRoute>} />
               <Route path="/erp/notas-fiscais" element={<ProtectedRoute><FiscalInvoices /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+
+              {/* PJ Portal — layout separado, guards internos no PJPortalLayout */}
+              <Route path="/portal" element={<PJPortalLayout />}>
+                <Route index element={<Navigate to="/portal/dashboard" replace />} />
+                <Route path="dashboard" element={<PJPortalDashboard />} />
+              </Route>
 
               {/* Super Admin module - guard interno via useIsSuperAdmin */}
               <Route path="/admin" element={<ProtectedRoute><SuperAdminLayout /></ProtectedRoute>}>
