@@ -1,15 +1,5 @@
-## Deploy das Edge Functions `validate-nf-xml` e `validate-nf-sefaz`
+Deploy da Edge Function `generate-pix-payload`
 
-### Objetivo
-Realizar o deploy imediato das duas edge functions existentes em `supabase/functions/`:
-- `validate-nf-xml`
-- `validate-nf-sefaz`
-
-### Passos
-1. Verificar existência dos diretórios (já confirmado: ambos existem).
-2. Executar deploy via `supabase--deploy_edge_functions`.
-3. Confirmar sucesso do deploy.
-
-### Notas
-- Nenhuma alteração de código será feita.
-- O deploy é de backend e, portanto, entra em vigor automaticamente após a conclusão.
+1. Verificar se o diretório `supabase/functions/generate-pix-payload/` existe e contém o arquivo `index.ts`.
+2. Executar o deploy da função `generate-pix-payload` utilizando a ferramenta de deploy de edge functions.
+3. Confirmar o sucesso do deploy ao finalizar.
