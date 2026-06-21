@@ -71,6 +71,10 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 // PJ Portal module (layout 100% separado do admin)
 const PJPortalLayout = lazy(() => import("./components/pj-portal/PJPortalLayout"));
 const PJPortalDashboard = lazy(() => import("./components/pj-portal/PJPortalDashboard"));
+const PJContractsList = lazy(() => import("./components/pj-portal/PJContractsList"));
+const PJRepassesList = lazy(() => import("./components/pj-portal/PJRepassesList"));
+const PJDocumentUpload = lazy(() => import("./components/pj-portal/PJDocumentUpload"));
+const PJNotificationsList = lazy(() => import("./components/pj-portal/PJNotificationsList"));
 
 // Super Admin module (AXHolding internal)
 const SuperAdminLayout = lazy(() => import("./pages/admin/SuperAdminLayout"));
@@ -170,6 +174,10 @@ const App = () => (
               <Route path="/portal" element={<PJPortalLayout />}>
                 <Route index element={<Navigate to="/portal/dashboard" replace />} />
                 <Route path="dashboard" element={<PJPortalDashboard />} />
+                <Route path="contratos" element={<PJContractsList />} />
+                <Route path="repasses" element={<PJRepassesList />} />
+                <Route path="documentos" element={<PJDocumentUpload />} />
+                <Route path="notificacoes" element={<PJNotificationsList />} />
               </Route>
 
               {/* Super Admin module - guard interno via useIsSuperAdmin */}
