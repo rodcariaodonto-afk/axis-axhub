@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useNFApprovalDetail } from "@/hooks/useNFApprovals";
 import { NFApprovalDetailCard } from "@/components/nf-approval/NFApprovalDetail";
 import { NFWorkflowSteps } from "@/components/nf-approval/NFWorkflowSteps";
+import { RPAGenerator } from "@/components/tax-management/RPAGenerator";
 import { useAuth } from "@/hooks/useAuth";
 import PageLoader from "@/components/PageLoader";
 
@@ -44,7 +45,10 @@ export default function NFApprovalDetailPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <NFApprovalDetailCard nf={nf} />
+        <div className="space-y-4">
+          <NFApprovalDetailCard nf={nf} />
+          {nf.status === "aprovada" && <RPAGenerator nfApprovalId={nf.id} />}
+        </div>
         <NFWorkflowSteps
           nfApprovalId={nf.id}
           nfStatus={nf.status}
