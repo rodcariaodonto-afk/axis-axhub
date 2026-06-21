@@ -9,6 +9,8 @@ export interface PJRepasse {
   comprovante_url: string | null;
   payable_id: string | null;
   contract_id: string | null;
+  schedule_id: string | null;
+  confirmed_at: string | null;
   created_at: string;
 }
 
@@ -26,7 +28,7 @@ export function usePJRepasses(tenantId: string, pjId: string, filters: RepasseFi
     queryFn: async () => {
       let query = (supabase as any)
         .from("pj_repasse_history")
-        .select("id, valor, data_repasse, status, comprovante_url, payable_id, contract_id, created_at")
+        .select("id, valor, data_repasse, status, comprovante_url, payable_id, contract_id, schedule_id, confirmed_at, created_at")
         .eq("tenant_id", tenantId)
         .eq("pj_id", pjId)
         .order("data_repasse", { ascending: false });

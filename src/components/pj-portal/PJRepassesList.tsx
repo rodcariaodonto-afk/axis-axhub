@@ -9,16 +9,18 @@ import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { usePJRepasses } from "@/hooks/usePJRepasses";
 import { usePJSession } from "./PJPortalLayout";
+import { RepasseConfirmation } from "@/components/repasses/RepasseConfirmation";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 }
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  pendente:  { label: "Pendente",  className: "bg-yellow-500/15 text-yellow-600 border-yellow-500/30" },
-  aprovado:  { label: "Aprovado",  className: "bg-blue-500/15 text-blue-500 border-blue-500/30" },
-  pago:      { label: "Pago",      className: "bg-green-500/15 text-green-600 border-green-500/30" },
-  cancelado: { label: "Cancelado", className: "bg-red-500/15 text-red-500 border-red-500/30" },
+  pendente:   { label: "Pendente",   className: "bg-yellow-500/15 text-yellow-600 border-yellow-500/30" },
+  aprovado:   { label: "Aprovado",   className: "bg-blue-500/15 text-blue-500 border-blue-500/30" },
+  pago:       { label: "Pago",       className: "bg-green-500/15 text-green-600 border-green-500/30" },
+  cancelado:  { label: "Cancelado",  className: "bg-red-500/15 text-red-500 border-red-500/30" },
+  processado: { label: "Processado", className: "bg-purple-500/15 text-purple-600 border-purple-500/30" },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -80,6 +82,7 @@ export default function PJRepassesList() {
               <SelectItem value="pendente">Pendente</SelectItem>
               <SelectItem value="aprovado">Aprovado</SelectItem>
               <SelectItem value="pago">Pago</SelectItem>
+              <SelectItem value="processado">Processado</SelectItem>
               <SelectItem value="cancelado">Cancelado</SelectItem>
             </SelectContent>
           </Select>
@@ -105,6 +108,7 @@ export default function PJRepassesList() {
                 <TableHead className="text-right">Valor</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-center">Comprovante</TableHead>
+                <TableHead className="text-center">Confirmação</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -130,6 +134,16 @@ export default function PJRepassesList() {
                         <ExternalLink className="h-3.5 w-3.5" />
                         Ver
                       </a>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {repasse.status === "processado" ? (
+                      <RepasseConfirmation
+                        repasseId={repasse.id}
+                        confirmedAt={repasse.confirmed_at}
+                      />
                     ) : (
                       <span className="text-xs text-muted-foreground">—</span>
                     )}
