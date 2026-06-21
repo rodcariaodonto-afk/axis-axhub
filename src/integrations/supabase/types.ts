@@ -1644,6 +1644,80 @@ export type Database = {
           },
         ]
       }
+      contract_renewals: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          contract_id: string
+          created_at: string
+          id: string
+          new_contract_id: string | null
+          new_end_date: string
+          new_start_date: string
+          original_end_date: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          contract_id: string
+          created_at?: string
+          id?: string
+          new_contract_id?: string | null
+          new_end_date: string
+          new_start_date: string
+          original_end_date: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          contract_id?: string
+          created_at?: string
+          id?: string
+          new_contract_id?: string | null
+          new_end_date?: string
+          new_start_date?: string
+          original_end_date?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_renewals_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_renewals_new_contract_id_fkey"
+            columns: ["new_contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_renewals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_renewals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_global_tenant_metrics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contract_signatures: {
         Row: {
           contract_id: string
@@ -1911,6 +1985,7 @@ export type Database = {
       contracts: {
         Row: {
           account_id: string | null
+          alert_days_before_expiry: number | null
           auto_renew: boolean | null
           clicksign_document_key: string | null
           clicksign_envelope_url: string | null
@@ -1945,6 +2020,7 @@ export type Database = {
         }
         Insert: {
           account_id?: string | null
+          alert_days_before_expiry?: number | null
           auto_renew?: boolean | null
           clicksign_document_key?: string | null
           clicksign_envelope_url?: string | null
@@ -1979,6 +2055,7 @@ export type Database = {
         }
         Update: {
           account_id?: string | null
+          alert_days_before_expiry?: number | null
           auto_renew?: boolean | null
           clicksign_document_key?: string | null
           clicksign_envelope_url?: string | null
@@ -2051,6 +2128,7 @@ export type Database = {
       }
       crm_accounts: {
         Row: {
+          account_type: string
           address_json: Json | null
           cnpj: string | null
           created_at: string
@@ -2068,6 +2146,7 @@ export type Database = {
           website: string | null
         }
         Insert: {
+          account_type?: string
           address_json?: Json | null
           cnpj?: string | null
           created_at?: string
@@ -2085,6 +2164,7 @@ export type Database = {
           website?: string | null
         }
         Update: {
+          account_type?: string
           address_json?: Json | null
           cnpj?: string | null
           created_at?: string
@@ -5797,8 +5877,11 @@ export type Database = {
           is_recurring_template: boolean | null
           paid_at: string | null
           payment_method: string | null
+          pj_id: string | null
           po_id: string | null
           recurrence_id: string | null
+          repasse_status: string | null
+          repasse_type: string | null
           status: string
           supplier_id: string | null
           tenant_id: string
@@ -5816,8 +5899,11 @@ export type Database = {
           is_recurring_template?: boolean | null
           paid_at?: string | null
           payment_method?: string | null
+          pj_id?: string | null
           po_id?: string | null
           recurrence_id?: string | null
+          repasse_status?: string | null
+          repasse_type?: string | null
           status?: string
           supplier_id?: string | null
           tenant_id: string
@@ -5835,8 +5921,11 @@ export type Database = {
           is_recurring_template?: boolean | null
           paid_at?: string | null
           payment_method?: string | null
+          pj_id?: string | null
           po_id?: string | null
           recurrence_id?: string | null
+          repasse_status?: string | null
+          repasse_type?: string | null
           status?: string
           supplier_id?: string | null
           tenant_id?: string
@@ -5854,6 +5943,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "finance_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payables_pj_id_fkey"
+            columns: ["pj_id"]
+            isOneToOne: false
+            referencedRelation: "crm_accounts"
             referencedColumns: ["id"]
           },
           {
@@ -5991,6 +6087,200 @@ export type Database = {
           },
           {
             foreignKeyName: "pipeline_stages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_global_tenant_metrics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pj_notifications: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string | null
+          pj_id: string
+          read_at: string | null
+          related_id: string | null
+          related_type: string | null
+          tenant_id: string
+          title: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string | null
+          pj_id: string
+          read_at?: string | null
+          related_id?: string | null
+          related_type?: string | null
+          tenant_id: string
+          title: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string | null
+          pj_id?: string
+          read_at?: string | null
+          related_id?: string | null
+          related_type?: string | null
+          tenant_id?: string
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pj_notifications_pj_id_fkey"
+            columns: ["pj_id"]
+            isOneToOne: false
+            referencedRelation: "crm_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_notifications_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_notifications_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_global_tenant_metrics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pj_portal_access: {
+        Row: {
+          access_level: string
+          created_at: string
+          id: string
+          last_login: string | null
+          pj_id: string
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_level?: string
+          created_at?: string
+          id?: string
+          last_login?: string | null
+          pj_id: string
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_level?: string
+          created_at?: string
+          id?: string
+          last_login?: string | null
+          pj_id?: string
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pj_portal_access_pj_id_fkey"
+            columns: ["pj_id"]
+            isOneToOne: false
+            referencedRelation: "crm_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_portal_access_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_portal_access_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_global_tenant_metrics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pj_repasse_history: {
+        Row: {
+          comprovante_url: string | null
+          contract_id: string | null
+          created_at: string
+          data_repasse: string
+          id: string
+          payable_id: string | null
+          pj_id: string
+          status: string
+          tenant_id: string
+          valor: number
+        }
+        Insert: {
+          comprovante_url?: string | null
+          contract_id?: string | null
+          created_at?: string
+          data_repasse: string
+          id?: string
+          payable_id?: string | null
+          pj_id: string
+          status?: string
+          tenant_id: string
+          valor: number
+        }
+        Update: {
+          comprovante_url?: string | null
+          contract_id?: string | null
+          created_at?: string
+          data_repasse?: string
+          id?: string
+          payable_id?: string | null
+          pj_id?: string
+          status?: string
+          tenant_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pj_repasse_history_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_repasse_history_payable_id_fkey"
+            columns: ["payable_id"]
+            isOneToOne: false
+            referencedRelation: "payables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_repasse_history_pj_id_fkey"
+            columns: ["pj_id"]
+            isOneToOne: false
+            referencedRelation: "crm_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_repasse_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pj_repasse_history_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_global_tenant_metrics"
