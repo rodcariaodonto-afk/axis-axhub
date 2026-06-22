@@ -21,6 +21,7 @@ import {
   maskSensitive,
   PIX_KEY_TYPE_LABELS, ACCOUNT_TYPE_LABELS,
   type PJBankAccount, type PixKeyType, type AccountType,
+  type SavePJBankInput,
 } from "@/hooks/usePJBankData";
 
 const schema = z.object({
