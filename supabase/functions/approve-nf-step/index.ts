@@ -208,6 +208,13 @@ Deno.serve(async (req) => {
           message: `Sua NF ${nfRecord.nf_number} foi aprovada com sucesso.`,
           is_read: false,
         });
+
+        // Dispatch webhook (fire-and-forget)
+        fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/dispatch-webhook`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+          body: JSON.stringify({ event: "nf.approved", tenant_id: nfRecord.tenant_id, payload: { nf_approval_id, pj_id: nfRecord.pj_id, valor: nfRecord.nf_value } }),
+        }).catch((e) => console.error("[approve-nf-step] webhook dispatch error:", e));
       }
     } else {
       // Reject: mark step and NF
@@ -230,6 +237,13 @@ Deno.serve(async (req) => {
         message: `Sua NF ${nfRecord.nf_number} foi rejeitada. Motivo: ${comment}`,
         is_read: false,
       });
+
+      // Dispatch webhook (fire-and-forget)
+      fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/dispatch-webhook`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+        body: JSON.stringify({ event: "nf.rejected", tenant_id: nfRecord.tenant_id, payload: { nf_approval_id, pj_id: nfRecord.pj_id, comment } }),
+      }).catch((e) => console.error("[approve-nf-step] webhook dispatch error:", e));
     }
 
     return new Response(JSON.stringify({ ok: true }), {

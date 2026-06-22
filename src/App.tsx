@@ -78,6 +78,7 @@ const TaxManagement = lazy(() => import("./pages/TaxManagement"));
 const BankManagement = lazy(() => import("./pages/BankManagement"));
 const PJRanking = lazy(() => import("./pages/PJRanking"));
 const ApiManagement = lazy(() => import("./pages/ApiManagement"));
+const ApiDocs = lazy(() => import("./pages/ApiDocs"));
 
 // PJ Portal module (layout 100% separado do admin)
 const PJPortalLayout = lazy(() => import("./components/pj-portal/PJPortalLayout"));
@@ -193,6 +194,7 @@ const App = () => (
               <Route path="/bank-management" element={<ProtectedRoute><BankManagement /></ProtectedRoute>} />
               <Route path="/pj-ranking" element={<ProtectedRoute><PJRanking /></ProtectedRoute>} />
               <Route path="/api-management" element={<ProtectedRoute><ApiManagement /></ProtectedRoute>} />
+              <Route path="/api-docs" element={<ProtectedRoute><ApiDocs /></ProtectedRoute>} />
 
               {/* PJ Portal — layout separado, guards internos no PJPortalLayout */}
               <Route path="/portal" element={<PJPortalLayout />}>

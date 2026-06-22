@@ -100,7 +100,15 @@ Deno.serve(async (req) => {
         is_read: false,
       });
 
-      if (!insertErr) notificationsCreated++;
+      if (!insertErr) {
+        notificationsCreated++;
+        // Dispatch webhook (fire-and-forget)
+        fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/dispatch-webhook`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+          body: JSON.stringify({ event: "contract.expiring", tenant_id: tenantId, payload: { contract_id: contract.id, contract_name: contract.name, pj_id: pjId, end_date: contract.end_date, days_until_expiry: daysUntil } }),
+        }).catch((e) => console.error("[check-contract-expiry] webhook dispatch error:", e));
+      }
     }
 
     return new Response(

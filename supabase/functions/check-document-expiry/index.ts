@@ -144,6 +144,13 @@ Deno.serve(async (req) => {
         console.error("[check-document-expiry] admin notification error:", adminErr);
       }
 
+      // Dispatch webhook (fire-and-forget)
+      fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/dispatch-webhook`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+        body: JSON.stringify({ event: "document.expiring", tenant_id: doc.tenant_id, payload: { document_id: doc.id, pj_id: doc.pj_id, expiry_date: doc.expiry_date, days_until_expiry: daysUntilExpiry } }),
+      }).catch((e) => console.error("[check-document-expiry] webhook dispatch error:", e));
+
       notified++;
     }
 
