@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
@@ -10,9 +10,11 @@ import {
   FileCheck,
   Building2,
   Star,
+  ArrowLeft,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { usePJSession } from "./PJPortalLayout";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
 import axisLogo from "@/assets/axis-logo.svg";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +32,8 @@ const NAV_ITEMS = [
 
 export function PJPortalSidebar() {
   const { tenantId, pjId } = usePJSession();
+  const { isAdmin } = useUserPermissions();
+  const navigate = useNavigate();
 
   const { data: unreadCount = 0 } = useQuery({
     queryKey: ["pj-unread-notifications", tenantId, pjId],
@@ -56,29 +60,42 @@ export function PJPortalSidebar() {
         </span>
       </div>
 
-      <nav className="flex-1 py-3 px-2 space-y-0.5">
-        {NAV_ITEMS.map(({ label, to, icon: Icon, badge }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-                isActive
-                  ? "bg-primary/15 text-primary font-medium"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )
-            }
-          >
-            <Icon className="h-4 w-4 shrink-0" />
-            <span className="flex-1">{label}</span>
-            {badge && unreadCount > 0 && (
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
-                {unreadCount > 9 ? "9+" : unreadCount}
-              </span>
-            )}
-          </NavLink>
-        ))}
+      <nav className="flex-1 py-3 px-2 space-y-0.5 flex flex-col">
+        <div className="flex-1 space-y-0.5">
+          {NAV_ITEMS.map(({ label, to, icon: Icon, badge }) => (
+            <NavLink
+              key={to}
+              to={to}
+              className={({ isActive }) =>
+                cn(
+                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                  isActive
+                    ? "bg-primary/15 text-primary font-medium"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )
+              }
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+              <span className="flex-1">{label}</span>
+              {badge && unreadCount > 0 && (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </NavLink>
+          ))}
+        </div>
+        {isAdmin && (
+          <div className="pt-2 border-t border-border mt-2">
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm w-full transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4 shrink-0" />
+              <span>Voltar ao Admin</span>
+            </button>
+          </div>
+        )}
       </nav>
     </aside>
   );
