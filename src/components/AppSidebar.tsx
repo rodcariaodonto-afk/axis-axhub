@@ -111,6 +111,7 @@ export function AppSidebar() {
         { title: "Balanço Patrimonial", url: "/balanco-patrimonial", icon: Scale, module: "financeiro" },
         { title: "Repasses PJ", url: "/repasses", icon: Wallet, module: "financeiro" },
         { title: "Notas Fiscais PJ", url: "/nf-approvals", icon: FileCheck, module: "financeiro" },
+        { title: "Gestão Bancária", url: "/bank-management", icon: Building2, module: "financeiro" },
       ],
     },
     {
