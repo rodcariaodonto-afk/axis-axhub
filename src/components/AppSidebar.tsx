@@ -19,6 +19,7 @@ import {
   FolderKanban,
   Percent,
   Medal,
+  Key,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -149,6 +150,7 @@ export function AppSidebar() {
         { title: "Gestão Documental", url: "/pj-documents", icon: FolderKanban, module: "financeiro" },
         { title: "Impostos PJ", url: "/tax-management", icon: Percent, module: "financeiro" },
         { title: "Ranking PJ", url: "/pj-ranking", icon: Medal, module: "financeiro" },
+        { title: "Gestão de API", url: "/api-management", icon: Key, module: "configuracoes" },
         { title: "Configurações", url: "/settings", icon: Settings, module: "configuracoes" },
         { title: "Documentação", url: "/documentation", icon: BookOpen },
       ],
