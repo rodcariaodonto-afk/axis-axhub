@@ -156,6 +156,13 @@ Deno.serve(async (req) => {
         console.error("[process-scheduled-repasses] notification error:", notifErr);
       }
 
+      // Dispatch webhook (fire-and-forget)
+      fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/dispatch-webhook`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+        body: JSON.stringify({ event: "repasse.created", tenant_id: schedule.tenant_id, payload: { pj_id: schedule.pj_id, valor: schedule.valor, data_repasse: executionDate, schedule_id: schedule.id } }),
+      }).catch((e) => console.error("[process-scheduled-repasses] webhook dispatch error:", e));
+
       // 4. Update schedule: advance date (recorrente) or cancel (one-shot)
       if (schedule.recorrente && schedule.frequencia) {
         const nextDate = calcNextDate(executionDate, schedule.frequencia, schedule.dia_execucao);
