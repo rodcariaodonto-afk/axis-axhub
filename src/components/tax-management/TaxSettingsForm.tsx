@@ -99,7 +99,7 @@ export function TaxSettingsForm({ pjId, pjName, onSave, previewAmount = 10000 }:
     }
     setErrors({});
     try {
-      const input: SaveTaxSettingsInput = { pjId, ...result.data };
+      const input = { pjId, ...result.data } as SaveTaxSettingsInput;
       await save.mutateAsync(input);
       toast({ title: "Configuração salva com sucesso" });
       onSave?.();

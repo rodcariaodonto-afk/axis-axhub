@@ -183,7 +183,7 @@ export function ContractVigencyDashboard() {
                     <TableCell className="text-right">{formatCurrency(c.value)}</TableCell>
                     <TableCell className="text-center">
                       {c.auto_renew
-                        ? <RefreshCw className="h-4 w-4 text-green-500 mx-auto" title="Auto-renovação ativa" />
+                        ? <span title="Auto-renovação ativa"><RefreshCw className="h-4 w-4 text-green-500 mx-auto" /></span>
                         : <span className="text-muted-foreground text-xs">—</span>
                       }
                     </TableCell>

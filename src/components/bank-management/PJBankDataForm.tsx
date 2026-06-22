@@ -93,7 +93,7 @@ function FormDialog({ open, onClose, editing }: FormDialogProps) {
       return;
     }
     try {
-      await save.mutateAsync({ ...result.data, id: editing?.id });
+      await save.mutateAsync({ ...result.data, id: editing?.id } as SavePJBankInput & { id?: string });
       toast.success(editing ? "Dados bancários atualizados" : "Dados bancários cadastrados");
       onClose();
     } catch (e: any) {
