@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { PostLoginRedirect } from "@/components/PostLoginRedirect";
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -28,7 +28,7 @@ export default function Auth() {
   }
 
   if (user) {
-    return <Navigate to="/dashboard" replace />;
+    return <PostLoginRedirect />;
   }
 
   const handleForgotPassword = async (e: React.FormEvent) => {

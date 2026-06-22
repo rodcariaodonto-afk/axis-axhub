@@ -20,12 +20,14 @@ import {
   Percent,
   Medal,
   Key,
+  ExternalLink,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { useIsSuperAdmin } from "@/hooks/useIsSuperAdmin";
-import { useLocation } from "react-router-dom";
+import { usePJPortalAccess } from "@/hooks/usePJPortalAccess";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Sidebar, SidebarContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
   SidebarMenuSub, SidebarMenuSubItem, SidebarMenuSubButton,
@@ -37,8 +39,10 @@ interface MenuChild {
   title: string;
   url: string;
   icon: React.ElementType;
-  module?: string; // permission module key
-  bypassPermission?: boolean; // se true, ignora hasPermission (uso: super admin)
+  module?: string;
+  bypassPermission?: boolean;
+  hidden?: boolean;    // skip rendering when true
+  isButton?: boolean;  // render as button using onClick instead of NavLink
 }
 
 interface MenuGroup {
@@ -53,7 +57,9 @@ export function AppSidebar() {
   const { signOut } = useAuth();
   const { hasPermission, isAdmin, isLoading: permLoading } = useUserPermissions();
   const { isSuperAdmin } = useIsSuperAdmin();
+  const { isPJ } = usePJPortalAccess();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const superAdminGroup: MenuGroup = {
     label: "Super Admin",
@@ -153,12 +159,21 @@ export function AppSidebar() {
         { title: "Gestão de API", url: "/api-management", icon: Key, module: "configuracoes" },
         { title: "Configurações", url: "/settings", icon: Settings, module: "configuracoes" },
         { title: "Documentação", url: "/documentation", icon: BookOpen },
+        {
+          title: "Ver Portal PJ",
+          url: "/portal/dashboard",
+          icon: ExternalLink,
+          bypassPermission: true,
+          isButton: true,
+          hidden: !isPJ,
+        },
       ],
       action: { label: "Sair", icon: LogOut, onClick: signOut },
     },
   ];
 
   const canViewChild = (child: MenuChild) => {
+    if (child.hidden) return false;
     if (child.bypassPermission) return true;
     if (isAdmin || permLoading) return true;
     if (!child.module) return true;
@@ -199,15 +214,25 @@ export function AppSidebar() {
                       {visibleChildren.map((child) => (
                         <SidebarMenuSubItem key={child.url}>
                           <SidebarMenuSubButton asChild>
-                            <NavLink
-                              to={child.url}
-                              end={child.url === "/"}
-                              className="hover:bg-sidebar-accent/50"
-                              activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
-                            >
-                              <child.icon className="mr-2 h-3.5 w-3.5" />
-                              <span>{child.title}</span>
-                            </NavLink>
+                            {child.isButton ? (
+                              <button
+                                onClick={() => navigate(child.url)}
+                                className="w-full flex items-center hover:bg-sidebar-accent/50 text-muted-foreground hover:text-foreground"
+                              >
+                                <child.icon className="mr-2 h-3.5 w-3.5" />
+                                <span>{child.title}</span>
+                              </button>
+                            ) : (
+                              <NavLink
+                                to={child.url}
+                                end={child.url === "/"}
+                                className="hover:bg-sidebar-accent/50"
+                                activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                              >
+                                <child.icon className="mr-2 h-3.5 w-3.5" />
+                                <span>{child.title}</span>
+                              </NavLink>
+                            )}
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                       ))}
