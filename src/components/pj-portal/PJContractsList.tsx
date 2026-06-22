@@ -112,7 +112,7 @@ export default function PJContractsList() {
                       <TableCell className="text-right font-medium">{formatCurrency(contract.value)}</TableCell>
                       <TableCell className="text-center">
                         {contract.auto_renew ? (
-                          <RefreshCw className="h-4 w-4 text-green-500 mx-auto" title="Renovação automática ativa" />
+                          <span title="Renovação automática ativa"><RefreshCw className="h-4 w-4 text-green-500 mx-auto" /></span>
                         ) : (
                           <span className="text-muted-foreground text-xs">—</span>
                         )}

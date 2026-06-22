@@ -94,7 +94,7 @@ function CriteriaFormDialog({ open, onClose, editing }: FormDialogProps) {
       return;
     }
     try {
-      await save.mutateAsync({ ...result.data, id: editing?.id });
+      await save.mutateAsync({ ...result.data, id: editing?.id } as SaveCriteriaInput);
       toast.success(editing ? "Critério atualizado" : "Critério criado");
       onClose();
     } catch (e: any) {

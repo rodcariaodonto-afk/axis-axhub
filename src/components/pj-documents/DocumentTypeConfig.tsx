@@ -15,6 +15,7 @@ import {
   useUpdateDocumentType,
   useDeleteDocumentType,
   type PJDocumentType,
+  type UpsertDocumentTypeInput,
 } from "@/hooks/usePJDocumentTypes";
 
 const schema = z.object({
@@ -78,10 +79,10 @@ function TypeFormDialog({ editing, open, onClose }: Props) {
     setErrors({});
     try {
       if (editing) {
-        await update.mutateAsync({ id: editing.id, ...result.data });
+        await update.mutateAsync({ id: editing.id, ...result.data } as UpsertDocumentTypeInput & { id: string });
         toast({ title: "Tipo atualizado com sucesso" });
       } else {
-        await create.mutateAsync(result.data);
+        await create.mutateAsync(result.data as Omit<UpsertDocumentTypeInput, "id">);
         toast({ title: "Tipo criado com sucesso" });
       }
       onClose();
