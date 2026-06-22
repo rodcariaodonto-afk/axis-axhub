@@ -1,1 +1,1 @@
-Deploy the `calculate-pj-score` edge function from `supabase/functions/` using the Supabase deploy tool.
+Deploy the `api-gateway` edge function from `supabase/functions/` using the Supabase deploy tool. Status: completed.
