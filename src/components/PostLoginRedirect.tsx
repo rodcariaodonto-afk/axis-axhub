@@ -19,10 +19,11 @@ export function PostLoginRedirect() {
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const { data } = await supabase
-        .from("profiles")
+        .from("user_roles")
         .select("role")
-        .eq("id", user!.id)
-        .single();
+        .eq("user_id", user!.id)
+        .limit(1)
+        .maybeSingle();
       return data as { role: string } | null;
     },
   });
