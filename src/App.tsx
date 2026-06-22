@@ -76,6 +76,7 @@ const NFApprovalDetail = lazy(() => import("./pages/NFApprovalDetail"));
 const PJDocuments = lazy(() => import("./pages/PJDocuments"));
 const TaxManagement = lazy(() => import("./pages/TaxManagement"));
 const BankManagement = lazy(() => import("./pages/BankManagement"));
+const PJRanking = lazy(() => import("./pages/PJRanking"));
 
 // PJ Portal module (layout 100% separado do admin)
 const PJPortalLayout = lazy(() => import("./components/pj-portal/PJPortalLayout"));
@@ -86,6 +87,7 @@ const PJDocumentUpload = lazy(() => import("./components/pj-portal/PJDocumentUpl
 const PJNotificationsList = lazy(() => import("./components/pj-portal/PJNotificationsList"));
 const PJNFUpload = lazy(() => import("./components/pj-portal/PJNFUpload"));
 const PJBankData = lazy(() => import("./components/pj-portal/PJBankData"));
+const PJScoreView = lazy(() => import("./components/pj-portal/PJScoreView"));
 
 // Super Admin module (AXHolding internal)
 const SuperAdminLayout = lazy(() => import("./pages/admin/SuperAdminLayout"));
@@ -188,6 +190,7 @@ const App = () => (
               <Route path="/pj-documents" element={<ProtectedRoute><PJDocuments /></ProtectedRoute>} />
               <Route path="/tax-management" element={<ProtectedRoute><TaxManagement /></ProtectedRoute>} />
               <Route path="/bank-management" element={<ProtectedRoute><BankManagement /></ProtectedRoute>} />
+              <Route path="/pj-ranking" element={<ProtectedRoute><PJRanking /></ProtectedRoute>} />
 
               {/* PJ Portal — layout separado, guards internos no PJPortalLayout */}
               <Route path="/portal" element={<PJPortalLayout />}>
@@ -199,6 +202,7 @@ const App = () => (
                 <Route path="notificacoes" element={<PJNotificationsList />} />
                 <Route path="notas-fiscais" element={<PJNFUpload />} />
                 <Route path="dados-bancarios" element={<PJBankData />} />
+                <Route path="avaliacao" element={<PJScoreView />} />
               </Route>
 
               {/* Super Admin module - guard interno via useIsSuperAdmin */}

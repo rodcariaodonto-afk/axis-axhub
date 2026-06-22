@@ -9,6 +9,7 @@ import {
   User,
   FileCheck,
   Building2,
+  Star,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { usePJSession } from "./PJPortalLayout";
@@ -22,6 +23,7 @@ const NAV_ITEMS = [
   { label: "Documentos",    to: "/portal/documentos",     icon: FolderOpen },
   { label: "Notas Fiscais",   to: "/portal/notas-fiscais",   icon: FileCheck },
   { label: "Dados Bancários", to: "/portal/dados-bancarios", icon: Building2 },
+  { label: "Avaliação",       to: "/portal/avaliacao",       icon: Star },
   { label: "Notificações",    to: "/portal/notificacoes",    icon: Bell, badge: true },
   { label: "Perfil",          to: "/portal/perfil",          icon: User },
 ];
