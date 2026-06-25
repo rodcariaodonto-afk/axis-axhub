@@ -10,10 +10,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Pencil, Building2, ChevronLeft, ChevronRight, UserCheck, Trash2, UserPlus } from "lucide-react";
+import { Plus, Search, Pencil, Building2, ChevronLeft, ChevronRight, UserCheck, Trash2, UserPlus, Settings2 } from "lucide-react";
 import AddressFields from "@/components/address/AddressFields";
 import PasswordConfirmDialog from "@/components/finance/PasswordConfirmDialog";
 import { InvitePJPortalDialog } from "@/components/crm/InvitePJPortalDialog";
+import { ManagePJPortalAccessDialog } from "@/components/crm/ManagePJPortalAccessDialog";
 
 const SEGMENTS = ["Tecnologia", "Varejo", "Serviços", "Indústria", "Saúde", "Educação", "Financeiro", "Outro"];
 const PAGE_SIZE = 10;
@@ -64,6 +65,7 @@ export default function Accounts() {
   const [convertForm, setConvertForm] = useState({ name: "", document: "", email: "", phone: "" });
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [inviteDialogPj, setInviteDialogPj] = useState<{ id: string; name: string } | null>(null);
+  const [manageDialogPj, setManageDialogPj] = useState<{ id: string; name: string } | null>(null);
   const [portalPjIds, setPortalPjIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
@@ -421,7 +423,17 @@ export default function Accounts() {
                   <TableCell>
                     {(a as any).account_type === "pj_provider" ? (
                       portalPjIds.has(a.id)
-                        ? <Badge variant="outline" className="text-xs bg-green-500/15 text-green-600 border-green-500/30">Portal Ativo</Badge>
+                        ? (
+                          <button
+                            onClick={() => setManageDialogPj({ id: a.id, name: a.name })}
+                            className="inline-flex"
+                            title="Gerenciar acessos ao portal"
+                          >
+                            <Badge variant="outline" className="text-xs bg-green-500/15 text-green-600 border-green-500/30 cursor-pointer hover:bg-green-500/25 transition-colors">
+                              Portal Ativo
+                            </Badge>
+                          </button>
+                        )
                         : <Badge variant="outline" className="text-xs text-muted-foreground">Sem Portal</Badge>
                     ) : "—"}
                   </TableCell>
@@ -436,15 +448,27 @@ export default function Accounts() {
                         <Pencil className="h-4 w-4" />
                       </Button>
                       {(a as any).account_type === "pj_provider" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-primary"
-                          title="Convidar para Portal"
-                          onClick={() => setInviteDialogPj({ id: a.id, name: a.name })}
-                        >
-                          <UserPlus className="h-4 w-4" />
-                        </Button>
+                        portalPjIds.has(a.id) ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-primary"
+                            title="Gerenciar acessos ao portal"
+                            onClick={() => setManageDialogPj({ id: a.id, name: a.name })}
+                          >
+                            <Settings2 className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-primary"
+                            title="Convidar para Portal"
+                            onClick={() => setInviteDialogPj({ id: a.id, name: a.name })}
+                          >
+                            <UserPlus className="h-4 w-4" />
+                          </Button>
+                        )
                       )}
                       <Button variant="ghost" size="icon" className="h-8 w-8" title="Converter em Cliente" onClick={() => handleConvertOpen(a)}>
                         <UserCheck className="h-4 w-4 text-primary" />
@@ -524,6 +548,17 @@ export default function Accounts() {
           }}
           pjId={inviteDialogPj.id}
           pjName={inviteDialogPj.name}
+        />
+      )}
+
+      {manageDialogPj && (
+        <ManagePJPortalAccessDialog
+          open={!!manageDialogPj}
+          onOpenChange={(v) => {
+            if (!v) { setManageDialogPj(null); fetchPortalStatus(); }
+          }}
+          pjId={manageDialogPj.id}
+          pjName={manageDialogPj.name}
         />
       )}
     </div>
