@@ -10,9 +10,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Pencil, Building2, ChevronLeft, ChevronRight, UserCheck, Trash2 } from "lucide-react";
+import { Plus, Search, Pencil, Building2, ChevronLeft, ChevronRight, UserCheck, Trash2, UserPlus } from "lucide-react";
 import AddressFields from "@/components/address/AddressFields";
 import PasswordConfirmDialog from "@/components/finance/PasswordConfirmDialog";
+import { InvitePJPortalDialog } from "@/components/crm/InvitePJPortalDialog";
 
 const SEGMENTS = ["Tecnologia", "Varejo", "Serviços", "Indústria", "Saúde", "Educação", "Financeiro", "Outro"];
 const PAGE_SIZE = 10;
@@ -62,6 +63,8 @@ export default function Accounts() {
   const [convertingAccount, setConvertingAccount] = useState<any>(null);
   const [convertForm, setConvertForm] = useState({ name: "", document: "", email: "", phone: "" });
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [inviteDialogPj, setInviteDialogPj] = useState<{ id: string; name: string } | null>(null);
+  const [portalPjIds, setPortalPjIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
@@ -74,12 +77,21 @@ export default function Accounts() {
     setLoading(false);
   }, []);
 
+  const fetchPortalStatus = useCallback(async () => {
+    const { data } = await (supabase as any)
+      .from("pj_portal_access")
+      .select("pj_id");
+    if (data) {
+      setPortalPjIds(new Set((data as any[]).map((r) => r.pj_id as string)));
+    }
+  }, []);
+
   const fetchOwners = useCallback(async () => {
     const { data } = await supabase.from("profiles").select("id, full_name, email");
     setOwners(data || []);
   }, []);
 
-  useEffect(() => { fetchData(); fetchOwners(); }, [fetchData, fetchOwners]);
+  useEffect(() => { fetchData(); fetchOwners(); fetchPortalStatus(); }, [fetchData, fetchOwners, fetchPortalStatus]);
 
   const openCreate = () => {
     setEditingId(null);
@@ -384,14 +396,14 @@ export default function Accounts() {
                 <TableHead>Telefone</TableHead>
                 <TableHead>Segmento</TableHead>
                 <TableHead>Responsável</TableHead>
-                <TableHead className="w-20" />
+                <TableHead className="w-28" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
               ) : paginated.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhuma conta encontrada</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhuma conta encontrada</TableCell></TableRow>
               ) : paginated.map((a) => (
                 <TableRow key={a.id} className="border-border">
                   <TableCell className="font-medium">
@@ -406,6 +418,13 @@ export default function Accounts() {
                       return <Badge variant="outline" className={`text-xs ${t.badgeClass}`}>{t.label}</Badge>;
                     })()}
                   </TableCell>
+                  <TableCell>
+                    {(a as any).account_type === "pj_provider" ? (
+                      portalPjIds.has(a.id)
+                        ? <Badge variant="outline" className="text-xs bg-green-500/15 text-green-600 border-green-500/30">Portal Ativo</Badge>
+                        : <Badge variant="outline" className="text-xs text-muted-foreground">Sem Portal</Badge>
+                    ) : "—"}
+                  </TableCell>
                   <TableCell className="text-muted-foreground">{a.cnpj || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{a.email || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{a.phone || "—"}</TableCell>
@@ -416,6 +435,17 @@ export default function Accounts() {
                       <Button variant="ghost" size="icon" className="h-8 w-8" title="Editar" onClick={() => openEdit(a)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
+                      {(a as any).account_type === "pj_provider" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-primary"
+                          title="Convidar para Portal"
+                          onClick={() => setInviteDialogPj({ id: a.id, name: a.name })}
+                        >
+                          <UserPlus className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button variant="ghost" size="icon" className="h-8 w-8" title="Converter em Cliente" onClick={() => handleConvertOpen(a)}>
                         <UserCheck className="h-4 w-4 text-primary" />
                       </Button>
@@ -485,6 +515,17 @@ export default function Accounts() {
         onConfirm={handleDelete}
         variant="destructive"
       />
+
+      {inviteDialogPj && (
+        <InvitePJPortalDialog
+          open={!!inviteDialogPj}
+          onOpenChange={(v) => {
+            if (!v) { setInviteDialogPj(null); fetchPortalStatus(); }
+          }}
+          pjId={inviteDialogPj.id}
+          pjName={inviteDialogPj.name}
+        />
+      )}
     </div>
   );
 }
